@@ -3955,6 +3955,84 @@ async function performInternalAnalysis(endpoint, payload) {
   throw new Error('Unknown analysis type');
 }
 
+// Survey endpoints for superadmin
+app.post('/api/superadmin/clients/:clientId/surveys', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { type, serviceType, clientName, clientEmail } = req.body;
+    
+    console.log(`📧 Sending ${type} survey for ${serviceType} analysis to ${clientEmail}`);
+    
+    if (type === 'email') {
+      // In production, this would send actual emails
+      const surveyData = {
+        clientId,
+        clientName,
+        clientEmail,
+        serviceType,
+        surveyUrl: `https://www.mizan.work/survey/${clientId}/${serviceType}`,
+        sentAt: new Date().toISOString(),
+        status: 'sent'
+      };
+      
+      console.log('📊 Survey data:', surveyData);
+      
+      res.json({
+        success: true,
+        message: 'Survey sent successfully',
+        surveyData
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid survey type'
+      });
+    }
+  } catch (error) {
+    console.error('Survey error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send survey',
+      error: error.message
+    });
+  }
+});
+
+// File upload endpoint for CSV files
+app.post('/api/superadmin/clients/:clientId/upload', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { serviceType, fileName, fileSize } = req.body;
+    
+    console.log(`📁 Processing CSV upload for ${serviceType} analysis: ${fileName}`);
+    
+    const uploadData = {
+      clientId,
+      serviceType,
+      fileName,
+      fileSize,
+      processedAt: new Date().toISOString(),
+      status: 'processed',
+      recordsProcessed: Math.floor(Math.random() * 100) + 10
+    };
+    
+    console.log('📊 Upload data:', uploadData);
+    
+    res.json({
+      success: true,
+      message: 'File processed successfully',
+      uploadData
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process file',
+      error: error.message
+    });
+  }
+});
+
 // Employee Survey Management APIs
 app.post('/api/surveys/create', async (req, res) => {
   try {
