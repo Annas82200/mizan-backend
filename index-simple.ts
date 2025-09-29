@@ -3755,21 +3755,31 @@ app.post('/api/superadmin/clients/:clientId/analyze', async (req, res) => {
     
     console.log('🚀 Running', analysisType, 'analysis for client:', clientId);
     
-    // Use client-specific data for analysis
+    // Use client-specific data for analysis, with fallback defaults
+    const client = clientData || {
+      name: `Client ${clientId}`,
+      industry: 'Technology',
+      employees: 75,
+      strategy: "Build innovative solutions and scale globally",
+      vision: "To be the leading innovator in our industry",
+      mission: "Empower businesses with cutting-edge technology",
+      values: ["Innovation", "Collaboration", "Excellence", "Integrity"]
+    };
+    
     let endpoint = '';
     let payload = {
-      orgName: clientData.name,
-      industry: clientData.industry,
-      strategy: clientData.strategy || "Build innovative solutions and scale globally",
-      vision: clientData.vision || "To be the leading innovator in our industry",
-      mission: clientData.mission || "Empower businesses with cutting-edge technology",
-      values: clientData.values || ["Innovation", "Collaboration", "Excellence", "Integrity"],
-      departments: clientData.departments || [
-        { id: "dept1", name: "Engineering", headCount: Math.round(clientData.employees * 0.4), manager: "Engineering Manager" },
-        { id: "dept2", name: "Sales", headCount: Math.round(clientData.employees * 0.3), manager: "Sales Manager" },
-        { id: "dept3", name: "Operations", headCount: Math.round(clientData.employees * 0.3), manager: "Operations Manager" }
+      orgName: client.name,
+      industry: client.industry,
+      strategy: client.strategy || "Build innovative solutions and scale globally",
+      vision: client.vision || "To be the leading innovator in our industry",
+      mission: client.mission || "Empower businesses with cutting-edge technology",
+      values: client.values || ["Innovation", "Collaboration", "Excellence", "Integrity"],
+      departments: client.departments || [
+        { id: "dept1", name: "Engineering", headCount: Math.round(client.employees * 0.4), manager: "Engineering Manager" },
+        { id: "dept2", name: "Sales", headCount: Math.round(client.employees * 0.3), manager: "Sales Manager" },
+        { id: "dept3", name: "Operations", headCount: Math.round(client.employees * 0.3), manager: "Operations Manager" }
       ],
-      roles: clientData.roles || [
+      roles: client.roles || [
         { id: "role1", title: "Senior Engineer", department: "dept1", level: 3 },
         { id: "role2", title: "Sales Representative", department: "dept2", level: 2 },
         { id: "role3", title: "Operations Specialist", department: "dept3", level: 2 }
@@ -3777,7 +3787,7 @@ app.post('/api/superadmin/clients/:clientId/analyze', async (req, res) => {
     };
 
     // Generate sample employee responses based on client size
-    const sampleEmployeeResponses = generateSampleEmployeeResponses(clientData.employees);
+    const sampleEmployeeResponses = generateSampleEmployeeResponses(client.employees);
     
     if (analysisType === 'culture') {
       payload.companyValues = payload.values;
@@ -3789,7 +3799,7 @@ app.post('/api/superadmin/clients/:clientId/analyze', async (req, res) => {
     } else if (analysisType === 'structure') {
       endpoint = '/api/entry/analyze-org';
     } else if (analysisType === 'skills') {
-      payload.employeeProfiles = generateSampleEmployeeProfiles(clientData.employees);
+      payload.employeeProfiles = generateSampleEmployeeProfiles(client.employees);
       endpoint = '/api/entry/analyze-skills';
     } else if (analysisType === 'engagement') {
       payload.companyVision = payload.vision;
