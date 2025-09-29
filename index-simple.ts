@@ -75,7 +75,8 @@ app.get('/health', (req, res) => {
     environment: {
       nodeEnv: process.env.NODE_ENV || 'development',
       port: PORT,
-      cors: process.env.CLIENT_URL || 'http://localhost:3000'
+      cors: process.env.CLIENT_URL || 'http://localhost:3000',
+      deployment: 'latest-version-' + new Date().toISOString()
     },
     aiProviders: {
       status: 'Three-Engine Architecture Ready',
