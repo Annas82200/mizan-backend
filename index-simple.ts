@@ -4940,6 +4940,7 @@ app.listen(PORT, () => {
   console.log(`📊 Status check: http://localhost:${PORT}/api/status`);
   console.log(`🌐 CORS enabled for production domains`);
   console.log(`🤖 Three-Engine AI Architecture: Operational`);
+  console.log(`🔄 Engagement & Recognition integrated into Culture Analysis`);
 });
 
 export default app;
