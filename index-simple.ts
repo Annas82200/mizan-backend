@@ -169,7 +169,8 @@ app.post('/api/entry/analyze-culture', async (req, res) => {
       companyVision,
       companyMission,
       companyStrategy,
-      employeeResponses
+      employeeResponses,
+      departments
     } = req.body;
 
     console.log('🎨 Starting culture analysis for:', orgName);
@@ -2336,7 +2337,7 @@ app.post('/api/entry/analyze-engagement', async (req, res) => {
     const engagementDrivers = analyzeEngagementDrivers(employeeResponses, departments, roles);
     
     // Analyze engagement trends
-    const engagementTrends = analyzeEngagementTrends(engagementSurveys, performanceMetrics);
+    const engagementTrends = analyzeEngagementTrends(engagementScores, null);
     
     // Generate engagement recommendations
     const recommendations = generateEngagementRecommendations(engagementAnalysis, engagementDrivers, industry);
@@ -3052,6 +3053,29 @@ function analyzeRecognitionFromCultureSurvey(recognitionScores, companyStrategy,
     strategyAlignment: analyzeRecognitionStrategyAlignment(avgRecognition, companyStrategy, companyVision, companyMission),
     dataSource: 'culture_survey_question_5'
   };
+}
+
+function analyzeRecognitionStrategyAlignment(avgRecognition, companyStrategy, companyVision, companyMission) {
+  // Simple strategy alignment analysis based on recognition scores
+  if (avgRecognition >= 7) {
+    return {
+      score: 85,
+      alignment: "High recognition scores align well with most strategic objectives",
+      recommendation: "Maintain current recognition practices"
+    };
+  } else if (avgRecognition >= 5) {
+    return {
+      score: 65,
+      alignment: "Moderate recognition scores may impact strategic execution",
+      recommendation: "Enhance recognition systems to support strategic goals"
+    };
+  } else {
+    return {
+      score: 45,
+      alignment: "Low recognition scores may significantly impact strategic execution",
+      recommendation: "Implement comprehensive recognition program to support strategy"
+    };
+  }
 }
 
 function calculateRecognitionRetentionImpact(avgRecognition) {
