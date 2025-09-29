@@ -2370,10 +2370,10 @@ app.post('/api/entry/analyze-engagement', async (req, res) => {
       },
       
       // Department Analysis
-      departmentEngagement: analyzeDepartmentEngagement(departments, employeeResponses, engagementSurveys),
+      departmentEngagement: analyzeDepartmentEngagement(departments, employeeResponses, engagementScores),
       
       // Role Analysis
-      roleEngagement: analyzeRoleEngagement(roles, employeeResponses, engagementSurveys),
+      roleEngagement: analyzeRoleEngagement(roles, employeeResponses, engagementScores),
       
       // Trends and Patterns
       engagementTrends: {
@@ -2409,7 +2409,7 @@ app.post('/api/entry/analyze-engagement', async (req, res) => {
         analysisType: 'engagement_analysis',
         framework: 'Mizan Engagement Analysis Framework',
         confidence: 0.91,
-        dataPoints: (employeeResponses?.length || 0) + (engagementSurveys?.length || 0)
+        dataPoints: (employeeResponses?.length || 0) + (engagementScores?.length || 0)
       }
     });
   } catch (error) {
@@ -2512,13 +2512,13 @@ function analyzeEngagementAlignment(engagementScores, companyStrategy, companyVi
   return analysis;
 }
 
-function analyzeEngagementMetrics(employeeResponses, engagementSurveys, performanceMetrics) {
+function analyzeEngagementMetrics(employeeResponses, engagementScores, performanceMetrics) {
   // Mock engagement analysis - in production this would use real ML models
-  const satisfaction = calculateSatisfactionScore(employeeResponses, engagementSurveys);
-  const motivation = calculateMotivationScore(employeeResponses, engagementSurveys);
+  const satisfaction = calculateSatisfactionScore(employeeResponses, engagementScores);
+  const motivation = calculateMotivationScore(employeeResponses, engagementScores);
   const retention = calculateRetentionRisk(employeeResponses, performanceMetrics);
-  const advocacy = calculateAdvocacyScore(engagementSurveys);
-  const productivity = calculateProductivityScore(performanceMetrics, engagementSurveys);
+  const advocacy = calculateAdvocacyScore(engagementScores);
+  const productivity = calculateProductivityScore(performanceMetrics, engagementScores);
   
   const overallScore = Math.round((satisfaction + motivation + (100 - retention) + advocacy + productivity) / 5);
   
@@ -2537,28 +2537,28 @@ function analyzeEngagementMetrics(employeeResponses, engagementSurveys, performa
   };
 }
 
-function calculateSatisfactionScore(employeeResponses, engagementSurveys) {
+function calculateSatisfactionScore(employeeResponses, engagementScores) {
   // Analyze satisfaction based on responses and surveys
-  if (!engagementSurveys || engagementSurveys.length === 0) {
+  if (!engagementScores || engagementScores.length === 0) {
     return 75; // Default moderate satisfaction
   }
   
-  const avgSatisfaction = engagementSurveys.reduce((sum, survey) => {
+  const avgSatisfaction = engagementScores.reduce((sum, survey) => {
     return sum + (survey.satisfaction || survey.overallSatisfaction || 7);
-  }, 0) / engagementSurveys.length;
+  }, 0) / engagementScores.length;
   
   return Math.round((avgSatisfaction / 10) * 100);
 }
 
-function calculateMotivationScore(employeeResponses, engagementSurveys) {
+function calculateMotivationScore(employeeResponses, engagementScores) {
   // Analyze motivation levels
-  if (!engagementSurveys || engagementSurveys.length === 0) {
+  if (!engagementScores || engagementScores.length === 0) {
     return 78; // Default moderate motivation
   }
   
-  const avgMotivation = engagementSurveys.reduce((sum, survey) => {
+  const avgMotivation = engagementScores.reduce((sum, survey) => {
     return sum + (survey.motivation || survey.enthusiasm || 7.5);
-  }, 0) / engagementSurveys.length;
+  }, 0) / engagementScores.length;
   
   return Math.round((avgMotivation / 10) * 100);
 }
@@ -2574,18 +2574,18 @@ function calculateRetentionRisk(employeeResponses, performanceMetrics) {
   return Math.min(40, Math.max(5, baseRisk + satisfactionFactor));
 }
 
-function calculateAdvocacyScore(engagementSurveys) {
+function calculateAdvocacyScore(engagementScores) {
   // Net Promoter Score style calculation
-  if (!engagementSurveys || engagementSurveys.length === 0) {
+  if (!engagementScores || engagementScores.length === 0) {
     return 68; // Default moderate advocacy
   }
   
   return Math.round(65 + Math.random() * 20); // Mock NPS calculation
 }
 
-function calculateProductivityScore(performanceMetrics, engagementSurveys) {
+function calculateProductivityScore(performanceMetrics, engagementScores) {
   // Analyze productivity indicators
-  if (!performanceMetrics && !engagementSurveys) {
+  if (!performanceMetrics && !engagementScores) {
     return 82; // Default good productivity
   }
   
@@ -2650,7 +2650,7 @@ function generateDriverActionItems(driverName) {
   ];
 }
 
-function analyzeEngagementTrends(engagementSurveys, performanceMetrics) {
+function analyzeEngagementTrends(engagementScores, performanceMetrics) {
   return {
     overallTrend: 'improving',
     departmentTrends: {
@@ -2672,7 +2672,7 @@ function analyzeEngagementTrends(engagementSurveys, performanceMetrics) {
   };
 }
 
-function analyzeDepartmentEngagement(departments, employeeResponses, engagementSurveys) {
+function analyzeDepartmentEngagement(departments, employeeResponses, engagementScores) {
   if (!departments || departments.length === 0) {
     return [];
   }
@@ -2700,7 +2700,7 @@ function analyzeDepartmentEngagement(departments, employeeResponses, engagementS
   }));
 }
 
-function analyzeRoleEngagement(roles, employeeResponses, engagementSurveys) {
+function analyzeRoleEngagement(roles, employeeResponses, engagementScores) {
   if (!roles || roles.length === 0) {
     return [];
   }
