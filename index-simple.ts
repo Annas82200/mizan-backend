@@ -258,6 +258,31 @@ app.post('/api/entry/analyze-culture', async (req, res) => {
         adminReport: adminReport
       },
       
+      // Engagement Analysis Section
+      engagementAnalysis: {
+        overallEngagementScore: engagementData.length > 0 ? engagementData.reduce((sum, e) => sum + e.engagement, 0) / engagementData.length : 0,
+        engagementLevel: engagementData.length > 0 ? (engagementData.reduce((sum, e) => sum + e.engagement, 0) / engagementData.length >= 7 ? 'High' : engagementData.reduce((sum, e) => sum + e.engagement, 0) / engagementData.length >= 5 ? 'Moderate' : 'Low') : 'No Data',
+        satisfactionScore: engagementData.length > 0 ? engagementData.reduce((sum, e) => sum + e.satisfaction, 0) / engagementData.length : 0,
+        motivationScore: engagementData.length > 0 ? engagementData.reduce((sum, e) => sum + e.motivation, 0) / engagementData.length : 0,
+        advocacyScore: engagementData.length > 0 ? engagementData.reduce((sum, e) => sum + e.advocacy, 0) / engagementData.length : 0,
+        productivityScore: engagementData.length > 0 ? engagementData.reduce((sum, e) => sum + e.productivity, 0) / engagementData.length : 0,
+        departmentEngagement: departmentEngagement,
+        organizationalEngagement: orgEngagement,
+        engagementInsights: generateEngagementInsights(engagementData, companyStrategy, companyVision, companyMission)
+      },
+      
+      // Recognition Analysis Section
+      recognitionAnalysis: {
+        overallRecognitionScore: responses.length > 0 ? responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length : 0,
+        recognitionLevel: responses.length > 0 ? (responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length >= 7 ? 'High' : responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length >= 5 ? 'Moderate' : 'Low') : 'No Data',
+        recognitionGap: responses.length > 0 ? Math.max(0, 10 - responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length) : 0,
+        satisfactionLevel: responses.length > 0 ? responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length : 0,
+        retentionImpact: responses.length > 0 ? calculateRecognitionRetentionImpact(responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length) : { impact: 'Unknown', riskLevel: 'Unknown' },
+        motivationImpact: responses.length > 0 ? calculateRecognitionMotivationImpact(responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length) : { impact: 'Unknown', correlation: 'Unknown' },
+        productivityCorrelation: responses.length > 0 ? calculateRecognitionProductivityCorrelation(responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length) : { correlation: 'Unknown', impact: 'Unknown' },
+        recognitionInsights: generateRecognitionInsights(responses, companyStrategy, companyVision, companyMission)
+      },
+      
       // Value Mapping Analysis
       valueMapping: {
         summary: valueMapping.mappingSummary,
@@ -4753,6 +4778,150 @@ function getLearningResources(skillName) {
   };
   
   return resources[skillName] || ['Professional development courses', 'Industry certifications', 'Practical experience'];
+}
+
+// Helper functions for Culture Analysis Integration
+function generateEngagementInsights(engagementData, companyStrategy, companyVision, companyMission) {
+  const insights = [];
+  
+  if (engagementData.length === 0) {
+    insights.push('No engagement data available for analysis');
+    return insights;
+  }
+  
+  const avgEngagement = engagementData.reduce((sum, e) => sum + e.engagement, 0) / engagementData.length;
+  const avgSatisfaction = engagementData.reduce((sum, e) => sum + e.satisfaction, 0) / engagementData.length;
+  const avgMotivation = engagementData.reduce((sum, e) => sum + e.motivation, 0) / engagementData.length;
+  
+  // Engagement level insights
+  if (avgEngagement >= 8) {
+    insights.push('High engagement levels indicate strong cultural alignment and employee satisfaction');
+  } else if (avgEngagement >= 6) {
+    insights.push('Moderate engagement suggests room for cultural improvement and employee development');
+  } else {
+    insights.push('Low engagement levels indicate significant cultural challenges requiring immediate attention');
+  }
+  
+  // Strategy alignment insights
+  if (companyStrategy) {
+    if (avgEngagement >= 7) {
+      insights.push('Strong engagement supports strategic execution and organizational change initiatives');
+    } else {
+      insights.push('Engagement levels may impact strategic goal achievement and implementation success');
+    }
+  }
+  
+  // Vision and mission alignment
+  if (companyVision && avgEngagement >= 7) {
+    insights.push('High engagement suggests employees are connected to and motivated by the company vision');
+  }
+  
+  if (companyMission && avgMotivation >= 7) {
+    insights.push('Strong motivation indicates alignment with company mission and purpose');
+  }
+  
+  // Satisfaction insights
+  if (avgSatisfaction >= 8) {
+    insights.push('High satisfaction levels contribute to positive workplace culture and retention');
+  } else if (avgSatisfaction < 6) {
+    insights.push('Low satisfaction levels may indicate cultural misalignment and retention risks');
+  }
+  
+  return insights;
+}
+
+function generateRecognitionInsights(responses, companyStrategy, companyVision, companyMission) {
+  const insights = [];
+  
+  if (responses.length === 0) {
+    insights.push('No recognition data available for analysis');
+    return insights;
+  }
+  
+  const avgRecognition = responses.reduce((sum, r) => sum + (r.recognition || 5), 0) / responses.length;
+  
+  // Recognition level insights
+  if (avgRecognition >= 8) {
+    insights.push('High recognition levels indicate strong appreciation culture and employee value alignment');
+  } else if (avgRecognition >= 6) {
+    insights.push('Moderate recognition suggests opportunities to enhance appreciation and value recognition');
+  } else {
+    insights.push('Low recognition levels indicate significant gaps in appreciation culture requiring immediate attention');
+  }
+  
+  // Strategy alignment insights
+  if (companyStrategy) {
+    if (avgRecognition >= 7) {
+      insights.push('Strong recognition culture supports strategic execution and performance excellence');
+    } else {
+      insights.push('Recognition gaps may impact strategic goal achievement and performance outcomes');
+    }
+  }
+  
+  // Values alignment insights
+  if (avgRecognition >= 7) {
+    insights.push('High recognition levels suggest alignment with company values and cultural expectations');
+  } else {
+    insights.push('Recognition gaps may indicate misalignment with company values and cultural standards');
+  }
+  
+  // Vision and mission insights
+  if (companyVision && avgRecognition >= 7) {
+    insights.push('Strong recognition culture reinforces behaviors that advance the company vision');
+  }
+  
+  if (companyMission && avgRecognition >= 7) {
+    insights.push('Recognition systems appear to support mission fulfillment and purpose-driven work');
+  }
+  
+  // Retention and motivation insights
+  if (avgRecognition >= 8) {
+    insights.push('High recognition levels strongly correlate with retention and motivation outcomes');
+  } else if (avgRecognition < 6) {
+    insights.push('Low recognition levels pose significant retention and motivation risks');
+  }
+  
+  return insights;
+}
+
+function calculateRecognitionMotivationImpact(avgRecognition) {
+  // Research shows recognition strongly correlates with motivation
+  if (avgRecognition >= 8) {
+    return { 
+      impact: 'High',
+      correlation: 'Strong positive correlation with motivation and performance'
+    };
+  } else if (avgRecognition >= 6) {
+    return { 
+      impact: 'Moderate',
+      correlation: 'Moderate positive correlation with motivation'
+    };
+  } else {
+    return { 
+      impact: 'Low',
+      correlation: 'Weak correlation with motivation, potential demotivation risk'
+    };
+  }
+}
+
+function calculateRecognitionProductivityCorrelation(avgRecognition) {
+  // Recognition typically correlates with productivity
+  if (avgRecognition >= 8) {
+    return { 
+      correlation: 'Strong positive',
+      impact: 'High productivity correlation, 15-25% performance improvement'
+    };
+  } else if (avgRecognition >= 6) {
+    return { 
+      correlation: 'Moderate positive',
+      impact: 'Moderate productivity correlation, 5-15% performance improvement'
+    };
+  } else {
+    return { 
+      correlation: 'Weak/negative',
+      impact: 'Low productivity correlation, potential performance decline'
+    };
+  }
 }
 
 // Start server
