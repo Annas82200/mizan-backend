@@ -454,6 +454,9 @@ app.post('/api/entry/analyze-skills', async (req, res) => {
         weaknesses: currentSkillsAnalysis.weaknesses
       },
       
+      // Individual Employee Skills Reports
+      employeeReports: generateIndividualEmployeeSkillsReports(employeeProfiles, roles, requiredSkillsAnalysis, currentSkillsAnalysis),
+      
       // GAP Analysis
       gapAnalysis: {
         readinessScore: gapAnalysis.readinessScore,
@@ -4340,6 +4343,416 @@ function processEmployeeProfiles(profileData, uploadType) {
   ];
   
   return mockProcessedProfiles;
+}
+
+// Individual Employee Skills Reports Generation
+function generateIndividualEmployeeSkillsReports(employeeProfiles, roles, requiredSkillsAnalysis, currentSkillsAnalysis) {
+  if (!employeeProfiles || employeeProfiles.length === 0) {
+    return [];
+  }
+  
+  return employeeProfiles.map(employee => {
+    const employeeRole = roles?.find(role => role.title === employee.role);
+    const roleRequiredSkills = getRoleRequiredSkills(employee.role, requiredSkillsAnalysis);
+    const employeeSkills = employee.skills || [];
+    
+    // Analyze employee's current skills
+    const currentSkillsAnalysis = analyzeEmployeeCurrentSkills(employeeSkills);
+    
+    // Perform personal skills gap analysis
+    const personalGapAnalysis = performPersonalSkillsGapAnalysis(employeeSkills, roleRequiredSkills, requiredSkillsAnalysis);
+    
+    // Generate career trajectory analysis
+    const careerTrajectory = analyzeCareerTrajectory(employee, employeeRole, requiredSkillsAnalysis);
+    
+    // Generate personal development recommendations
+    const personalRecommendations = generatePersonalDevelopmentRecommendations(personalGapAnalysis, careerTrajectory);
+    
+    return {
+      employeeId: employee.id,
+      employeeName: employee.name,
+      role: employee.role,
+      department: employee.department || 'Unknown',
+      
+      // Current Skills Assessment
+      currentSkills: {
+        totalSkills: employeeSkills.length,
+        skillLevels: currentSkillsAnalysis.skillLevels,
+        skillCategories: currentSkillsAnalysis.skillCategories,
+        strengths: currentSkillsAnalysis.strengths,
+        developmentAreas: currentSkillsAnalysis.developmentAreas
+      },
+      
+      // Personal Skills Gap Analysis
+      personalGapAnalysis: {
+        roleAlignment: personalGapAnalysis.roleAlignment,
+        criticalGaps: personalGapAnalysis.criticalGaps,
+        moderateGaps: personalGapAnalysis.moderateGaps,
+        skillSurpluses: personalGapAnalysis.skillSurpluses,
+        overallReadiness: personalGapAnalysis.overallReadiness,
+        gapSeverity: personalGapAnalysis.gapSeverity
+      },
+      
+      // Career Trajectory Analysis
+      careerTrajectory: {
+        currentLevel: careerTrajectory.currentLevel,
+        nextLevel: careerTrajectory.nextLevel,
+        requiredSkillsForNextLevel: careerTrajectory.requiredSkillsForNextLevel,
+        careerPath: careerTrajectory.careerPath,
+        timeToNextLevel: careerTrajectory.timeToNextLevel,
+        careerReadiness: careerTrajectory.careerReadiness
+      },
+      
+      // Personal Development Plan
+      personalDevelopmentPlan: {
+        priorityAreas: personalRecommendations.priorityAreas,
+        developmentGoals: personalRecommendations.developmentGoals,
+        learningPath: personalRecommendations.learningPath,
+        timeline: personalRecommendations.timeline,
+        expectedImpact: personalRecommendations.expectedImpact
+      },
+      
+      // Skills Summary
+      skillsSummary: {
+        overallScore: calculateEmployeeSkillsScore(employeeSkills, roleRequiredSkills),
+        readinessLevel: getReadinessLevel(personalGapAnalysis.overallReadiness),
+        keyInsights: generateEmployeeSkillsInsights(employee, personalGapAnalysis, careerTrajectory)
+      }
+    };
+  });
+}
+
+// Helper function to get role-required skills
+function getRoleRequiredSkills(roleTitle, requiredSkillsAnalysis) {
+  // Map role titles to required skills based on strategy analysis
+  const roleSkillMapping = {
+    'Senior Software Engineer': ['Programming (JavaScript/Python)', 'Software Architecture', 'Cloud Computing', 'DevOps', 'Database Management', 'Creative Problem Solving'],
+    'Software Engineer': ['Programming (JavaScript/Python)', 'Cloud Computing', 'DevOps', 'Database Management', 'Creative Problem Solving'],
+    'Sales Manager': ['Innovation Management', 'Product Management', 'Market Research', 'Cross-cultural Communication'],
+    'Sales Representative': ['Innovation Management', 'Product Management', 'Market Research'],
+    'Operations Manager': ['Innovation Management', 'Product Management', 'Market Research'],
+    'Operations Specialist': ['Innovation Management', 'Product Management'],
+    'Marketing Manager': ['Innovation Management', 'Product Management', 'Market Research', 'User Experience Design'],
+    'Marketing Coordinator': ['Innovation Management', 'Product Management', 'Market Research']
+  };
+  
+  return roleSkillMapping[roleTitle] || [];
+}
+
+// Analyze employee's current skills
+function analyzeEmployeeCurrentSkills(employeeSkills) {
+  const skillLevels = {
+    Expert: 0,
+    Advanced: 0,
+    Intermediate: 0,
+    Beginner: 0
+  };
+  
+  const skillCategories = {
+    Technical: 0,
+    Business: 0,
+    Soft: 0,
+    Design: 0
+  };
+  
+  const strengths = [];
+  const developmentAreas = [];
+  
+  employeeSkills.forEach(skill => {
+    skillLevels[skill.level] = (skillLevels[skill.level] || 0) + 1;
+    
+    // Categorize skills
+    if (['JavaScript', 'Python', 'React', 'Node.js', 'Cloud Computing', 'DevOps', 'Database Management', 'Software Architecture'].includes(skill.name)) {
+      skillCategories.Technical++;
+    } else if (['Innovation Management', 'Product Management', 'Market Research', 'Business Intelligence'].includes(skill.name)) {
+      skillCategories.Business++;
+    } else if (['Creative Problem Solving', 'Cross-cultural Communication', 'Leadership', 'Team Collaboration'].includes(skill.name)) {
+      skillCategories.Soft++;
+    } else if (['User Experience Design', 'Data Science'].includes(skill.name)) {
+      skillCategories.Design++;
+    }
+    
+    // Identify strengths and development areas
+    if (skill.level === 'Expert' || skill.level === 'Advanced') {
+      strengths.push(skill.name);
+    } else if (skill.level === 'Beginner') {
+      developmentAreas.push(skill.name);
+    }
+  });
+  
+  return {
+    skillLevels,
+    skillCategories,
+    strengths,
+    developmentAreas
+  };
+}
+
+// Perform personal skills gap analysis
+function performPersonalSkillsGapAnalysis(employeeSkills, roleRequiredSkills, requiredSkillsAnalysis) {
+  const criticalGaps = [];
+  const moderateGaps = [];
+  const skillSurpluses = [];
+  
+  const employeeSkillNames = employeeSkills.map(skill => skill.name);
+  
+  // Check for critical skill gaps
+  roleRequiredSkills.forEach(requiredSkill => {
+    const hasSkill = employeeSkillNames.includes(requiredSkill);
+    
+    if (!hasSkill) {
+      criticalGaps.push({
+        skill: requiredSkill,
+        category: getSkillCategory(requiredSkill),
+        impact: 'Critical - Required for current role',
+        recommendation: `Develop ${requiredSkill} skills through training or experience`
+      });
+    }
+  });
+  
+  // Check for nice-to-have skill gaps
+  requiredSkillsAnalysis.niceToHaveSkills.forEach(skill => {
+    const hasSkill = employeeSkillNames.includes(skill.name);
+    
+    if (!hasSkill) {
+      moderateGaps.push({
+        skill: skill.name,
+        category: skill.category,
+        impact: 'Moderate - Competitive advantage',
+        recommendation: `Consider developing ${skill.name} for career advancement`
+      });
+    }
+  });
+  
+  // Identify skill surpluses
+  employeeSkills.forEach(skill => {
+    const isRequired = roleRequiredSkills.includes(skill.name) || 
+                      requiredSkillsAnalysis.niceToHaveSkills.some(s => s.name === skill.name);
+    
+    if (!isRequired && (skill.level === 'Expert' || skill.level === 'Advanced')) {
+      skillSurpluses.push({
+        skill: skill.name,
+        level: skill.level,
+        value: 'High-value skill not currently utilized in role',
+        recommendation: 'Consider how to leverage this skill for additional responsibilities'
+      });
+    }
+  });
+  
+  const overallReadiness = Math.max(0, 100 - (criticalGaps.length * 15) - (moderateGaps.length * 5));
+  const gapSeverity = criticalGaps.length > 2 ? 'High' : criticalGaps.length > 0 ? 'Moderate' : 'Low';
+  
+  return {
+    roleAlignment: Math.round(overallReadiness),
+    criticalGaps,
+    moderateGaps,
+    skillSurpluses,
+    overallReadiness,
+    gapSeverity
+  };
+}
+
+// Analyze career trajectory
+function analyzeCareerTrajectory(employee, employeeRole, requiredSkillsAnalysis) {
+  const currentLevel = employeeRole?.level || 1;
+  const nextLevel = currentLevel + 1;
+  
+  // Define career progression paths
+  const careerPaths = {
+    'Software Engineer': {
+      nextLevel: 'Senior Software Engineer',
+      requiredSkills: ['Software Architecture', 'Leadership', 'Mentoring'],
+      timeToNextLevel: '12-18 months'
+    },
+    'Senior Software Engineer': {
+      nextLevel: 'Tech Lead',
+      requiredSkills: ['Team Leadership', 'System Design', 'Strategic Thinking'],
+      timeToNextLevel: '18-24 months'
+    },
+    'Sales Representative': {
+      nextLevel: 'Sales Manager',
+      requiredSkills: ['Sales Management', 'Team Leadership', 'Strategic Planning'],
+      timeToNextLevel: '12-18 months'
+    },
+    'Sales Manager': {
+      nextLevel: 'Sales Director',
+      requiredSkills: ['Strategic Leadership', 'Business Development', 'Cross-functional Collaboration'],
+      timeToNextLevel: '24-36 months'
+    }
+  };
+  
+  const careerPath = careerPaths[employee.role] || {
+    nextLevel: 'Next Level',
+    requiredSkills: ['Leadership', 'Strategic Thinking', 'Advanced Technical Skills'],
+    timeToNextLevel: '12-24 months'
+  };
+  
+  const requiredSkillsForNextLevel = careerPath.requiredSkills;
+  const employeeSkillNames = (employee.skills || []).map(skill => skill.name);
+  
+  const skillsForNextLevel = requiredSkillsForNextLevel.filter(skill => 
+    employeeSkillNames.includes(skill)
+  );
+  
+  const careerReadiness = Math.round((skillsForNextLevel.length / requiredSkillsForNextLevel.length) * 100);
+  
+  return {
+    currentLevel,
+    nextLevel,
+    requiredSkillsForNextLevel,
+    careerPath: careerPath.nextLevel,
+    timeToNextLevel: careerPath.timeToNextLevel,
+    careerReadiness
+  };
+}
+
+// Generate personal development recommendations
+function generatePersonalDevelopmentRecommendations(personalGapAnalysis, careerTrajectory) {
+  const priorityAreas = [];
+  const developmentGoals = [];
+  const learningPath = [];
+  
+  // Priority areas based on gaps
+  if (personalGapAnalysis.criticalGaps.length > 0) {
+    priorityAreas.push({
+      area: 'Critical Role Skills',
+      priority: 'High',
+      skills: personalGapAnalysis.criticalGaps.map(gap => gap.skill),
+      timeline: '3-6 months'
+    });
+  }
+  
+  if (personalGapAnalysis.moderateGaps.length > 0) {
+    priorityAreas.push({
+      area: 'Career Advancement Skills',
+      priority: 'Medium',
+      skills: personalGapAnalysis.moderateGaps.map(gap => gap.skill),
+      timeline: '6-12 months'
+    });
+  }
+  
+  // Development goals
+  if (careerTrajectory.careerReadiness < 70) {
+    developmentGoals.push({
+      goal: `Prepare for ${careerTrajectory.careerPath} role`,
+      targetSkills: careerTrajectory.requiredSkillsForNextLevel,
+      timeline: careerTrajectory.timeToNextLevel,
+      priority: 'High'
+    });
+  }
+  
+  // Learning path
+  personalGapAnalysis.criticalGaps.forEach(gap => {
+    learningPath.push({
+      skill: gap.skill,
+      method: getLearningMethod(gap.skill),
+      duration: '2-4 months',
+      resources: getLearningResources(gap.skill)
+    });
+  });
+  
+  return {
+    priorityAreas,
+    developmentGoals,
+    learningPath,
+    timeline: '6-12 months',
+    expectedImpact: 'Improved role performance and career advancement readiness'
+  };
+}
+
+// Helper functions
+function getSkillCategory(skillName) {
+  const categories = {
+    'Programming (JavaScript/Python)': 'Technical',
+    'Software Architecture': 'Technical',
+    'Cloud Computing': 'Technical',
+    'DevOps': 'Technical',
+    'Database Management': 'Technical',
+    'Innovation Management': 'Business',
+    'Product Management': 'Business',
+    'Market Research': 'Business',
+    'Creative Problem Solving': 'Soft Skills',
+    'Cross-cultural Communication': 'Soft Skills',
+    'User Experience Design': 'Design'
+  };
+  
+  return categories[skillName] || 'Other';
+}
+
+function calculateEmployeeSkillsScore(employeeSkills, roleRequiredSkills) {
+  if (roleRequiredSkills.length === 0) return 0;
+  
+  const employeeSkillNames = employeeSkills.map(skill => skill.name);
+  const matchingSkills = roleRequiredSkills.filter(skill => 
+    employeeSkillNames.includes(skill)
+  );
+  
+  return Math.round((matchingSkills.length / roleRequiredSkills.length) * 100);
+}
+
+function getReadinessLevel(readinessScore) {
+  if (readinessScore >= 80) return 'High';
+  if (readinessScore >= 60) return 'Moderate';
+  if (readinessScore >= 40) return 'Low';
+  return 'Very Low';
+}
+
+function generateEmployeeSkillsInsights(employee, personalGapAnalysis, careerTrajectory) {
+  const insights = [];
+  
+  if (personalGapAnalysis.gapSeverity === 'High') {
+    insights.push(`${employee.name} has significant skill gaps that may impact role performance`);
+  } else if (personalGapAnalysis.gapSeverity === 'Low') {
+    insights.push(`${employee.name} has strong skills alignment with role requirements`);
+  }
+  
+  if (careerTrajectory.careerReadiness >= 70) {
+    insights.push(`${employee.name} is well-positioned for career advancement to ${careerTrajectory.careerPath}`);
+  } else {
+    insights.push(`${employee.name} needs skill development to advance to ${careerTrajectory.careerPath}`);
+  }
+  
+  if (personalGapAnalysis.skillSurpluses.length > 0) {
+    insights.push(`${employee.name} has valuable skills that could be leveraged for additional responsibilities`);
+  }
+  
+  return insights;
+}
+
+function getLearningMethod(skillName) {
+  const methods = {
+    'Programming (JavaScript/Python)': 'Hands-on coding projects and online courses',
+    'Software Architecture': 'System design practice and architecture courses',
+    'Cloud Computing': 'Cloud platform certifications and hands-on projects',
+    'DevOps': 'DevOps tools training and automation projects',
+    'Database Management': 'Database design courses and SQL practice',
+    'Innovation Management': 'Innovation workshops and case study analysis',
+    'Product Management': 'Product management courses and project experience',
+    'Market Research': 'Research methodology training and market analysis projects',
+    'Creative Problem Solving': 'Problem-solving workshops and design thinking courses',
+    'Cross-cultural Communication': 'Communication training and cultural awareness programs',
+    'User Experience Design': 'UX design courses and portfolio projects'
+  };
+  
+  return methods[skillName] || 'Professional development courses and practical experience';
+}
+
+function getLearningResources(skillName) {
+  const resources = {
+    'Programming (JavaScript/Python)': ['Codecademy', 'FreeCodeCamp', 'Coursera', 'GitHub projects'],
+    'Software Architecture': ['AWS Architecture Center', 'System Design Interview', 'Architecture patterns books'],
+    'Cloud Computing': ['AWS Training', 'Google Cloud Platform', 'Microsoft Azure', 'Cloud certifications'],
+    'DevOps': ['Docker documentation', 'Kubernetes tutorials', 'Jenkins training', 'Terraform guides'],
+    'Database Management': ['SQL courses', 'Database design books', 'MongoDB University', 'PostgreSQL tutorials'],
+    'Innovation Management': ['Innovation management courses', 'Design thinking workshops', 'Case studies'],
+    'Product Management': ['Product management courses', 'Product analytics tools', 'User research methods'],
+    'Market Research': ['Research methodology courses', 'Survey tools', 'Analytics platforms'],
+    'Creative Problem Solving': ['Design thinking courses', 'Problem-solving workshops', 'Creative techniques'],
+    'Cross-cultural Communication': ['Communication courses', 'Cultural awareness training', 'Language learning'],
+    'User Experience Design': ['UX design courses', 'Design tools training', 'User research methods']
+  };
+  
+  return resources[skillName] || ['Professional development courses', 'Industry certifications', 'Practical experience'];
 }
 
 // Start server

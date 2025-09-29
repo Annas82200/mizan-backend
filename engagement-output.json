@@ -1,0 +1,149 @@
+{
+  "success": true,
+  "analysis": {
+    "organizationName": "TechCorp Solutions",
+    "analysisDate": "2025-09-29T22:32:13.334Z",
+    "overallEngagementScore": 77,
+    "engagementLevel": "Moderate",
+    "engagementMetrics": {
+      "satisfaction": 75,
+      "motivation": 65,
+      "retention": 6,
+      "advocacy": 60,
+      "productivity": 90
+    },
+    "engagementDrivers": {
+      "topDrivers": [
+        {
+          "name": "Work-Life Balance",
+          "impact": 8.7,
+          "trend": "improving"
+        },
+        {
+          "name": "Career Development",
+          "impact": 8.2,
+          "trend": "stable"
+        },
+        {
+          "name": "Manager Relationship",
+          "impact": 7.9,
+          "trend": "improving"
+        }
+      ],
+      "bottomDrivers": [
+        {
+          "name": "Job Security",
+          "impact": 6.2,
+          "trend": "stable"
+        },
+        {
+          "name": "Workload",
+          "impact": 5.9,
+          "trend": "declining"
+        }
+      ],
+      "driverAnalysis": "The top engagement drivers are Work-Life Balance, Career Development, Manager Relationship. Areas requiring attention include Job Security, Workload.",
+      "improvementAreas": [
+        {
+          "area": "Job Security",
+          "currentScore": 6.2,
+          "targetScore": 7.7,
+          "actionItems": [
+            "Assess current state of Job Security",
+            "Develop improvement strategy for Job Security",
+            "Implement targeted initiatives",
+            "Monitor progress and adjust approach"
+          ]
+        },
+        {
+          "area": "Workload",
+          "currentScore": 5.9,
+          "targetScore": 7.4,
+          "actionItems": [
+            "Conduct workload assessment survey",
+            "Implement capacity planning tools",
+            "Establish workload distribution guidelines",
+            "Create overtime monitoring systems"
+          ]
+        }
+      ]
+    },
+    "departmentEngagement": [],
+    "roleEngagement": [],
+    "engagementTrends": {
+      "overallTrend": "improving",
+      "departmentTrends": {
+        "Engineering": {
+          "trend": "stable",
+          "score": 84
+        },
+        "Product": {
+          "trend": "improving",
+          "score": 78
+        },
+        "Sales": {
+          "trend": "declining",
+          "score": 71
+        }
+      },
+      "seasonalPatterns": {
+        "Q1": "Typically lower due to post-holiday adjustment",
+        "Q2": "Steady improvement with spring energy",
+        "Q3": "Peak engagement during summer",
+        "Q4": "Decline due to holiday stress and year-end pressure"
+      },
+      "predictiveInsights": [
+        "Engagement likely to improve by 5-8% with proper recognition implementation",
+        "Workload management critical for maintaining current levels",
+        "Career development programs could boost engagement by 10-15%"
+      ]
+    },
+    "riskAssessment": {
+      "atRiskEmployees": 0,
+      "turnoverRisk": 6,
+      "performanceRisk": 10,
+      "mitigationStrategies": [
+        "Create clear career progression pathways",
+        "Implement goal-setting and achievement recognition systems"
+      ]
+    },
+    "recommendations": [
+      {
+        "priority": "Medium",
+        "category": "Recognition",
+        "title": "Enhance Recognition and Rewards System",
+        "description": "Implement comprehensive recognition program",
+        "actionItems": [
+          "Deploy peer-to-peer recognition platform",
+          "Establish manager recognition training",
+          "Create achievement milestone celebrations",
+          "Implement real-time feedback systems"
+        ],
+        "expectedImpact": "Increase engagement by 10-15%",
+        "timeline": "2-4 months"
+      },
+      {
+        "priority": "Medium",
+        "category": "Development",
+        "title": "Professional Development Enhancement",
+        "description": "Expand learning and career development opportunities",
+        "actionItems": [
+          "Create personalized development plans",
+          "Implement mentorship programs",
+          "Establish skills development pathways",
+          "Launch leadership development initiatives"
+        ],
+        "expectedImpact": "Improve motivation and retention by 12-18%",
+        "timeline": "3-6 months"
+      }
+    ],
+    "executiveSummary": "Overall engagement score is 77 (Moderate level), with a improving trend. The organization shows moderate engagement with opportunities for improvement in key areas. Key drivers include Work-Life Balance, Career Development, Manager Relationship. Primary improvement areas are Job Security, Workload. Low retention risk indicates stable workforce with good engagement fundamentals.",
+    "executionTime": 2800
+  },
+  "metadata": {
+    "analysisType": "engagement_analysis",
+    "framework": "Mizan Engagement Analysis Framework",
+    "confidence": 0.91,
+    "dataPoints": 8
+  }
+}
