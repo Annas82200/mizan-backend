@@ -13,6 +13,9 @@ app.use(cors({
     process.env.CLIENT_URL || 'http://localhost:3000',
     'https://mizan-frontend-zeta.vercel.app',
     'https://mizzanvalues.com',
+    'https://mizan.work',
+    'https://www.mizan.work',
+    'https://mizan-platform-final.vercel.app',
     'http://localhost:3000'
   ],
   credentials: true,
@@ -25,7 +28,19 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Handle preflight requests
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const allowedOrigins = [
+    'https://mizan-frontend-zeta.vercel.app',
+    'https://mizzanvalues.com',
+    'https://mizan.work',
+    'https://www.mizan.work',
+    'https://mizan-platform-final.vercel.app',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
   res.header('Access-Control-Allow-Credentials', 'true');
