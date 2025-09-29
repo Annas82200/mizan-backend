@@ -18,14 +18,26 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://mizan.work',
+  'https://www.mizan.work',
+  'https://mizan-platform-final.vercel.app'
+];
+
+// Add CLIENT_URL if it's set and not already in the list
+if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:3000',
-    'https://mizan.work',
-    'https://www.mizan.work'
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
+
+// Log CORS configuration
+console.log('🌐 CORS configured for origins:', allowedOrigins);
+console.log('🔧 CLIENT_URL environment variable:', process.env.CLIENT_URL);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
