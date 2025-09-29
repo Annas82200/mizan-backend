@@ -1,0 +1,352 @@
+[
+  {
+    "name": "Safety & Survival",
+    "definition": "Protecting life and dignity by ensuring health, stability, and freedom from harm. Organizations grounded in this principle safeguard people\u2019s well-being before all else.",
+    "ethicalPrinciple": "Preservation of Life",
+    "color": "#8B0000",
+    "positiveValues": [
+      {
+        "name": "Safety",
+        "definition": "Freedom from harm and risk, where people feel secure physically, emotionally, and digitally."
+      },
+      {
+        "name": "Stability",
+        "definition": "Reliable structures and routines that reduce chaos and provide predictability."
+      },
+      {
+        "name": "Wellbeing",
+        "definition": "Holistic care for health, balance, and resilience that supports sustained performance."
+      },
+      {
+        "name": "Preparedness",
+        "definition": "Readiness through prevention, training, and proactive risk management."
+      },
+      {
+        "name": "Reliability",
+        "definition": "Dependable actions and systems that can be counted on during pressure."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Fear",
+        "definition": "A climate of threat that narrows choices and prevents openness or learning."
+      },
+      {
+        "name": "Scarcity Mindset",
+        "definition": "Believing there is never enough, leading to hoarding, rivalry, and distrust."
+      },
+      {
+        "name": "Anxiety",
+        "definition": "Persistent unease that drains energy and undermines judgment."
+      },
+      {
+        "name": "Neglect of Safety",
+        "definition": "Failure to protect people and systems, exposing them to avoidable harm."
+      },
+      {
+        "name": "Rigidity",
+        "definition": "Clinging to routines that block adaptation and create fragility under change."
+      }
+    ]
+  },
+  {
+    "name": "Belonging & Loyalty",
+    "definition": "Creating bonds of trust, loyalty, and care where every person feels they belong. Grounded in solidarity, it builds resilient and respectful communities at work.",
+    "ethicalPrinciple": "Brotherhood & Trust",
+    "color": "#FF4500",
+    "positiveValues": [
+      {
+        "name": "Trust",
+        "definition": "Confidence in the reliability and fairness of others, enabling cooperation and speed."
+      },
+      {
+        "name": "Respect",
+        "definition": "Treating every person with dignity regardless of status, identity, or perspective."
+      },
+      {
+        "name": "Belonging",
+        "definition": "A felt sense of acceptance and mattering within a team or community."
+      },
+      {
+        "name": "Inclusion",
+        "definition": "Ensuring all voices are welcomed and valued, so differences strengthen outcomes."
+      },
+      {
+        "name": "Empathy",
+        "definition": "Understanding others\u2019 experiences and emotions to improve care and decisions."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Distrust",
+        "definition": "Assuming bad intent, which slows collaboration and increases conflict."
+      },
+      {
+        "name": "Exclusion",
+        "definition": "Leaving people out of opportunities or relationships, weakening community bonds."
+      },
+      {
+        "name": "Blame",
+        "definition": "Pointing fingers instead of solving problems together."
+      },
+      {
+        "name": "Gossip",
+        "definition": "Undermining trust by spreading unverified or harmful talk."
+      },
+      {
+        "name": "Favoritism",
+        "definition": "Granting opportunities based on personal ties instead of merit or fairness."
+      }
+    ]
+  },
+  {
+    "name": "Growth & Achievement",
+    "definition": "Pursuing performance and growth with humility and responsibility, elevating both self and collective results without arrogance or excess.",
+    "ethicalPrinciple": "Striving with Excellence",
+    "color": "#FFD700",
+    "positiveValues": [
+      {
+        "name": "Achievement",
+        "definition": "Accomplishing meaningful goals that advance both people and organization."
+      },
+      {
+        "name": "Discipline",
+        "definition": "Focused effort and consistency that transform ambition into results."
+      },
+      {
+        "name": "Accountability",
+        "definition": "Owning actions and outcomes, and learning from mistakes transparently."
+      },
+      {
+        "name": "Initiative",
+        "definition": "Acting with responsibility to start improvements without waiting for direction."
+      },
+      {
+        "name": "Excellence",
+        "definition": "Commitment to raising quality and standards in pursuit of continuous betterment."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Ego",
+        "definition": "Centering decisions on self-image rather than collective purpose."
+      },
+      {
+        "name": "Arrogance",
+        "definition": "Inflated self-importance that dismisses feedback and undervalues others."
+      },
+      {
+        "name": "Dominance",
+        "definition": "Using power to suppress instead of enable, undermining initiative."
+      },
+      {
+        "name": "Win-at-All-Costs",
+        "definition": "Pursuing success without regard to ethics, people, or sustainability."
+      },
+      {
+        "name": "Burnout Culture",
+        "definition": "Normalizing overwork and exhaustion, harming health and long-term performance."
+      }
+    ]
+  },
+  {
+    "name": "Meaning & Contribution",
+    "definition": "Connecting work and learning to a deeper sense of purpose and contribution, ensuring effort creates meaning beyond profit alone.",
+    "ethicalPrinciple": "Purposeful Service",
+    "color": "#32CD32",
+    "positiveValues": [
+      {
+        "name": "Learning",
+        "definition": "Turning experiences into growth and wisdom that enriches people and work."
+      },
+      {
+        "name": "Curiosity",
+        "definition": "Seeking new understanding to open opportunities and challenge assumptions."
+      },
+      {
+        "name": "Innovation",
+        "definition": "Translating creativity into solutions that benefit people and systems."
+      },
+      {
+        "name": "Adaptability",
+        "definition": "Adjusting approaches in response to change while holding onto purpose."
+      },
+      {
+        "name": "Contribution",
+        "definition": "Creating impact that serves beyond self-interest."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Complacency",
+        "definition": "Settling for mediocrity instead of striving for meaningful progress."
+      },
+      {
+        "name": "Dogmatism",
+        "definition": "Rigidly clinging to beliefs or practices despite evidence for change."
+      },
+      {
+        "name": "Short-Termism",
+        "definition": "Choosing immediate gains that undermine long-term value and trust."
+      },
+      {
+        "name": "Resistance to Change",
+        "definition": "Rejecting adaptation even when it is necessary for survival or growth."
+      },
+      {
+        "name": "Fixed Mindset",
+        "definition": "Believing ability cannot grow, discouraging learning and risk-taking."
+      }
+    ]
+  },
+  {
+    "name": "Integrity & Justice",
+    "definition": "Aligning words and actions with fairness and accountability. Integrity ensures that authority and decisions are exercised transparently and equitably.",
+    "ethicalPrinciple": "Justice & Accountability",
+    "color": "#1E90FF",
+    "positiveValues": [
+      {
+        "name": "Integrity",
+        "definition": "Acting with consistency and honesty regardless of circumstances."
+      },
+      {
+        "name": "Honesty",
+        "definition": "Truthful and complete communication that builds trust."
+      },
+      {
+        "name": "Equity",
+        "definition": "Designing fair access to opportunity and resources for all."
+      },
+      {
+        "name": "Transparency",
+        "definition": "Making decisions and processes open to scrutiny and understanding."
+      },
+      {
+        "name": "Accountability",
+        "definition": "Taking responsibility for choices and correcting harm."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Corruption",
+        "definition": "Using position or resources for unjust personal gain."
+      },
+      {
+        "name": "Hypocrisy",
+        "definition": "Saying one thing and doing another, eroding credibility."
+      },
+      {
+        "name": "Cynicism",
+        "definition": "Assuming nothing matters, weakening responsibility and trust."
+      },
+      {
+        "name": "Double Standards",
+        "definition": "Applying rules unfairly across people or situations."
+      },
+      {
+        "name": "Conflicts of Interest",
+        "definition": "Letting personal interest override fairness and duty."
+      }
+    ]
+  },
+  {
+    "name": "Wisdom & Compassion",
+    "definition": "Leading and serving with empathy, humility, and wisdom, ensuring that knowledge is used to uplift and not to oppress.",
+    "ethicalPrinciple": "Mercy & Knowledge",
+    "color": "#8A2BE2",
+    "positiveValues": [
+      {
+        "name": "Compassion",
+        "definition": "Responding to others with empathy and care in ways that build dignity and strength."
+      },
+      {
+        "name": "Service",
+        "definition": "Using personal strengths to uplift others and the community."
+      },
+      {
+        "name": "Mentorship",
+        "definition": "Guiding others\u2019 growth with patience and encouragement."
+      },
+      {
+        "name": "Humility",
+        "definition": "Recognizing one\u2019s limits and learning from every person and experience."
+      },
+      {
+        "name": "Generosity",
+        "definition": "Sharing time, knowledge, and resources without expecting return."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Selfishness",
+        "definition": "Acting only for personal benefit at others\u2019 expense."
+      },
+      {
+        "name": "Tokenism",
+        "definition": "Superficial inclusion without genuine power-sharing."
+      },
+      {
+        "name": "Paternalism",
+        "definition": "Helping in ways that disempower rather than enable."
+      },
+      {
+        "name": "Withholding Credit",
+        "definition": "Failing to recognize others\u2019 contributions, undermining trust."
+      },
+      {
+        "name": "Gatekeeping",
+        "definition": "Blocking access to opportunities or knowledge for self-interest."
+      }
+    ]
+  },
+  {
+    "name": "Transcendence & Unity",
+    "definition": "Seeing life, work, and the planet as interconnected, guiding choices toward peace, sustainability, and unity across generations.",
+    "ethicalPrinciple": "Unity & Stewardship",
+    "color": "#228B22",
+    "positiveValues": [
+      {
+        "name": "Unity",
+        "definition": "Seeking common purpose that bridges differences and builds collective strength."
+      },
+      {
+        "name": "Stewardship",
+        "definition": "Caring responsibly for resources, people, and ecosystems."
+      },
+      {
+        "name": "Sustainability",
+        "definition": "Ensuring choices protect long-term human and ecological balance."
+      },
+      {
+        "name": "Peacebuilding",
+        "definition": "Transforming conflict into dialogue and cooperation."
+      },
+      {
+        "name": "Interconnectedness",
+        "definition": "Recognizing that all actions ripple through people, systems, and the planet."
+      }
+    ],
+    "limitingValues": [
+      {
+        "name": "Indifference",
+        "definition": "Ignoring wider consequences of actions, allowing harm to persist."
+      },
+      {
+        "name": "Neglect",
+        "definition": "Failing to care for responsibilities across generations."
+      },
+      {
+        "name": "Exploitation",
+        "definition": "Extracting value from people or nature without fairness or care."
+      },
+      {
+        "name": "Short-Sightedness",
+        "definition": "Choosing quick wins at the expense of long-term well-being."
+      },
+      {
+        "name": "Nihilism",
+        "definition": "Believing nothing matters, abandoning responsibility and hope."
+      }
+    ]
+  }
+]
