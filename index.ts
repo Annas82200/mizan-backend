@@ -9,6 +9,7 @@ import adminRoutes from './routes/admin.js';
 import employeeRoutes from './routes/employee.js';
 import agentRoutes from './routes/agents.js';
 import entryRoutes from './routes/entry.js';
+import superadminRoutes from './routes/superadmin.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +19,11 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    process.env.CLIENT_URL || 'http://localhost:3000',
+    'https://mizan.work',
+    'https://www.mizan.work'
+  ],
   credentials: true
 }));
 
@@ -50,6 +55,7 @@ app.use('/api/auth', authRoutes);
 // app.use('/api/employee', employeeRoutes); // Temporarily disabled - has schema issues  
 // app.use('/api/agents', agentRoutes); // Temporarily disabled - has schema issues
 app.use('/api/entry', entryRoutes); // Core analysis endpoints - working
+app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints - working
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
