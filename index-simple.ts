@@ -4884,45 +4884,6 @@ function generateRecognitionInsights(responses, companyStrategy, companyVision, 
   return insights;
 }
 
-function calculateRecognitionMotivationImpact(avgRecognition) {
-  // Research shows recognition strongly correlates with motivation
-  if (avgRecognition >= 8) {
-    return { 
-      impact: 'High',
-      correlation: 'Strong positive correlation with motivation and performance'
-    };
-  } else if (avgRecognition >= 6) {
-    return { 
-      impact: 'Moderate',
-      correlation: 'Moderate positive correlation with motivation'
-    };
-  } else {
-    return { 
-      impact: 'Low',
-      correlation: 'Weak correlation with motivation, potential demotivation risk'
-    };
-  }
-}
-
-function calculateRecognitionProductivityCorrelation(avgRecognition) {
-  // Recognition typically correlates with productivity
-  if (avgRecognition >= 8) {
-    return { 
-      correlation: 'Strong positive',
-      impact: 'High productivity correlation, 15-25% performance improvement'
-    };
-  } else if (avgRecognition >= 6) {
-    return { 
-      correlation: 'Moderate positive',
-      impact: 'Moderate productivity correlation, 5-15% performance improvement'
-    };
-  } else {
-    return { 
-      correlation: 'Weak/negative',
-      impact: 'Low productivity correlation, potential performance decline'
-    };
-  }
-}
 
 // Start server
 app.listen(PORT, () => {
