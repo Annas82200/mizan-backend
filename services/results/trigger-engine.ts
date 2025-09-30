@@ -116,6 +116,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'probation_period_ending':
       return processProbationPeriodEndingTrigger(trigger, unifiedResults, config);
     
+    case 'compliance_training_due':
+      return processComplianceTrainingDueTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1546,6 +1549,172 @@ function processProbationPeriodEndingTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
+function processComplianceTrainingDueTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when compliance training is due based on regulatory requirements, expiration dates, or policy updates
+  
+  const trainingType = config.trainingType || 'compliance';
+  const advanceNoticeDays = config.advanceNoticeDays || 30;
+  const reminderDays = config.reminderDays || [30, 14, 7, 1];
+  const moduleType = config.moduleType || 'lxp_compliance_training';
+  
+  // Check if there are compliance training due indicators
+  const hasComplianceTrainingIndicators = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('compliance training') ||
+      rec.title.toLowerCase().includes('compliance due') ||
+      rec.title.toLowerCase().includes('regulatory training') ||
+      rec.title.toLowerCase().includes('mandatory training') ||
+      rec.title.toLowerCase().includes('compliance certification') ||
+      rec.title.toLowerCase().includes('compliance renewal')
+    )
+  );
+  
+  // Check for LXP compliance training module needs (part of LXP)
+  const hasLXPComplianceNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('lxp compliance') ||
+      rec.title.toLowerCase().includes('learning compliance') ||
+      rec.title.toLowerCase().includes('training module') ||
+      rec.title.toLowerCase().includes('compliance course') ||
+      rec.title.toLowerCase().includes('compliance learning')
+    )
+  );
+  
+  // Check for regulatory and policy compliance needs
+  const hasRegulatoryComplianceNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('regulatory compliance') ||
+      rec.title.toLowerCase().includes('policy compliance') ||
+      rec.title.toLowerCase().includes('legal compliance') ||
+      rec.title.toLowerCase().includes('industry compliance') ||
+      rec.title.toLowerCase().includes('compliance standards')
+    )
+  );
+  
+  // Check for certification and renewal needs
+  const hasCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('certification due') ||
+      rec.title.toLowerCase().includes('certification renewal') ||
+      rec.title.toLowerCase().includes('certification expiring') ||
+      rec.title.toLowerCase().includes('license renewal') ||
+      rec.title.toLowerCase().includes('credential renewal')
+    )
+  );
+  
+  // Check for safety and security training needs
+  const hasSafetySecurityNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('safety training') ||
+      rec.title.toLowerCase().includes('security training') ||
+      rec.title.toLowerCase().includes('workplace safety') ||
+      rec.title.toLowerCase().includes('data security') ||
+      rec.title.toLowerCase().includes('cybersecurity')
+    )
+  );
+  
+  // Check for ethics and conduct training needs
+  const hasEthicsConductNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('ethics training') ||
+      rec.title.toLowerCase().includes('code of conduct') ||
+      rec.title.toLowerCase().includes('anti-harassment') ||
+      rec.title.toLowerCase().includes('diversity training') ||
+      rec.title.toLowerCase().includes('workplace conduct')
+    )
+  );
+  
+  // Check for industry-specific compliance needs
+  const hasIndustryComplianceNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('industry compliance') ||
+      rec.title.toLowerCase().includes('sector compliance') ||
+      rec.title.toLowerCase().includes('professional standards') ||
+      rec.title.toLowerCase().includes('industry regulations') ||
+      rec.title.toLowerCase().includes('sector requirements')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are skills-related recommendations that indicate compliance training needs
+  if (hasComplianceTrainingIndicators || hasLXPComplianceNeeds || hasRegulatoryComplianceNeeds || hasCertificationNeeds || hasSafetySecurityNeeds || hasEthicsConductNeeds || hasIndustryComplianceNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Compliance training is due - activate compliance training module part of LXP',
+      action: 'activate_lxp_compliance_training_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        trainingType: trainingType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        complianceTrainingIndicators: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('compliance') ||
+            rec.title.toLowerCase().includes('regulatory') ||
+            rec.title.toLowerCase().includes('mandatory')
+          )
+        ),
+        lxpComplianceNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('training module')
+          )
+        ),
+        regulatoryComplianceNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('regulatory') ||
+            rec.title.toLowerCase().includes('policy') ||
+            rec.title.toLowerCase().includes('legal')
+          )
+        ),
+        certificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('certification') ||
+            rec.title.toLowerCase().includes('license') ||
+            rec.title.toLowerCase().includes('credential')
+          )
+        ),
+        safetySecurityNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('safety') ||
+            rec.title.toLowerCase().includes('security') ||
+            rec.title.toLowerCase().includes('cybersecurity')
+          )
+        ),
+        ethicsConductNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('ethics') ||
+            rec.title.toLowerCase().includes('conduct') ||
+            rec.title.toLowerCase().includes('harassment')
+          )
+        ),
+        industryComplianceNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('industry') ||
+            rec.title.toLowerCase().includes('sector') ||
+            rec.title.toLowerCase().includes('professional')
+          )
+        ),
+        trainingSchedule: {
+          type: trainingType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1744,6 +1913,21 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         advanceNoticeDays: 7,
         reminderDays: [7, 3, 1],
         evaluationType: 'performance_evaluation'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Compliance Training Due Alert',
+      type: 'compliance_training_due',
+      config: { 
+        trainingType: 'compliance',
+        advanceNoticeDays: 30,
+        reminderDays: [30, 14, 7, 1],
+        moduleType: 'lxp_compliance_training'
       },
       status: 'active' as const,
       createdAt: new Date(),
