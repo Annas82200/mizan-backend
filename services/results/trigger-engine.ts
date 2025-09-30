@@ -134,6 +134,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'onboarding_completion':
       return processOnboardingCompletionTrigger(trigger, unifiedResults, config);
     
+    case 'training_completion':
+      return processTrainingCompletionTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -2712,6 +2715,232 @@ function processOnboardingCompletionTrigger(trigger: any, results: UnifiedResult
   return null;
 }
 
+function processTrainingCompletionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is activated when LXP training is completed
+  // It triggers the Performance Assessment part of the Performance Management Module
+  
+  const completionType = config.completionType || 'training';
+  const advanceNoticeDays = config.advanceNoticeDays || 1;
+  const reminderDays = config.reminderDays || [1];
+  const moduleType = config.moduleType || 'performance_assessment_module';
+  const partOf = config.partOf || 'performance_management_module';
+  const sourceModule = config.sourceModule || 'lxp';
+  
+  // Check if there are training completion indicators
+  const hasTrainingCompletionIndicators = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('training completion') ||
+      rec.title.toLowerCase().includes('training finished') ||
+      rec.title.toLowerCase().includes('training done') ||
+      rec.title.toLowerCase().includes('course completion') ||
+      rec.title.toLowerCase().includes('learning completed') ||
+      rec.title.toLowerCase().includes('training successful')
+    )
+  );
+  
+  // Check for performance assessment module needs (part of performance management module)
+  const hasPerformanceAssessmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance assessment') ||
+      rec.title.toLowerCase().includes('performance evaluation') ||
+      rec.title.toLowerCase().includes('performance review') ||
+      rec.title.toLowerCase().includes('performance measurement') ||
+      rec.title.toLowerCase().includes('performance analysis')
+    )
+  );
+  
+  // Check for LXP training completion indicators
+  const hasLxpTrainingCompletion = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('lxp completion') ||
+      rec.title.toLowerCase().includes('learning platform') ||
+      rec.title.toLowerCase().includes('training platform') ||
+      rec.title.toLowerCase().includes('course platform') ||
+      rec.title.toLowerCase().includes('learning experience')
+    )
+  );
+  
+  // Check for skill application and competency demonstration needs
+  const hasSkillApplicationNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('skill application') ||
+      rec.title.toLowerCase().includes('competency demonstration') ||
+      rec.title.toLowerCase().includes('skill demonstration') ||
+      rec.title.toLowerCase().includes('knowledge application') ||
+      rec.title.toLowerCase().includes('learning application')
+    )
+  );
+  
+  // Check for performance improvement measurement needs
+  const hasPerformanceImprovementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance improvement') ||
+      rec.title.toLowerCase().includes('performance enhancement') ||
+      rec.title.toLowerCase().includes('performance progress') ||
+      rec.title.toLowerCase().includes('performance growth') ||
+      rec.title.toLowerCase().includes('performance development')
+    )
+  );
+  
+  // Check for training effectiveness evaluation needs
+  const hasTrainingEffectivenessNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('training effectiveness') ||
+      rec.title.toLowerCase().includes('learning effectiveness') ||
+      rec.title.toLowerCase().includes('course effectiveness') ||
+      rec.title.toLowerCase().includes('training impact') ||
+      rec.title.toLowerCase().includes('learning impact')
+    )
+  );
+  
+  // Check for competency assessment and validation needs
+  const hasCompetencyAssessmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('competency assessment') ||
+      rec.title.toLowerCase().includes('competency validation') ||
+      rec.title.toLowerCase().includes('skill validation') ||
+      rec.title.toLowerCase().includes('knowledge validation') ||
+      rec.title.toLowerCase().includes('capability assessment')
+    )
+  );
+  
+  // Check for performance benchmarking and comparison needs
+  const hasPerformanceBenchmarkingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance benchmarking') ||
+      rec.title.toLowerCase().includes('performance comparison') ||
+      rec.title.toLowerCase().includes('performance baseline') ||
+      rec.title.toLowerCase().includes('performance standard') ||
+      rec.title.toLowerCase().includes('performance metric')
+    )
+  );
+  
+  // Check for goal achievement and objective completion needs
+  const hasGoalAchievementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('goal achievement') ||
+      rec.title.toLowerCase().includes('objective completion') ||
+      rec.title.toLowerCase().includes('target achievement') ||
+      rec.title.toLowerCase().includes('milestone completion') ||
+      rec.title.toLowerCase().includes('achievement assessment')
+    )
+  );
+  
+  // Check for feedback collection and performance review needs
+  const hasFeedbackCollectionNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('feedback collection') ||
+      rec.title.toLowerCase().includes('performance feedback') ||
+      rec.title.toLowerCase().includes('review feedback') ||
+      rec.title.toLowerCase().includes('assessment feedback') ||
+      rec.title.toLowerCase().includes('evaluation feedback')
+    )
+  );
+  
+  // This trigger would typically be activated by LXP module completion events
+  // For now, we'll check if there are performance-related recommendations that indicate training completion needs
+  if (hasTrainingCompletionIndicators || hasPerformanceAssessmentNeeds || hasLxpTrainingCompletion || hasSkillApplicationNeeds || hasPerformanceImprovementNeeds || hasTrainingEffectivenessNeeds || hasCompetencyAssessmentNeeds || hasPerformanceBenchmarkingNeeds || hasGoalAchievementNeeds || hasFeedbackCollectionNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'LXP training has been completed - activate performance assessment part of performance management module',
+      action: 'activate_performance_assessment_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'lxp_training_completion',
+        completionType: completionType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        partOf: partOf,
+        sourceModule: sourceModule,
+        trainingCompletionIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('training') ||
+            rec.title.toLowerCase().includes('course') ||
+            rec.title.toLowerCase().includes('learning')
+          )
+        ),
+        performanceAssessmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('assessment') ||
+            rec.title.toLowerCase().includes('evaluation') ||
+            rec.title.toLowerCase().includes('review')
+          )
+        ),
+        lxpTrainingCompletion: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('platform') ||
+            rec.title.toLowerCase().includes('experience')
+          )
+        ),
+        skillApplicationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('application') ||
+            rec.title.toLowerCase().includes('demonstration') ||
+            rec.title.toLowerCase().includes('knowledge')
+          )
+        ),
+        performanceImprovementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('improvement') ||
+            rec.title.toLowerCase().includes('enhancement') ||
+            rec.title.toLowerCase().includes('progress')
+          )
+        ),
+        trainingEffectivenessNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('effectiveness') ||
+            rec.title.toLowerCase().includes('impact') ||
+            rec.title.toLowerCase().includes('outcome')
+          )
+        ),
+        competencyAssessmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('competency') ||
+            rec.title.toLowerCase().includes('validation') ||
+            rec.title.toLowerCase().includes('capability')
+          )
+        ),
+        performanceBenchmarkingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('benchmarking') ||
+            rec.title.toLowerCase().includes('comparison') ||
+            rec.title.toLowerCase().includes('baseline')
+          )
+        ),
+        goalAchievementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('goal') ||
+            rec.title.toLowerCase().includes('objective') ||
+            rec.title.toLowerCase().includes('achievement')
+          )
+        ),
+        feedbackCollectionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('feedback') ||
+            rec.title.toLowerCase().includes('review') ||
+            rec.title.toLowerCase().includes('evaluation')
+          )
+        ),
+        assessmentSchedule: {
+          type: completionType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          partOf: partOf,
+          sourceModule: sourceModule
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -3003,6 +3232,23 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         reminderDays: [1],
         moduleType: 'performance_baseline_module',
         partOf: 'performance_management_module'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Training Completion Alert',
+      type: 'training_completion',
+      config: { 
+        completionType: 'training',
+        advanceNoticeDays: 1,
+        reminderDays: [1],
+        moduleType: 'performance_assessment_module',
+        partOf: 'performance_management_module',
+        sourceModule: 'lxp'
       },
       status: 'active' as const,
       createdAt: new Date(),
