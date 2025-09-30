@@ -98,6 +98,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'performance_excellent_reward':
       return processPerformanceRewardTrigger(trigger, unifiedResults, config);
     
+    case 'performance_perfect_lxp':
+      return processPerformanceLXPTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -751,6 +754,104 @@ function processPerformanceRewardTrigger(trigger: any, results: UnifiedResults, 
   return null;
 }
 
+function processPerformanceLXPTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by performance management module events
+  // It would be triggered when performance management results show exactly 100% performance for continued learning
+  
+  const perfectPerformanceThreshold = config.perfectPerformanceThreshold || 1.0; // 100% performance threshold
+  
+  // Check if there are perfect performance indicators (exactly 100%)
+  const hasPerfectPerformance = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('100%') ||
+      rec.title.toLowerCase().includes('perfect score') ||
+      rec.title.toLowerCase().includes('full target') ||
+      rec.title.toLowerCase().includes('complete achievement')
+    )
+  );
+  
+  // Check for continued learning recommendations
+  const hasContinuedLearningNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('continue learning') ||
+      rec.title.toLowerCase().includes('advanced training') ||
+      rec.title.toLowerCase().includes('next level') ||
+      rec.title.toLowerCase().includes('skill development') ||
+      rec.title.toLowerCase().includes('career advancement')
+    )
+  );
+  
+  // Check for LXP recommendations for high performers
+  const hasLXPRecommendations = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('lxp') ||
+      rec.title.toLowerCase().includes('learning experience') ||
+      rec.title.toLowerCase().includes('development plan') ||
+      rec.title.toLowerCase().includes('upskilling') ||
+      rec.title.toLowerCase().includes('reskilling')
+    )
+  );
+  
+  // Check for leadership development needs
+  const hasLeadershipDevelopment = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('leadership') ||
+      rec.title.toLowerCase().includes('mentoring') ||
+      rec.title.toLowerCase().includes('coaching') ||
+      rec.title.toLowerCase().includes('management') ||
+      rec.title.toLowerCase().includes('supervision')
+    )
+  );
+  
+  // This trigger would typically be activated by external performance management module events
+  // For now, we'll check if there are performance-related recommendations that indicate perfect performance
+  if (hasPerfectPerformance && (hasContinuedLearningNeeds || hasLXPRecommendations || hasLeadershipDevelopment)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Performance management results show 100% performance - activate LXP for continued learning and development',
+      action: 'activate_lxp_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'performance_management_module',
+        performanceLevel: 'Perfect (100%)',
+        performanceIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('100%') ||
+            rec.title.toLowerCase().includes('perfect') ||
+            rec.title.toLowerCase().includes('complete')
+          )
+        ),
+        continuedLearningNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('continue') ||
+            rec.title.toLowerCase().includes('advanced') ||
+            rec.title.toLowerCase().includes('next level')
+          )
+        ),
+        lxpRecommendations: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('development')
+          )
+        ),
+        leadershipDevelopment: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('mentoring') ||
+            rec.title.toLowerCase().includes('coaching')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -876,6 +977,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Performance Excellent Reward Alert',
       type: 'performance_excellent_reward',
       config: { performanceThreshold: 1.0 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Performance Perfect LXP Alert',
+      type: 'performance_perfect_lxp',
+      config: { perfectPerformanceThreshold: 1.0 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
