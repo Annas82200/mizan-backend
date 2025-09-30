@@ -86,6 +86,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'structure_optimal_talent':
       return processStructureOptimalTrigger(trigger, unifiedResults, config);
     
+    case 'structure_inflated_recommendations':
+      return processStructureInflatedTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -382,6 +385,95 @@ function processStructureOptimalTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
+function processStructureInflatedTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  const structureData = results.detailed_analysis.structure;
+  const inflationThreshold = config.inflationThreshold || 0.3; // 30% structure efficiency threshold
+  
+  // Check if structure analysis indicates inflated organization
+  const hasInflatedStructure = structureData.weaknesses.some(weakness =>
+    weakness.toLowerCase().includes('inflated') ||
+    weakness.toLowerCase().includes('overstaffed') ||
+    weakness.toLowerCase().includes('too many layers') ||
+    weakness.toLowerCase().includes('redundant') ||
+    weakness.toLowerCase().includes('bloated') ||
+    weakness.toLowerCase().includes('excessive hierarchy') ||
+    weakness.toLowerCase().includes('unnecessary positions')
+  );
+  
+  // Check for low structure efficiency score indicating inflation
+  const hasLowEfficiencyScore = structureData.score <= inflationThreshold;
+  
+  // Check for structure inefficiency indicators
+  const hasInefficiencyIndicators = structureData.weaknesses.some(weakness =>
+    weakness.toLowerCase().includes('inefficient') ||
+    weakness.toLowerCase().includes('slow decision making') ||
+    weakness.toLowerCase().includes('bureaucratic') ||
+    weakness.toLowerCase().includes('overcomplicated') ||
+    weakness.toLowerCase().includes('streamline') ||
+    weakness.toLowerCase().includes('consolidate')
+  );
+  
+  // Check for recommendations to reduce structure
+  const hasReductionRecommendations = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('reduce') ||
+      rec.title.toLowerCase().includes('eliminate') ||
+      rec.title.toLowerCase().includes('consolidate') ||
+      rec.title.toLowerCase().includes('streamline') ||
+      rec.title.toLowerCase().includes('flatten') ||
+      rec.title.toLowerCase().includes('restructure') ||
+      rec.title.toLowerCase().includes('optimize')
+    )
+  );
+  
+  // Check for cost optimization needs
+  const hasCostOptimizationNeeds = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('cost') ||
+      rec.title.toLowerCase().includes('budget') ||
+      rec.title.toLowerCase().includes('efficiency') ||
+      rec.title.toLowerCase().includes('productivity')
+    )
+  );
+  
+  if ((hasInflatedStructure || hasLowEfficiencyScore) && (hasInefficiencyIndicators || hasReductionRecommendations || hasCostOptimizationNeeds)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Structure analysis indicates inflated organizational structure requiring optimization recommendations',
+      action: 'provide_structure_recommendations',
+      priority: 'high',
+      data: {
+        structureScore: structureData.score,
+        inflationLevel: hasInflatedStructure ? 'High' : 'Moderate',
+        inefficiencyIndicators: structureData.weaknesses.filter(weakness =>
+          weakness.toLowerCase().includes('inflated') ||
+          weakness.toLowerCase().includes('inefficient') ||
+          weakness.toLowerCase().includes('redundant')
+        ),
+        optimizationRecommendations: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('reduce') ||
+            rec.title.toLowerCase().includes('streamline') ||
+            rec.title.toLowerCase().includes('optimize')
+          )
+        ),
+        costOptimizationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('cost') ||
+            rec.title.toLowerCase().includes('efficiency')
+          )
+        ),
+        structureGaps: structureData.gaps || [],
+        recommendations: results.recommendations.filter(r => r.category === 'structure')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -467,6 +559,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Structure Optimal Talent Alert',
       type: 'structure_optimal_talent',
       config: { optimalThreshold: 0.75 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Structure Inflated Recommendations Alert',
+      type: 'structure_inflated_recommendations',
+      config: { inflationThreshold: 0.3 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
