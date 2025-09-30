@@ -113,6 +113,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'quarterly_checkin_due':
       return processQuarterlyCheckinTrigger(trigger, unifiedResults, config);
     
+    case 'probation_period_ending':
+      return processProbationPeriodEndingTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1379,6 +1382,170 @@ function processQuarterlyCheckinTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
+function processProbationPeriodEndingTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when an employee's probation period is ending based on their hire date
+  
+  const probationPeriod = config.probationPeriod || 'standard';
+  const advanceNoticeDays = config.advanceNoticeDays || 7;
+  const reminderDays = config.reminderDays || [7, 3, 1];
+  const evaluationType = config.evaluationType || 'performance_evaluation';
+  
+  // Check if there are probation period ending indicators
+  const hasProbationEndingIndicators = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('probation ending') ||
+      rec.title.toLowerCase().includes('probation period') ||
+      rec.title.toLowerCase().includes('probation review') ||
+      rec.title.toLowerCase().includes('probation evaluation') ||
+      rec.title.toLowerCase().includes('probation assessment') ||
+      rec.title.toLowerCase().includes('probation completion')
+    )
+  );
+  
+  // Check for performance evaluation needs (part of performance management module)
+  const hasPerformanceEvaluationNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance evaluation') ||
+      rec.title.toLowerCase().includes('evaluation meeting') ||
+      rec.title.toLowerCase().includes('probation evaluation') ||
+      rec.title.toLowerCase().includes('performance assessment') ||
+      rec.title.toLowerCase().includes('evaluation review')
+    )
+  );
+  
+  // Check for probation decision requirements
+  const hasProbationDecisionNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('probation decision') ||
+      rec.title.toLowerCase().includes('employment decision') ||
+      rec.title.toLowerCase().includes('hire confirmation') ||
+      rec.title.toLowerCase().includes('probation outcome') ||
+      rec.title.toLowerCase().includes('employment status')
+    )
+  );
+  
+  // Check for performance management module activation
+  const hasPerformanceManagementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance management') ||
+      rec.title.toLowerCase().includes('performance tracking') ||
+      rec.title.toLowerCase().includes('performance monitoring') ||
+      rec.title.toLowerCase().includes('performance evaluation')
+    )
+  );
+  
+  // Check for feedback and development needs
+  const hasFeedbackDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('feedback session') ||
+      rec.title.toLowerCase().includes('development plan') ||
+      rec.title.toLowerCase().includes('performance feedback') ||
+      rec.title.toLowerCase().includes('improvement plan') ||
+      rec.title.toLowerCase().includes('development discussion')
+    )
+  );
+  
+  // Check for onboarding completion and transition needs
+  const hasOnboardingTransitionNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('onboarding completion') ||
+      rec.title.toLowerCase().includes('transition to permanent') ||
+      rec.title.toLowerCase().includes('full employee status') ||
+      rec.title.toLowerCase().includes('probation success') ||
+      rec.title.toLowerCase().includes('employment confirmation')
+    )
+  );
+  
+  // Check for training and development completion
+  const hasTrainingCompletionNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('training completion') ||
+      rec.title.toLowerCase().includes('orientation completion') ||
+      rec.title.toLowerCase().includes('probation training') ||
+      rec.title.toLowerCase().includes('initial training') ||
+      rec.title.toLowerCase().includes('onboarding training')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are performance-related recommendations that indicate probation ending needs
+  if (hasProbationEndingIndicators || hasPerformanceEvaluationNeeds || hasProbationDecisionNeeds || hasPerformanceManagementNeeds || hasFeedbackDevelopmentNeeds || hasOnboardingTransitionNeeds || hasTrainingCompletionNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Probation period is ending - activate performance evaluation part of performance management module',
+      action: 'activate_performance_evaluation_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        probationPeriod: probationPeriod,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        evaluationType: evaluationType,
+        probationEndingIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('probation') ||
+            rec.title.toLowerCase().includes('probation ending') ||
+            rec.title.toLowerCase().includes('probation period')
+          )
+        ),
+        performanceEvaluationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance evaluation') ||
+            rec.title.toLowerCase().includes('evaluation') ||
+            rec.title.toLowerCase().includes('assessment')
+          )
+        ),
+        probationDecisionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('probation decision') ||
+            rec.title.toLowerCase().includes('employment decision') ||
+            rec.title.toLowerCase().includes('hire confirmation')
+          )
+        ),
+        performanceManagementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance management') ||
+            rec.title.toLowerCase().includes('performance tracking')
+          )
+        ),
+        feedbackDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('feedback') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('improvement')
+          )
+        ),
+        onboardingTransitionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('onboarding') ||
+            rec.title.toLowerCase().includes('transition') ||
+            rec.title.toLowerCase().includes('permanent')
+          )
+        ),
+        trainingCompletionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('training') ||
+            rec.title.toLowerCase().includes('orientation') ||
+            rec.title.toLowerCase().includes('completion')
+          )
+        ),
+        probationSchedule: {
+          period: probationPeriod,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          evaluationType: evaluationType
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1562,6 +1729,21 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         advanceNoticeDays: 14,
         reminderDays: [14, 7, 3, 1],
         checkinType: 'performance_review'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Probation Period Ending Alert',
+      type: 'probation_period_ending',
+      config: { 
+        probationPeriod: 'standard',
+        advanceNoticeDays: 7,
+        reminderDays: [7, 3, 1],
+        evaluationType: 'performance_evaluation'
       },
       status: 'active' as const,
       createdAt: new Date(),
