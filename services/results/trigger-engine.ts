@@ -140,6 +140,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'succession_plan_activation':
       return processSuccessionPlanActivationTrigger(trigger, unifiedResults, config);
     
+    case 'flight_risk_prediction':
+      return processFlightRiskPredictionTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -3169,6 +3172,249 @@ function processSuccessionPlanActivationTrigger(trigger: any, results: UnifiedRe
   return null;
 }
 
+function processFlightRiskPredictionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is activated when flight risk prediction indicates high risk of employee departure
+  // It activates the Retention Intervention Module to prevent employee turnover
+  
+  const predictionType = config.predictionType || 'flight_risk';
+  const riskThreshold = config.riskThreshold || 0.7;
+  const advanceNoticeDays = config.advanceNoticeDays || 3;
+  const reminderDays = config.reminderDays || [3, 1];
+  const moduleType = config.moduleType || 'retention_intervention_module';
+  const urgencyLevel = config.urgencyLevel || 'high';
+  
+  // Check if there are flight risk prediction indicators
+  const hasFlightRiskPrediction = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('flight risk prediction') ||
+      rec.title.toLowerCase().includes('flight risk') ||
+      rec.title.toLowerCase().includes('turnover risk') ||
+      rec.title.toLowerCase().includes('departure risk') ||
+      rec.title.toLowerCase().includes('exit risk')
+    )
+  );
+  
+  // Check for retention intervention module needs
+  const hasRetentionInterventionNeeds = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('retention intervention') ||
+      rec.title.toLowerCase().includes('retention strategy') ||
+      rec.title.toLowerCase().includes('retention program') ||
+      rec.title.toLowerCase().includes('retention plan') ||
+      rec.title.toLowerCase().includes('retention action')
+    )
+  );
+  
+  // Check for high turnover risk indicators
+  const hasHighTurnoverRisk = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('high turnover risk') ||
+      rec.title.toLowerCase().includes('high departure risk') ||
+      rec.title.toLowerCase().includes('high exit risk') ||
+      rec.title.toLowerCase().includes('critical retention') ||
+      rec.title.toLowerCase().includes('urgent retention')
+    )
+  );
+  
+  // Check for employee satisfaction and engagement issues
+  const hasEmployeeSatisfactionIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('employee satisfaction') ||
+      rec.title.toLowerCase().includes('employee engagement') ||
+      rec.title.toLowerCase().includes('employee morale') ||
+      rec.title.toLowerCase().includes('employee motivation') ||
+      rec.title.toLowerCase().includes('employee happiness')
+    )
+  );
+  
+  // Check for compensation and benefits concerns
+  const hasCompensationConcerns = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('compensation concerns') ||
+      rec.title.toLowerCase().includes('salary issues') ||
+      rec.title.toLowerCase().includes('benefits concerns') ||
+      rec.title.toLowerCase().includes('pay dissatisfaction') ||
+      rec.title.toLowerCase().includes('compensation gap')
+    )
+  );
+  
+  // Check for career development and growth opportunities
+  const hasCareerDevelopmentIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('career development') ||
+      rec.title.toLowerCase().includes('career growth') ||
+      rec.title.toLowerCase().includes('career advancement') ||
+      rec.title.toLowerCase().includes('career opportunities') ||
+      rec.title.toLowerCase().includes('career progression')
+    )
+  );
+  
+  // Check for work-life balance and flexibility issues
+  const hasWorkLifeBalanceIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('work-life balance') ||
+      rec.title.toLowerCase().includes('work flexibility') ||
+      rec.title.toLowerCase().includes('workload concerns') ||
+      rec.title.toLowerCase().includes('work stress') ||
+      rec.title.toLowerCase().includes('work pressure')
+    )
+  );
+  
+  // Check for management and leadership issues
+  const hasManagementIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('management issues') ||
+      rec.title.toLowerCase().includes('leadership concerns') ||
+      rec.title.toLowerCase().includes('supervisor problems') ||
+      rec.title.toLowerCase().includes('manager relationship') ||
+      rec.title.toLowerCase().includes('leadership style')
+    )
+  );
+  
+  // Check for team dynamics and workplace culture issues
+  const hasTeamDynamicsIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('team dynamics') ||
+      rec.title.toLowerCase().includes('workplace culture') ||
+      rec.title.toLowerCase().includes('team conflicts') ||
+      rec.title.toLowerCase().includes('workplace environment') ||
+      rec.title.toLowerCase().includes('team collaboration')
+    )
+  );
+  
+  // Check for job security and stability concerns
+  const hasJobSecurityConcerns = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('job security') ||
+      rec.title.toLowerCase().includes('job stability') ||
+      rec.title.toLowerCase().includes('employment concerns') ||
+      rec.title.toLowerCase().includes('job uncertainty') ||
+      rec.title.toLowerCase().includes('job stability')
+    )
+  );
+  
+  // Check for recognition and appreciation issues
+  const hasRecognitionIssues = results.recommendations.some(rec =>
+    rec.category === 'retention' && (
+      rec.title.toLowerCase().includes('recognition issues') ||
+      rec.title.toLowerCase().includes('appreciation concerns') ||
+      rec.title.toLowerCase().includes('acknowledgment problems') ||
+      rec.title.toLowerCase().includes('recognition gap') ||
+      rec.title.toLowerCase().includes('appreciation gap')
+    )
+  );
+  
+  // This trigger would typically be activated by flight risk prediction algorithms
+  // For now, we'll check if there are retention-related recommendations that indicate flight risk needs
+  if (hasFlightRiskPrediction || hasRetentionInterventionNeeds || hasHighTurnoverRisk || hasEmployeeSatisfactionIssues || hasCompensationConcerns || hasCareerDevelopmentIssues || hasWorkLifeBalanceIssues || hasManagementIssues || hasTeamDynamicsIssues || hasJobSecurityConcerns || hasRecognitionIssues) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Flight risk prediction indicates high risk of employee departure - activate retention intervention module',
+      action: 'activate_retention_intervention_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'flight_risk_prediction',
+        predictionType: predictionType,
+        riskThreshold: riskThreshold,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        urgencyLevel: urgencyLevel,
+        flightRiskPrediction: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('flight risk') ||
+            rec.title.toLowerCase().includes('turnover risk') ||
+            rec.title.toLowerCase().includes('departure risk')
+          )
+        ),
+        retentionInterventionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('retention') ||
+            rec.title.toLowerCase().includes('intervention') ||
+            rec.title.toLowerCase().includes('strategy')
+          )
+        ),
+        highTurnoverRisk: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('high turnover') ||
+            rec.title.toLowerCase().includes('high departure') ||
+            rec.title.toLowerCase().includes('critical retention')
+          )
+        ),
+        employeeSatisfactionIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('satisfaction') ||
+            rec.title.toLowerCase().includes('engagement') ||
+            rec.title.toLowerCase().includes('morale')
+          )
+        ),
+        compensationConcerns: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('compensation') ||
+            rec.title.toLowerCase().includes('salary') ||
+            rec.title.toLowerCase().includes('benefits')
+          )
+        ),
+        careerDevelopmentIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('career') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('growth')
+          )
+        ),
+        workLifeBalanceIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('work-life') ||
+            rec.title.toLowerCase().includes('flexibility') ||
+            rec.title.toLowerCase().includes('workload')
+          )
+        ),
+        managementIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('management') ||
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('supervisor')
+          )
+        ),
+        teamDynamicsIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('team') ||
+            rec.title.toLowerCase().includes('culture') ||
+            rec.title.toLowerCase().includes('workplace')
+          )
+        ),
+        jobSecurityConcerns: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('job security') ||
+            rec.title.toLowerCase().includes('stability') ||
+            rec.title.toLowerCase().includes('employment')
+          )
+        ),
+        recognitionIssues: results.recommendations.filter(rec =>
+          rec.category === 'retention' && (
+            rec.title.toLowerCase().includes('recognition') ||
+            rec.title.toLowerCase().includes('appreciation') ||
+            rec.title.toLowerCase().includes('acknowledgment')
+          )
+        ),
+        interventionSchedule: {
+          type: predictionType,
+          riskThreshold: riskThreshold,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          urgencyLevel: urgencyLevel
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'retention')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -3494,6 +3740,23 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         moduleType: 'leadership_transition_module',
         partOf: 'onboarding_module',
         sourceModule: 'succession_planning'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Flight Risk Prediction Alert',
+      type: 'flight_risk_prediction',
+      config: { 
+        predictionType: 'flight_risk',
+        riskThreshold: 0.7,
+        advanceNoticeDays: 3,
+        reminderDays: [3, 1],
+        moduleType: 'retention_intervention_module',
+        urgencyLevel: 'high'
       },
       status: 'active' as const,
       createdAt: new Date(),
