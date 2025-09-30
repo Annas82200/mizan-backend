@@ -80,6 +80,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'employee_skill_gap':
       return processEmployeeSkillGapTrigger(trigger, unifiedResults, config);
     
+    case 'culture_alignment_reward':
+      return processCultureAlignmentTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -235,6 +238,70 @@ function processEmployeeSkillGapTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
+function processCultureAlignmentTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  const cultureData = results.detailed_analysis.culture;
+  const alignmentThreshold = config.alignmentThreshold || 0.8; // 80% alignment threshold
+  
+  // Check if culture analysis shows strong alignment with company values
+  const hasStrongAlignment = cultureData.strengths.some(strength =>
+    strength.toLowerCase().includes('alignment') ||
+    strength.toLowerCase().includes('values match') ||
+    strength.toLowerCase().includes('cultural fit') ||
+    strength.toLowerCase().includes('strong values')
+  );
+  
+  // Check for high culture score indicating good alignment
+  const hasHighCultureScore = cultureData.score >= alignmentThreshold;
+  
+  // Check for positive culture indicators
+  const hasPositiveIndicators = cultureData.strengths.some(strength =>
+    strength.toLowerCase().includes('excellent') ||
+    strength.toLowerCase().includes('strong') ||
+    strength.toLowerCase().includes('positive') ||
+    strength.toLowerCase().includes('aligned')
+  );
+  
+  // Check if employee values match company values
+  const hasValueMatch = cultureData.recommendations?.some(rec =>
+    rec.toLowerCase().includes('maintain') ||
+    rec.toLowerCase().includes('continue') ||
+    rec.toLowerCase().includes('exemplary') ||
+    rec.toLowerCase().includes('role model')
+  );
+  
+  if ((hasStrongAlignment || hasHighCultureScore) && (hasPositiveIndicators || hasValueMatch)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Employee culture analysis shows strong alignment with company values',
+      action: 'activate_reward_module',
+      priority: 'medium',
+      data: {
+        cultureScore: cultureData.score,
+        alignmentLevel: hasStrongAlignment ? 'Strong' : 'High',
+        valueAlignment: cultureData.strengths.filter(strength =>
+          strength.toLowerCase().includes('alignment') ||
+          strength.toLowerCase().includes('values')
+        ),
+        positiveIndicators: cultureData.strengths.filter(strength =>
+          strength.toLowerCase().includes('excellent') ||
+          strength.toLowerCase().includes('strong') ||
+          strength.toLowerCase().includes('positive')
+        ),
+        rewardRecommendations: cultureData.recommendations?.filter(rec =>
+          rec.toLowerCase().includes('maintain') ||
+          rec.toLowerCase().includes('continue') ||
+          rec.toLowerCase().includes('exemplary')
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'culture')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -300,6 +367,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Employee Skill Gap Alert',
       type: 'employee_skill_gap',
       config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Culture Alignment Reward Alert',
+      type: 'culture_alignment_reward',
+      config: { alignmentThreshold: 0.8 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
