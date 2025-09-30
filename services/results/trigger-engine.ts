@@ -110,6 +110,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'annual_performance_review_due':
       return processAnnualPerformanceReviewTrigger(trigger, unifiedResults, config);
     
+    case 'quarterly_checkin_due':
+      return processQuarterlyCheckinTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1225,6 +1228,157 @@ function processAnnualPerformanceReviewTrigger(trigger: any, results: UnifiedRes
   return null;
 }
 
+function processQuarterlyCheckinTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when quarterly check-ins are due based on employee review cycles
+  
+  const reviewPeriod = config.reviewPeriod || 'quarterly';
+  const advanceNoticeDays = config.advanceNoticeDays || 14;
+  const reminderDays = config.reminderDays || [14, 7, 3, 1];
+  const checkinType = config.checkinType || 'performance_review';
+  
+  // Check if there are quarterly check-in due indicators
+  const hasQuarterlyCheckinIndicators = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('quarterly check-in') ||
+      rec.title.toLowerCase().includes('quarterly review') ||
+      rec.title.toLowerCase().includes('q1 review') ||
+      rec.title.toLowerCase().includes('q2 review') ||
+      rec.title.toLowerCase().includes('q3 review') ||
+      rec.title.toLowerCase().includes('q4 review') ||
+      rec.title.toLowerCase().includes('quarterly evaluation') ||
+      rec.title.toLowerCase().includes('quarterly assessment')
+    )
+  );
+  
+  // Check for performance review needs (part of performance management module)
+  const hasPerformanceReviewNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance review') ||
+      rec.title.toLowerCase().includes('review meeting') ||
+      rec.title.toLowerCase().includes('check-in meeting') ||
+      rec.title.toLowerCase().includes('one-on-one') ||
+      rec.title.toLowerCase().includes('performance discussion')
+    )
+  );
+  
+  // Check for progress tracking and goal updates
+  const hasProgressTrackingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('progress tracking') ||
+      rec.title.toLowerCase().includes('goal progress') ||
+      rec.title.toLowerCase().includes('milestone review') ||
+      rec.title.toLowerCase().includes('quarterly goals') ||
+      rec.title.toLowerCase().includes('objective progress')
+    )
+  );
+  
+  // Check for feedback and coaching needs
+  const hasFeedbackCoachingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('feedback session') ||
+      rec.title.toLowerCase().includes('coaching session') ||
+      rec.title.toLowerCase().includes('development discussion') ||
+      rec.title.toLowerCase().includes('performance feedback') ||
+      rec.title.toLowerCase().includes('guidance session')
+    )
+  );
+  
+  // Check for performance management module activation
+  const hasPerformanceManagementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance management') ||
+      rec.title.toLowerCase().includes('performance tracking') ||
+      rec.title.toLowerCase().includes('performance monitoring') ||
+      rec.title.toLowerCase().includes('performance evaluation')
+    )
+  );
+  
+  // Check for quarterly planning and adjustment needs
+  const hasQuarterlyPlanningNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('quarterly planning') ||
+      rec.title.toLowerCase().includes('goal adjustment') ||
+      rec.title.toLowerCase().includes('strategy review') ||
+      rec.title.toLowerCase().includes('quarterly adjustment') ||
+      rec.title.toLowerCase().includes('plan revision')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are performance-related recommendations that indicate quarterly check-in needs
+  if (hasQuarterlyCheckinIndicators || hasPerformanceReviewNeeds || hasProgressTrackingNeeds || hasFeedbackCoachingNeeds || hasPerformanceManagementNeeds || hasQuarterlyPlanningNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Quarterly check-in is due - activate performance review part of performance management module',
+      action: 'activate_performance_review_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        reviewPeriod: reviewPeriod,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        checkinType: checkinType,
+        quarterlyCheckinIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('quarterly') ||
+            rec.title.toLowerCase().includes('check-in') ||
+            rec.title.toLowerCase().includes('q1') ||
+            rec.title.toLowerCase().includes('q2') ||
+            rec.title.toLowerCase().includes('q3') ||
+            rec.title.toLowerCase().includes('q4')
+          )
+        ),
+        performanceReviewNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance review') ||
+            rec.title.toLowerCase().includes('review meeting') ||
+            rec.title.toLowerCase().includes('check-in meeting')
+          )
+        ),
+        progressTrackingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('progress') ||
+            rec.title.toLowerCase().includes('goal') ||
+            rec.title.toLowerCase().includes('milestone')
+          )
+        ),
+        feedbackCoachingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('feedback') ||
+            rec.title.toLowerCase().includes('coaching') ||
+            rec.title.toLowerCase().includes('development')
+          )
+        ),
+        performanceManagementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance management') ||
+            rec.title.toLowerCase().includes('performance tracking')
+          )
+        ),
+        quarterlyPlanningNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('quarterly planning') ||
+            rec.title.toLowerCase().includes('goal adjustment') ||
+            rec.title.toLowerCase().includes('strategy review')
+          )
+        ),
+        checkinSchedule: {
+          period: reviewPeriod,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          type: checkinType
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1393,6 +1547,21 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         reviewPeriod: 'annual',
         advanceNoticeDays: 30,
         reminderDays: [30, 14, 7, 1]
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Quarterly Check-in Due Alert',
+      type: 'quarterly_checkin_due',
+      config: { 
+        reviewPeriod: 'quarterly',
+        advanceNoticeDays: 14,
+        reminderDays: [14, 7, 3, 1],
+        checkinType: 'performance_review'
       },
       status: 'active' as const,
       createdAt: new Date(),
