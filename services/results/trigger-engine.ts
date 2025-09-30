@@ -926,7 +926,7 @@ function processPerformanceTalentSuccessionTrigger(trigger: any, results: Unifie
     return {
       id: randomUUID(),
       triggerId: trigger.id,
-      reason: 'Performance management results show 105%+ performance - activate talent management and succession planning modules',
+      reason: 'Performance management results show 105%+ performance - activate talent management and succession planning modules (leadership development handled by LXP)',
       action: 'activate_talent_management_and_succession_planning_modules',
       priority: 'high',
       data: {
