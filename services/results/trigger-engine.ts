@@ -143,6 +143,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'flight_risk_prediction':
       return processFlightRiskPredictionTrigger(trigger, unifiedResults, config);
     
+    case 'skill_obsolescence_risk':
+      return processSkillObsolescenceRiskTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -3415,6 +3418,252 @@ function processFlightRiskPredictionTrigger(trigger: any, results: UnifiedResult
   return null;
 }
 
+function processSkillObsolescenceRiskTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is activated when skills are at risk of becoming obsolete
+  // It activates the Proactive Training Module (part of LXP) to prevent skill obsolescence
+  
+  const riskType = config.riskType || 'skill_obsolescence';
+  const obsolescenceThreshold = config.obsolescenceThreshold || 0.6;
+  const advanceNoticeDays = config.advanceNoticeDays || 14;
+  const reminderDays = config.reminderDays || [14, 7, 3];
+  const moduleType = config.moduleType || 'proactive_training_module';
+  const partOf = config.partOf || 'lxp';
+  const urgencyLevel = config.urgencyLevel || 'medium';
+  
+  // Check if there are skill obsolescence risk indicators
+  const hasSkillObsolescenceRisk = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('skill obsolescence risk') ||
+      rec.title.toLowerCase().includes('skill obsolescence') ||
+      rec.title.toLowerCase().includes('outdated skills') ||
+      rec.title.toLowerCase().includes('obsolete skills') ||
+      rec.title.toLowerCase().includes('skill decay')
+    )
+  );
+  
+  // Check for proactive training module needs (part of LXP)
+  const hasProactiveTrainingNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('proactive training') ||
+      rec.title.toLowerCase().includes('preventive training') ||
+      rec.title.toLowerCase().includes('anticipatory training') ||
+      rec.title.toLowerCase().includes('future skills training') ||
+      rec.title.toLowerCase().includes('skill maintenance')
+    )
+  );
+  
+  // Check for technology advancement and skill evolution needs
+  const hasTechnologyAdvancementNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('technology advancement') ||
+      rec.title.toLowerCase().includes('technology evolution') ||
+      rec.title.toLowerCase().includes('digital transformation') ||
+      rec.title.toLowerCase().includes('technology update') ||
+      rec.title.toLowerCase().includes('tech advancement')
+    )
+  );
+  
+  // Check for industry trend and market change needs
+  const hasIndustryTrendNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('industry trend') ||
+      rec.title.toLowerCase().includes('market change') ||
+      rec.title.toLowerCase().includes('industry evolution') ||
+      rec.title.toLowerCase().includes('market shift') ||
+      rec.title.toLowerCase().includes('industry disruption')
+    )
+  );
+  
+  // Check for skill gap and competency needs
+  const hasSkillGapNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('skill gap') ||
+      rec.title.toLowerCase().includes('competency gap') ||
+      rec.title.toLowerCase().includes('skill deficiency') ||
+      rec.title.toLowerCase().includes('competency deficiency') ||
+      rec.title.toLowerCase().includes('skill shortage')
+    )
+  );
+  
+  // Check for emerging skills and future competencies needs
+  const hasEmergingSkillsNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('emerging skills') ||
+      rec.title.toLowerCase().includes('future competencies') ||
+      rec.title.toLowerCase().includes('new skills') ||
+      rec.title.toLowerCase().includes('evolving skills') ||
+      rec.title.toLowerCase().includes('next-gen skills')
+    )
+  );
+  
+  // Check for continuous learning and upskilling needs
+  const hasContinuousLearningNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('continuous learning') ||
+      rec.title.toLowerCase().includes('upskilling') ||
+      rec.title.toLowerCase().includes('reskilling') ||
+      rec.title.toLowerCase().includes('skill development') ||
+      rec.title.toLowerCase().includes('learning development')
+    )
+  );
+  
+  // Check for certification and credential renewal needs
+  const hasCertificationRenewalNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('certification renewal') ||
+      rec.title.toLowerCase().includes('credential renewal') ||
+      rec.title.toLowerCase().includes('license renewal') ||
+      rec.title.toLowerCase().includes('certification update') ||
+      rec.title.toLowerCase().includes('credential update')
+    )
+  );
+  
+  // Check for skill assessment and evaluation needs
+  const hasSkillAssessmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('skill assessment') ||
+      rec.title.toLowerCase().includes('competency evaluation') ||
+      rec.title.toLowerCase().includes('skill evaluation') ||
+      rec.title.toLowerCase().includes('competency assessment') ||
+      rec.title.toLowerCase().includes('skill audit')
+    )
+  );
+  
+  // Check for learning path and development planning needs
+  const hasLearningPathNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('learning path') ||
+      rec.title.toLowerCase().includes('development planning') ||
+      rec.title.toLowerCase().includes('skill roadmap') ||
+      rec.title.toLowerCase().includes('competency roadmap') ||
+      rec.title.toLowerCase().includes('learning roadmap')
+    )
+  );
+  
+  // Check for performance impact and productivity needs
+  const hasPerformanceImpactNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('performance impact') ||
+      rec.title.toLowerCase().includes('productivity impact') ||
+      rec.title.toLowerCase().includes('efficiency impact') ||
+      rec.title.toLowerCase().includes('performance decline') ||
+      rec.title.toLowerCase().includes('productivity decline')
+    )
+  );
+  
+  // This trigger would typically be activated by skill obsolescence prediction algorithms
+  // For now, we'll check if there are skills-related recommendations that indicate obsolescence risk needs
+  if (hasSkillObsolescenceRisk || hasProactiveTrainingNeeds || hasTechnologyAdvancementNeeds || hasIndustryTrendNeeds || hasSkillGapNeeds || hasEmergingSkillsNeeds || hasContinuousLearningNeeds || hasCertificationRenewalNeeds || hasSkillAssessmentNeeds || hasLearningPathNeeds || hasPerformanceImpactNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Skill obsolescence risk detected - activate proactive training module part of LXP',
+      action: 'activate_proactive_training_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'skill_obsolescence_risk',
+        riskType: riskType,
+        obsolescenceThreshold: obsolescenceThreshold,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        partOf: partOf,
+        urgencyLevel: urgencyLevel,
+        skillObsolescenceRisk: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('obsolescence') ||
+            rec.title.toLowerCase().includes('outdated') ||
+            rec.title.toLowerCase().includes('obsolete')
+          )
+        ),
+        proactiveTrainingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('proactive') ||
+            rec.title.toLowerCase().includes('preventive') ||
+            rec.title.toLowerCase().includes('anticipatory')
+          )
+        ),
+        technologyAdvancementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('technology') ||
+            rec.title.toLowerCase().includes('digital') ||
+            rec.title.toLowerCase().includes('tech')
+          )
+        ),
+        industryTrendNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('industry') ||
+            rec.title.toLowerCase().includes('market') ||
+            rec.title.toLowerCase().includes('trend')
+          )
+        ),
+        skillGapNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('gap') ||
+            rec.title.toLowerCase().includes('deficiency') ||
+            rec.title.toLowerCase().includes('shortage')
+          )
+        ),
+        emergingSkillsNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('emerging') ||
+            rec.title.toLowerCase().includes('future') ||
+            rec.title.toLowerCase().includes('new')
+          )
+        ),
+        continuousLearningNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('continuous') ||
+            rec.title.toLowerCase().includes('upskilling') ||
+            rec.title.toLowerCase().includes('reskilling')
+          )
+        ),
+        certificationRenewalNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('certification') ||
+            rec.title.toLowerCase().includes('credential') ||
+            rec.title.toLowerCase().includes('license')
+          )
+        ),
+        skillAssessmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('assessment') ||
+            rec.title.toLowerCase().includes('evaluation') ||
+            rec.title.toLowerCase().includes('audit')
+          )
+        ),
+        learningPathNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('learning path') ||
+            rec.title.toLowerCase().includes('roadmap') ||
+            rec.title.toLowerCase().includes('planning')
+          )
+        ),
+        performanceImpactNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('performance') ||
+            rec.title.toLowerCase().includes('productivity') ||
+            rec.title.toLowerCase().includes('efficiency')
+          )
+        ),
+        trainingSchedule: {
+          type: riskType,
+          obsolescenceThreshold: obsolescenceThreshold,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          partOf: partOf,
+          urgencyLevel: urgencyLevel
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -3757,6 +4006,24 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         reminderDays: [3, 1],
         moduleType: 'retention_intervention_module',
         urgencyLevel: 'high'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Skill Obsolescence Risk Alert',
+      type: 'skill_obsolescence_risk',
+      config: { 
+        riskType: 'skill_obsolescence',
+        obsolescenceThreshold: 0.6,
+        advanceNoticeDays: 14,
+        reminderDays: [14, 7, 3],
+        moduleType: 'proactive_training_module',
+        partOf: 'lxp',
+        urgencyLevel: 'medium'
       },
       status: 'active' as const,
       createdAt: new Date(),
