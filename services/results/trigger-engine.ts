@@ -74,6 +74,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'hiring_needs_urgent':
       return processHiringNeedsTrigger(trigger, unifiedResults, config);
     
+    case 'culture_learning_needed':
+      return processCultureLearningTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -129,6 +132,50 @@ function processHiringNeedsTrigger(trigger: any, results: UnifiedResults, config
   return null;
 }
 
+function processCultureLearningTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  const cultureData = results.detailed_analysis.culture;
+  
+  // Check if culture analysis indicates employees need to learn or adapt to values
+  const needsLearning = cultureData.risks.some(risk => 
+    risk.toLowerCase().includes('learning') || 
+    risk.toLowerCase().includes('adaptation') ||
+    risk.toLowerCase().includes('values alignment') ||
+    risk.toLowerCase().includes('cultural development')
+  );
+  
+  // Also check for value misalignment that requires learning
+  const hasValueMisalignment = cultureData.weaknesses.some(weakness =>
+    weakness.toLowerCase().includes('values') ||
+    weakness.toLowerCase().includes('alignment') ||
+    weakness.toLowerCase().includes('understanding')
+  );
+  
+  if (needsLearning || hasValueMisalignment) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Culture analysis indicates employees need to learn or adapt to company values',
+      action: 'activate_lxp_module',
+      priority: 'medium',
+      data: {
+        cultureScore: cultureData.score,
+        learningNeeds: cultureData.risks.filter(risk => 
+          risk.toLowerCase().includes('learning') || 
+          risk.toLowerCase().includes('adaptation')
+        ),
+        valueMisalignment: cultureData.weaknesses.filter(weakness =>
+          weakness.toLowerCase().includes('values') ||
+          weakness.toLowerCase().includes('alignment')
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'culture')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -173,6 +220,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       tenantId,
       name: 'Hiring Needs Alert',
       type: 'hiring_needs_urgent',
+      config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Culture Learning Alert',
+      type: 'culture_learning_needed',
       config: {},
       status: 'active' as const,
       createdAt: new Date(),
