@@ -101,6 +101,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'performance_perfect_lxp':
       return processPerformanceLXPTrigger(trigger, unifiedResults, config);
     
+    case 'performance_exceptional_talent_succession':
+      return processPerformanceTalentSuccessionTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -852,6 +855,124 @@ function processPerformanceLXPTrigger(trigger: any, results: UnifiedResults, con
   return null;
 }
 
+function processPerformanceTalentSuccessionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by performance management module events
+  // It would be triggered when performance management results show 105%+ performance for talent management and succession planning
+  
+  const exceptionalPerformanceThreshold = config.exceptionalPerformanceThreshold || 1.05; // 105% performance threshold
+  
+  // Check if there are exceptional performance indicators (105%+)
+  const hasExceptionalPerformance = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('105%') ||
+      rec.title.toLowerCase().includes('110%') ||
+      rec.title.toLowerCase().includes('exceptional') ||
+      rec.title.toLowerCase().includes('outstanding') ||
+      rec.title.toLowerCase().includes('exceeds all expectations') ||
+      rec.title.toLowerCase().includes('above and beyond')
+    )
+  );
+  
+  // Check for talent management recommendations
+  const hasTalentManagementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('talent management') ||
+      rec.title.toLowerCase().includes('high potential') ||
+      rec.title.toLowerCase().includes('key talent') ||
+      rec.title.toLowerCase().includes('talent pipeline') ||
+      rec.title.toLowerCase().includes('talent development')
+    )
+  );
+  
+  // Check for succession planning recommendations
+  const hasSuccessionPlanningNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('succession') ||
+      rec.title.toLowerCase().includes('leadership pipeline') ||
+      rec.title.toLowerCase().includes('future leader') ||
+      rec.title.toLowerCase().includes('promotion ready') ||
+      rec.title.toLowerCase().includes('management potential')
+    )
+  );
+  
+  // Check for leadership readiness indicators
+  const hasLeadershipReadiness = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('leadership ready') ||
+      rec.title.toLowerCase().includes('management material') ||
+      rec.title.toLowerCase().includes('executive potential') ||
+      rec.title.toLowerCase().includes('senior role') ||
+      rec.title.toLowerCase().includes('director level')
+    )
+  );
+  
+  // Check for career advancement opportunities
+  const hasCareerAdvancement = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('career advancement') ||
+      rec.title.toLowerCase().includes('promotion') ||
+      rec.title.toLowerCase().includes('next level') ||
+      rec.title.toLowerCase().includes('senior position') ||
+      rec.title.toLowerCase().includes('leadership role')
+    )
+  );
+  
+  // This trigger would typically be activated by external performance management module events
+  // For now, we'll check if there are performance-related recommendations that indicate exceptional performance
+  if (hasExceptionalPerformance && (hasTalentManagementNeeds || hasSuccessionPlanningNeeds || hasLeadershipReadiness || hasCareerAdvancement)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Performance management results show 105%+ performance - activate talent management and succession planning modules',
+      action: 'activate_talent_management_and_succession_planning_modules',
+      priority: 'high',
+      data: {
+        triggerSource: 'performance_management_module',
+        performanceLevel: 'Exceptional (105%+)',
+        performanceIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('105%') ||
+            rec.title.toLowerCase().includes('exceptional') ||
+            rec.title.toLowerCase().includes('outstanding')
+          )
+        ),
+        talentManagementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('talent') ||
+            rec.title.toLowerCase().includes('high potential') ||
+            rec.title.toLowerCase().includes('key talent')
+          )
+        ),
+        successionPlanningNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('succession') ||
+            rec.title.toLowerCase().includes('leadership pipeline') ||
+            rec.title.toLowerCase().includes('future leader')
+          )
+        ),
+        leadershipReadiness: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('management') ||
+            rec.title.toLowerCase().includes('executive')
+          )
+        ),
+        careerAdvancement: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('career') ||
+            rec.title.toLowerCase().includes('promotion') ||
+            rec.title.toLowerCase().includes('advancement')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -987,6 +1108,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Performance Perfect LXP Alert',
       type: 'performance_perfect_lxp',
       config: { perfectPerformanceThreshold: 1.0 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Performance Exceptional Talent Succession Alert',
+      type: 'performance_exceptional_talent_succession',
+      config: { exceptionalPerformanceThreshold: 1.05 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
