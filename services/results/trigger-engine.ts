@@ -104,6 +104,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'performance_exceptional_talent_succession':
       return processPerformanceTalentSuccessionTrigger(trigger, unifiedResults, config);
     
+    case 'performance_improvement_lxp':
+      return processPerformanceImprovementLXPTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -973,6 +976,125 @@ function processPerformanceTalentSuccessionTrigger(trigger: any, results: Unifie
   return null;
 }
 
+function processPerformanceImprovementLXPTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by performance management module events
+  // It would be triggered when performance management results show below 100% performance for improvement
+  
+  const improvementThreshold = config.improvementThreshold || 1.0; // 100% performance threshold
+  
+  // Check if there are below target performance indicators (< 100%)
+  const hasBelowTargetPerformance = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('below target') ||
+      rec.title.toLowerCase().includes('underperforming') ||
+      rec.title.toLowerCase().includes('needs improvement') ||
+      rec.title.toLowerCase().includes('performance gap') ||
+      rec.title.toLowerCase().includes('80%') ||
+      rec.title.toLowerCase().includes('90%') ||
+      rec.title.toLowerCase().includes('95%')
+    )
+  );
+  
+  // Check for skill development needs
+  const hasSkillDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('skill development') ||
+      rec.title.toLowerCase().includes('training needed') ||
+      rec.title.toLowerCase().includes('upskilling') ||
+      rec.title.toLowerCase().includes('competency gap') ||
+      rec.title.toLowerCase().includes('knowledge gap')
+    )
+  );
+  
+  // Check for LXP recommendations for improvement
+  const hasLXPImprovementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('lxp') ||
+      rec.title.toLowerCase().includes('learning plan') ||
+      rec.title.toLowerCase().includes('development plan') ||
+      rec.title.toLowerCase().includes('improvement plan') ||
+      rec.title.toLowerCase().includes('performance plan')
+    )
+  );
+  
+  // Check for coaching and mentoring needs
+  const hasCoachingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('coaching') ||
+      rec.title.toLowerCase().includes('mentoring') ||
+      rec.title.toLowerCase().includes('support') ||
+      rec.title.toLowerCase().includes('guidance') ||
+      rec.title.toLowerCase().includes('feedback')
+    )
+  );
+  
+  // Check for performance improvement opportunities
+  const hasImprovementOpportunities = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('improvement') ||
+      rec.title.toLowerCase().includes('enhancement') ||
+      rec.title.toLowerCase().includes('development') ||
+      rec.title.toLowerCase().includes('growth') ||
+      rec.title.toLowerCase().includes('progress')
+    )
+  );
+  
+  // This trigger would typically be activated by external performance management module events
+  // For now, we'll check if there are performance-related recommendations that indicate below target performance
+  if (hasBelowTargetPerformance && (hasSkillDevelopmentNeeds || hasLXPImprovementNeeds || hasCoachingNeeds || hasImprovementOpportunities)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Performance management results show below 100% performance - activate LXP for skill development and performance improvement',
+      action: 'activate_lxp_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'performance_management_module',
+        performanceLevel: 'Below Target (< 100%)',
+        performanceIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('below') ||
+            rec.title.toLowerCase().includes('underperforming') ||
+            rec.title.toLowerCase().includes('needs improvement')
+          )
+        ),
+        skillDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('skill') ||
+            rec.title.toLowerCase().includes('training') ||
+            rec.title.toLowerCase().includes('upskilling')
+          )
+        ),
+        lxpImprovementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('development')
+          )
+        ),
+        coachingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('coaching') ||
+            rec.title.toLowerCase().includes('mentoring') ||
+            rec.title.toLowerCase().includes('support')
+          )
+        ),
+        improvementOpportunities: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('improvement') ||
+            rec.title.toLowerCase().includes('enhancement') ||
+            rec.title.toLowerCase().includes('growth')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1118,6 +1240,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Performance Exceptional Talent Succession Alert',
       type: 'performance_exceptional_talent_succession',
       config: { exceptionalPerformanceThreshold: 1.05 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Performance Improvement LXP Alert',
+      type: 'performance_improvement_lxp',
+      config: { improvementThreshold: 1.0 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
