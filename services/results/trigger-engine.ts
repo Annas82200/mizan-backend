@@ -77,6 +77,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'culture_learning_needed':
       return processCultureLearningTrigger(trigger, unifiedResults, config);
     
+    case 'employee_skill_gap':
+      return processEmployeeSkillGapTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -176,6 +179,62 @@ function processCultureLearningTrigger(trigger: any, results: UnifiedResults, co
   return null;
 }
 
+function processEmployeeSkillGapTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  const skillsData = results.detailed_analysis.skills;
+  
+  // Check if there are individual employee skill gaps that require LXP
+  const hasEmployeeSkillGaps = skillsData.weaknesses.some(weakness =>
+    weakness.toLowerCase().includes('employee') ||
+    weakness.toLowerCase().includes('individual') ||
+    weakness.toLowerCase().includes('personal') ||
+    weakness.toLowerCase().includes('missing skill')
+  );
+  
+  // Also check for skill development needs
+  const hasSkillDevelopmentNeeds = skillsData.recommendations?.some(rec =>
+    rec.toLowerCase().includes('training') ||
+    rec.toLowerCase().includes('development') ||
+    rec.toLowerCase().includes('learning') ||
+    rec.toLowerCase().includes('upskilling')
+  );
+  
+  // Check if skills analysis indicates employees are missing specific skills
+  const hasMissingSkills = skillsData.gaps?.some(gap =>
+    gap.toLowerCase().includes('missing') ||
+    gap.toLowerCase().includes('lacking') ||
+    gap.toLowerCase().includes('insufficient')
+  );
+  
+  if (hasEmployeeSkillGaps || hasSkillDevelopmentNeeds || hasMissingSkills) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Skills gap analysis indicates employees are missing required skills',
+      action: 'activate_lxp_module',
+      priority: 'high',
+      data: {
+        skillsScore: skillsData.score,
+        employeeSkillGaps: skillsData.weaknesses.filter(weakness =>
+          weakness.toLowerCase().includes('employee') ||
+          weakness.toLowerCase().includes('individual')
+        ),
+        skillDevelopmentNeeds: skillsData.recommendations?.filter(rec =>
+          rec.toLowerCase().includes('training') ||
+          rec.toLowerCase().includes('development')
+        ),
+        missingSkills: skillsData.gaps?.filter(gap =>
+          gap.toLowerCase().includes('missing') ||
+          gap.toLowerCase().includes('lacking')
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -230,6 +289,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       tenantId,
       name: 'Culture Learning Alert',
       type: 'culture_learning_needed',
+      config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Employee Skill Gap Alert',
+      type: 'employee_skill_gap',
       config: {},
       status: 'active' as const,
       createdAt: new Date(),
