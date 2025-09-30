@@ -119,6 +119,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'compliance_training_due':
       return processComplianceTrainingDueTrigger(trigger, unifiedResults, config);
     
+    case 'safety_training_expired':
+      return processSafetyTrainingExpiredTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1715,6 +1718,190 @@ function processComplianceTrainingDueTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
+function processSafetyTrainingExpiredTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when safety training has expired based on certification dates, regulatory requirements, or policy updates
+  
+  const trainingType = config.trainingType || 'safety';
+  const advanceNoticeDays = config.advanceNoticeDays || 14;
+  const reminderDays = config.reminderDays || [14, 7, 3, 1];
+  const moduleType = config.moduleType || 'lxp_safety_training';
+  
+  // Check if there are safety training expired indicators
+  const hasSafetyTrainingExpiredIndicators = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('safety training expired') ||
+      rec.title.toLowerCase().includes('safety certification expired') ||
+      rec.title.toLowerCase().includes('safety training due') ||
+      rec.title.toLowerCase().includes('safety renewal required') ||
+      rec.title.toLowerCase().includes('safety training outdated') ||
+      rec.title.toLowerCase().includes('safety compliance expired')
+    )
+  );
+  
+  // Check for LXP safety training module needs (part of LXP)
+  const hasLXPSafetyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('lxp safety') ||
+      rec.title.toLowerCase().includes('learning safety') ||
+      rec.title.toLowerCase().includes('safety training module') ||
+      rec.title.toLowerCase().includes('safety course') ||
+      rec.title.toLowerCase().includes('safety learning')
+    )
+  );
+  
+  // Check for workplace safety training needs
+  const hasWorkplaceSafetyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('workplace safety') ||
+      rec.title.toLowerCase().includes('occupational safety') ||
+      rec.title.toLowerCase().includes('work safety') ||
+      rec.title.toLowerCase().includes('job safety') ||
+      rec.title.toLowerCase().includes('employee safety')
+    )
+  );
+  
+  // Check for emergency response and first aid training needs
+  const hasEmergencyResponseNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('emergency response') ||
+      rec.title.toLowerCase().includes('first aid') ||
+      rec.title.toLowerCase().includes('cpr training') ||
+      rec.title.toLowerCase().includes('emergency procedures') ||
+      rec.title.toLowerCase().includes('crisis management')
+    )
+  );
+  
+  // Check for equipment and machinery safety training needs
+  const hasEquipmentSafetyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('equipment safety') ||
+      rec.title.toLowerCase().includes('machinery safety') ||
+      rec.title.toLowerCase().includes('tool safety') ||
+      rec.title.toLowerCase().includes('safety equipment') ||
+      rec.title.toLowerCase().includes('protective equipment')
+    )
+  );
+  
+  // Check for hazard identification and risk assessment training needs
+  const hasHazardRiskNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('hazard identification') ||
+      rec.title.toLowerCase().includes('risk assessment') ||
+      rec.title.toLowerCase().includes('safety hazards') ||
+      rec.title.toLowerCase().includes('workplace hazards') ||
+      rec.title.toLowerCase().includes('safety risks')
+    )
+  );
+  
+  // Check for industry-specific safety training needs
+  const hasIndustrySafetyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('industry safety') ||
+      rec.title.toLowerCase().includes('sector safety') ||
+      rec.title.toLowerCase().includes('construction safety') ||
+      rec.title.toLowerCase().includes('manufacturing safety') ||
+      rec.title.toLowerCase().includes('healthcare safety')
+    )
+  );
+  
+  // Check for environmental safety and health training needs
+  const hasEnvironmentalSafetyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('environmental safety') ||
+      rec.title.toLowerCase().includes('health and safety') ||
+      rec.title.toLowerCase().includes('ehs training') ||
+      rec.title.toLowerCase().includes('environmental health') ||
+      rec.title.toLowerCase().includes('safety regulations')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are skills-related recommendations that indicate safety training needs
+  if (hasSafetyTrainingExpiredIndicators || hasLXPSafetyNeeds || hasWorkplaceSafetyNeeds || hasEmergencyResponseNeeds || hasEquipmentSafetyNeeds || hasHazardRiskNeeds || hasIndustrySafetyNeeds || hasEnvironmentalSafetyNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Safety training has expired - activate safety training module part of LXP',
+      action: 'activate_lxp_safety_training_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        trainingType: trainingType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        safetyTrainingExpiredIndicators: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('safety') ||
+            rec.title.toLowerCase().includes('expired') ||
+            rec.title.toLowerCase().includes('due')
+          )
+        ),
+        lxpSafetyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('training module')
+          )
+        ),
+        workplaceSafetyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('workplace') ||
+            rec.title.toLowerCase().includes('occupational') ||
+            rec.title.toLowerCase().includes('work safety')
+          )
+        ),
+        emergencyResponseNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('emergency') ||
+            rec.title.toLowerCase().includes('first aid') ||
+            rec.title.toLowerCase().includes('cpr')
+          )
+        ),
+        equipmentSafetyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('equipment') ||
+            rec.title.toLowerCase().includes('machinery') ||
+            rec.title.toLowerCase().includes('tool safety')
+          )
+        ),
+        hazardRiskNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('hazard') ||
+            rec.title.toLowerCase().includes('risk') ||
+            rec.title.toLowerCase().includes('safety hazards')
+          )
+        ),
+        industrySafetyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('industry') ||
+            rec.title.toLowerCase().includes('sector') ||
+            rec.title.toLowerCase().includes('construction')
+          )
+        ),
+        environmentalSafetyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('environmental') ||
+            rec.title.toLowerCase().includes('health and safety') ||
+            rec.title.toLowerCase().includes('ehs')
+          )
+        ),
+        trainingSchedule: {
+          type: trainingType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1928,6 +2115,21 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         advanceNoticeDays: 30,
         reminderDays: [30, 14, 7, 1],
         moduleType: 'lxp_compliance_training'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Safety Training Expired Alert',
+      type: 'safety_training_expired',
+      config: { 
+        trainingType: 'safety',
+        advanceNoticeDays: 14,
+        reminderDays: [14, 7, 3, 1],
+        moduleType: 'lxp_safety_training'
       },
       status: 'active' as const,
       createdAt: new Date(),
