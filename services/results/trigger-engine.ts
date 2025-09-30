@@ -146,6 +146,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'skill_obsolescence_risk':
       return processSkillObsolescenceRiskTrigger(trigger, unifiedResults, config);
     
+    case 'leadership_gap_prediction':
+      return processLeadershipGapPredictionTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -3664,6 +3667,252 @@ function processSkillObsolescenceRiskTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
+function processLeadershipGapPredictionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is activated when leadership gaps are predicted
+  // It activates the Succession Acceleration Module (part of Succession Planning Module) to accelerate leadership development
+  
+  const predictionType = config.predictionType || 'leadership_gap';
+  const gapThreshold = config.gapThreshold || 0.7;
+  const advanceNoticeDays = config.advanceNoticeDays || 30;
+  const reminderDays = config.reminderDays || [30, 14, 7];
+  const moduleType = config.moduleType || 'succession_acceleration_module';
+  const partOf = config.partOf || 'succession_planning_module';
+  const urgencyLevel = config.urgencyLevel || 'high';
+  
+  // Check if there are leadership gap prediction indicators
+  const hasLeadershipGapPrediction = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership gap prediction') ||
+      rec.title.toLowerCase().includes('leadership gap') ||
+      rec.title.toLowerCase().includes('leadership shortage') ||
+      rec.title.toLowerCase().includes('leadership deficit') ||
+      rec.title.toLowerCase().includes('leadership void')
+    )
+  );
+  
+  // Check for succession acceleration module needs (part of succession planning module)
+  const hasSuccessionAccelerationNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('succession acceleration') ||
+      rec.title.toLowerCase().includes('leadership acceleration') ||
+      rec.title.toLowerCase().includes('succession acceleration') ||
+      rec.title.toLowerCase().includes('leadership development acceleration') ||
+      rec.title.toLowerCase().includes('succession planning acceleration')
+    )
+  );
+  
+  // Check for leadership pipeline and readiness needs
+  const hasLeadershipPipelineNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership pipeline') ||
+      rec.title.toLowerCase().includes('leadership readiness') ||
+      rec.title.toLowerCase().includes('leadership bench') ||
+      rec.title.toLowerCase().includes('leadership talent pool') ||
+      rec.title.toLowerCase().includes('leadership succession pool')
+    )
+  );
+  
+  // Check for executive succession and leadership transition needs
+  const hasExecutiveSuccessionNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('executive succession') ||
+      rec.title.toLowerCase().includes('executive leadership') ||
+      rec.title.toLowerCase().includes('executive transition') ||
+      rec.title.toLowerCase().includes('executive development') ||
+      rec.title.toLowerCase().includes('executive pipeline')
+    )
+  );
+  
+  // Check for leadership competency and capability needs
+  const hasLeadershipCompetencyNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership competency') ||
+      rec.title.toLowerCase().includes('leadership capability') ||
+      rec.title.toLowerCase().includes('leadership skills') ||
+      rec.title.toLowerCase().includes('leadership abilities') ||
+      rec.title.toLowerCase().includes('leadership expertise')
+    )
+  );
+  
+  // Check for high-potential talent and leadership development needs
+  const hasHighPotentialTalentNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('high potential talent') ||
+      rec.title.toLowerCase().includes('high potential') ||
+      rec.title.toLowerCase().includes('leadership potential') ||
+      rec.title.toLowerCase().includes('future leaders') ||
+      rec.title.toLowerCase().includes('emerging leaders')
+    )
+  );
+  
+  // Check for leadership assessment and evaluation needs
+  const hasLeadershipAssessmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership assessment') ||
+      rec.title.toLowerCase().includes('leadership evaluation') ||
+      rec.title.toLowerCase().includes('leadership review') ||
+      rec.title.toLowerCase().includes('leadership audit') ||
+      rec.title.toLowerCase().includes('leadership analysis')
+    )
+  );
+  
+  // Check for leadership development and training needs
+  const hasLeadershipDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership development') ||
+      rec.title.toLowerCase().includes('leadership training') ||
+      rec.title.toLowerCase().includes('leadership coaching') ||
+      rec.title.toLowerCase().includes('leadership mentoring') ||
+      rec.title.toLowerCase().includes('leadership education')
+    )
+  );
+  
+  // Check for succession planning and strategy needs
+  const hasSuccessionPlanningNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('succession planning') ||
+      rec.title.toLowerCase().includes('succession strategy') ||
+      rec.title.toLowerCase().includes('succession management') ||
+      rec.title.toLowerCase().includes('succession program') ||
+      rec.title.toLowerCase().includes('succession framework')
+    )
+  );
+  
+  // Check for organizational continuity and leadership stability needs
+  const hasOrganizationalContinuityNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('organizational continuity') ||
+      rec.title.toLowerCase().includes('leadership stability') ||
+      rec.title.toLowerCase().includes('organizational stability') ||
+      rec.title.toLowerCase().includes('leadership continuity') ||
+      rec.title.toLowerCase().includes('organizational leadership')
+    )
+  );
+  
+  // Check for critical leadership positions and roles needs
+  const hasCriticalLeadershipPositionsNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('critical leadership positions') ||
+      rec.title.toLowerCase().includes('key leadership roles') ||
+      rec.title.toLowerCase().includes('critical leadership roles') ||
+      rec.title.toLowerCase().includes('essential leadership') ||
+      rec.title.toLowerCase().includes('vital leadership')
+    )
+  );
+  
+  // This trigger would typically be activated by leadership gap prediction algorithms
+  // For now, we'll check if there are talent-related recommendations that indicate leadership gap needs
+  if (hasLeadershipGapPrediction || hasSuccessionAccelerationNeeds || hasLeadershipPipelineNeeds || hasExecutiveSuccessionNeeds || hasLeadershipCompetencyNeeds || hasHighPotentialTalentNeeds || hasLeadershipAssessmentNeeds || hasLeadershipDevelopmentNeeds || hasSuccessionPlanningNeeds || hasOrganizationalContinuityNeeds || hasCriticalLeadershipPositionsNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Leadership gap prediction indicates critical leadership shortage - activate succession acceleration module part of succession planning module',
+      action: 'activate_succession_acceleration_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'leadership_gap_prediction',
+        predictionType: predictionType,
+        gapThreshold: gapThreshold,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        partOf: partOf,
+        urgencyLevel: urgencyLevel,
+        leadershipGapPrediction: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership gap') ||
+            rec.title.toLowerCase().includes('leadership shortage') ||
+            rec.title.toLowerCase().includes('leadership deficit')
+          )
+        ),
+        successionAccelerationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('succession acceleration') ||
+            rec.title.toLowerCase().includes('leadership acceleration') ||
+            rec.title.toLowerCase().includes('acceleration')
+          )
+        ),
+        leadershipPipelineNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership pipeline') ||
+            rec.title.toLowerCase().includes('leadership readiness') ||
+            rec.title.toLowerCase().includes('leadership bench')
+          )
+        ),
+        executiveSuccessionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('executive') ||
+            rec.title.toLowerCase().includes('succession') ||
+            rec.title.toLowerCase().includes('leadership')
+          )
+        ),
+        leadershipCompetencyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership competency') ||
+            rec.title.toLowerCase().includes('leadership capability') ||
+            rec.title.toLowerCase().includes('leadership skills')
+          )
+        ),
+        highPotentialTalentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('high potential') ||
+            rec.title.toLowerCase().includes('leadership potential') ||
+            rec.title.toLowerCase().includes('future leaders')
+          )
+        ),
+        leadershipAssessmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership assessment') ||
+            rec.title.toLowerCase().includes('leadership evaluation') ||
+            rec.title.toLowerCase().includes('leadership review')
+          )
+        ),
+        leadershipDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership development') ||
+            rec.title.toLowerCase().includes('leadership training') ||
+            rec.title.toLowerCase().includes('leadership coaching')
+          )
+        ),
+        successionPlanningNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('succession planning') ||
+            rec.title.toLowerCase().includes('succession strategy') ||
+            rec.title.toLowerCase().includes('succession management')
+          )
+        ),
+        organizationalContinuityNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('organizational continuity') ||
+            rec.title.toLowerCase().includes('leadership stability') ||
+            rec.title.toLowerCase().includes('organizational stability')
+          )
+        ),
+        criticalLeadershipPositionsNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('critical leadership') ||
+            rec.title.toLowerCase().includes('key leadership') ||
+            rec.title.toLowerCase().includes('essential leadership')
+          )
+        ),
+        accelerationSchedule: {
+          type: predictionType,
+          gapThreshold: gapThreshold,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          partOf: partOf,
+          urgencyLevel: urgencyLevel
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'talent')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -4024,6 +4273,24 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         moduleType: 'proactive_training_module',
         partOf: 'lxp',
         urgencyLevel: 'medium'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Leadership Gap Prediction Alert',
+      type: 'leadership_gap_prediction',
+      config: { 
+        predictionType: 'leadership_gap',
+        gapThreshold: 0.7,
+        advanceNoticeDays: 30,
+        reminderDays: [30, 14, 7],
+        moduleType: 'succession_acceleration_module',
+        partOf: 'succession_planning_module',
+        urgencyLevel: 'high'
       },
       status: 'active' as const,
       createdAt: new Date(),
