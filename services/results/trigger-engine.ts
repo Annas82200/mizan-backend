@@ -122,6 +122,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'safety_training_expired':
       return processSafetyTrainingExpiredTrigger(trigger, unifiedResults, config);
     
+    case 'certification_expiring':
+      return processCertificationExpiringTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1902,6 +1905,190 @@ function processSafetyTrainingExpiredTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
+function processCertificationExpiringTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when professional certifications are expiring based on certification dates, renewal requirements, or continuing education needs
+  
+  const certificationType = config.certificationType || 'professional';
+  const advanceNoticeDays = config.advanceNoticeDays || 60;
+  const reminderDays = config.reminderDays || [60, 30, 14, 7, 1];
+  const moduleType = config.moduleType || 'lxp_certification_renewal';
+  
+  // Check if there are certification expiring indicators
+  const hasCertificationExpiringIndicators = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('certification expiring') ||
+      rec.title.toLowerCase().includes('certification due') ||
+      rec.title.toLowerCase().includes('certification renewal') ||
+      rec.title.toLowerCase().includes('license expiring') ||
+      rec.title.toLowerCase().includes('credential expiring') ||
+      rec.title.toLowerCase().includes('professional certification')
+    )
+  );
+  
+  // Check for LXP certification renewal module needs (part of LXP)
+  const hasLXPCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('lxp certification') ||
+      rec.title.toLowerCase().includes('learning certification') ||
+      rec.title.toLowerCase().includes('certification module') ||
+      rec.title.toLowerCase().includes('certification course') ||
+      rec.title.toLowerCase().includes('certification learning')
+    )
+  );
+  
+  // Check for professional development and continuing education needs
+  const hasProfessionalDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('professional development') ||
+      rec.title.toLowerCase().includes('continuing education') ||
+      rec.title.toLowerCase().includes('ce credits') ||
+      rec.title.toLowerCase().includes('professional growth') ||
+      rec.title.toLowerCase().includes('career advancement')
+    )
+  );
+  
+  // Check for industry-specific certification needs
+  const hasIndustryCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('industry certification') ||
+      rec.title.toLowerCase().includes('sector certification') ||
+      rec.title.toLowerCase().includes('professional license') ||
+      rec.title.toLowerCase().includes('trade certification') ||
+      rec.title.toLowerCase().includes('technical certification')
+    )
+  );
+  
+  // Check for compliance and regulatory certification needs
+  const hasComplianceCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('compliance certification') ||
+      rec.title.toLowerCase().includes('regulatory certification') ||
+      rec.title.toLowerCase().includes('audit certification') ||
+      rec.title.toLowerCase().includes('quality certification') ||
+      rec.title.toLowerCase().includes('standard certification')
+    )
+  );
+  
+  // Check for technology and digital certification needs
+  const hasTechnologyCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('technology certification') ||
+      rec.title.toLowerCase().includes('digital certification') ||
+      rec.title.toLowerCase().includes('software certification') ||
+      rec.title.toLowerCase().includes('it certification') ||
+      rec.title.toLowerCase().includes('technical skills')
+    )
+  );
+  
+  // Check for leadership and management certification needs
+  const hasLeadershipCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('leadership certification') ||
+      rec.title.toLowerCase().includes('management certification') ||
+      rec.title.toLowerCase().includes('project management') ||
+      rec.title.toLowerCase().includes('executive certification') ||
+      rec.title.toLowerCase().includes('leadership development')
+    )
+  );
+  
+  // Check for specialized skill certification needs
+  const hasSpecializedCertificationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('specialized certification') ||
+      rec.title.toLowerCase().includes('expert certification') ||
+      rec.title.toLowerCase().includes('advanced certification') ||
+      rec.title.toLowerCase().includes('master certification') ||
+      rec.title.toLowerCase().includes('expertise certification')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are skills-related recommendations that indicate certification renewal needs
+  if (hasCertificationExpiringIndicators || hasLXPCertificationNeeds || hasProfessionalDevelopmentNeeds || hasIndustryCertificationNeeds || hasComplianceCertificationNeeds || hasTechnologyCertificationNeeds || hasLeadershipCertificationNeeds || hasSpecializedCertificationNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Certification is expiring - activate certification renewal module part of LXP',
+      action: 'activate_lxp_certification_renewal_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        certificationType: certificationType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        certificationExpiringIndicators: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('certification') ||
+            rec.title.toLowerCase().includes('expiring') ||
+            rec.title.toLowerCase().includes('renewal')
+          )
+        ),
+        lxpCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('certification module')
+          )
+        ),
+        professionalDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('professional') ||
+            rec.title.toLowerCase().includes('continuing') ||
+            rec.title.toLowerCase().includes('ce credits')
+          )
+        ),
+        industryCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('industry') ||
+            rec.title.toLowerCase().includes('sector') ||
+            rec.title.toLowerCase().includes('professional license')
+          )
+        ),
+        complianceCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('compliance') ||
+            rec.title.toLowerCase().includes('regulatory') ||
+            rec.title.toLowerCase().includes('audit')
+          )
+        ),
+        technologyCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('technology') ||
+            rec.title.toLowerCase().includes('digital') ||
+            rec.title.toLowerCase().includes('software')
+          )
+        ),
+        leadershipCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('management') ||
+            rec.title.toLowerCase().includes('project management')
+          )
+        ),
+        specializedCertificationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('specialized') ||
+            rec.title.toLowerCase().includes('expert') ||
+            rec.title.toLowerCase().includes('advanced')
+          )
+        ),
+        certificationSchedule: {
+          type: certificationType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -2130,6 +2317,21 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         advanceNoticeDays: 14,
         reminderDays: [14, 7, 3, 1],
         moduleType: 'lxp_safety_training'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Certification Expiring Alert',
+      type: 'certification_expiring',
+      config: { 
+        certificationType: 'professional',
+        advanceNoticeDays: 60,
+        reminderDays: [60, 30, 14, 7, 1],
+        moduleType: 'lxp_certification_renewal'
       },
       status: 'active' as const,
       createdAt: new Date(),
