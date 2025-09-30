@@ -137,6 +137,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'training_completion':
       return processTrainingCompletionTrigger(trigger, unifiedResults, config);
     
+    case 'succession_plan_activation':
+      return processSuccessionPlanActivationTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -2941,6 +2944,231 @@ function processTrainingCompletionTrigger(trigger: any, results: UnifiedResults,
   return null;
 }
 
+function processSuccessionPlanActivationTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is activated when succession planning is triggered
+  // It activates the Leadership Transition Module (part of Onboarding Module)
+  
+  const activationType = config.activationType || 'succession_planning';
+  const advanceNoticeDays = config.advanceNoticeDays || 7;
+  const reminderDays = config.reminderDays || [7, 3, 1];
+  const moduleType = config.moduleType || 'leadership_transition_module';
+  const partOf = config.partOf || 'onboarding_module';
+  const sourceModule = config.sourceModule || 'succession_planning';
+  
+  // Check if there are succession plan activation indicators
+  const hasSuccessionPlanActivation = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('succession plan activation') ||
+      rec.title.toLowerCase().includes('succession planning') ||
+      rec.title.toLowerCase().includes('leadership transition') ||
+      rec.title.toLowerCase().includes('leadership succession') ||
+      rec.title.toLowerCase().includes('succession planning activated')
+    )
+  );
+  
+  // Check for leadership transition module needs (part of onboarding module)
+  const hasLeadershipTransitionNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership transition') ||
+      rec.title.toLowerCase().includes('leadership onboarding') ||
+      rec.title.toLowerCase().includes('executive onboarding') ||
+      rec.title.toLowerCase().includes('leadership integration') ||
+      rec.title.toLowerCase().includes('leadership development')
+    )
+  );
+  
+  // Check for succession planning module indicators
+  const hasSuccessionPlanningIndicators = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('succession planning') ||
+      rec.title.toLowerCase().includes('succession management') ||
+      rec.title.toLowerCase().includes('succession strategy') ||
+      rec.title.toLowerCase().includes('succession program') ||
+      rec.title.toLowerCase().includes('succession framework')
+    )
+  );
+  
+  // Check for leadership development and preparation needs
+  const hasLeadershipDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership development') ||
+      rec.title.toLowerCase().includes('leadership preparation') ||
+      rec.title.toLowerCase().includes('leadership training') ||
+      rec.title.toLowerCase().includes('leadership coaching') ||
+      rec.title.toLowerCase().includes('leadership mentoring')
+    )
+  );
+  
+  // Check for executive transition and onboarding needs
+  const hasExecutiveTransitionNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('executive transition') ||
+      rec.title.toLowerCase().includes('executive onboarding') ||
+      rec.title.toLowerCase().includes('executive integration') ||
+      rec.title.toLowerCase().includes('executive development') ||
+      rec.title.toLowerCase().includes('executive preparation')
+    )
+  );
+  
+  // Check for leadership role transition and handover needs
+  const hasLeadershipRoleTransitionNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership role transition') ||
+      rec.title.toLowerCase().includes('leadership handover') ||
+      rec.title.toLowerCase().includes('leadership transfer') ||
+      rec.title.toLowerCase().includes('leadership succession') ||
+      rec.title.toLowerCase().includes('leadership change')
+    )
+  );
+  
+  // Check for talent pipeline and readiness assessment needs
+  const hasTalentPipelineNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('talent pipeline') ||
+      rec.title.toLowerCase().includes('talent readiness') ||
+      rec.title.toLowerCase().includes('talent assessment') ||
+      rec.title.toLowerCase().includes('talent evaluation') ||
+      rec.title.toLowerCase().includes('talent preparation')
+    )
+  );
+  
+  // Check for leadership competency and skill development needs
+  const hasLeadershipCompetencyNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership competency') ||
+      rec.title.toLowerCase().includes('leadership skills') ||
+      rec.title.toLowerCase().includes('leadership capabilities') ||
+      rec.title.toLowerCase().includes('leadership assessment') ||
+      rec.title.toLowerCase().includes('leadership evaluation')
+    )
+  );
+  
+  // Check for organizational continuity and stability needs
+  const hasOrganizationalContinuityNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('organizational continuity') ||
+      rec.title.toLowerCase().includes('organizational stability') ||
+      rec.title.toLowerCase().includes('organizational transition') ||
+      rec.title.toLowerCase().includes('organizational change') ||
+      rec.title.toLowerCase().includes('organizational continuity')
+    )
+  );
+  
+  // Check for leadership onboarding and integration needs
+  const hasLeadershipOnboardingNeeds = results.recommendations.some(rec =>
+    rec.category === 'talent' && (
+      rec.title.toLowerCase().includes('leadership onboarding') ||
+      rec.title.toLowerCase().includes('leadership integration') ||
+      rec.title.toLowerCase().includes('leadership orientation') ||
+      rec.title.toLowerCase().includes('leadership introduction') ||
+      rec.title.toLowerCase().includes('leadership familiarization')
+    )
+  );
+  
+  // This trigger would typically be activated by succession planning module events
+  // For now, we'll check if there are talent-related recommendations that indicate succession plan activation needs
+  if (hasSuccessionPlanActivation || hasLeadershipTransitionNeeds || hasSuccessionPlanningIndicators || hasLeadershipDevelopmentNeeds || hasExecutiveTransitionNeeds || hasLeadershipRoleTransitionNeeds || hasTalentPipelineNeeds || hasLeadershipCompetencyNeeds || hasOrganizationalContinuityNeeds || hasLeadershipOnboardingNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Succession plan has been activated - activate leadership transition module part of onboarding module',
+      action: 'activate_leadership_transition_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'succession_planning_activation',
+        activationType: activationType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        partOf: partOf,
+        sourceModule: sourceModule,
+        successionPlanActivation: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('succession') ||
+            rec.title.toLowerCase().includes('planning') ||
+            rec.title.toLowerCase().includes('activation')
+          )
+        ),
+        leadershipTransitionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('transition') ||
+            rec.title.toLowerCase().includes('onboarding')
+          )
+        ),
+        successionPlanningIndicators: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('succession') ||
+            rec.title.toLowerCase().includes('planning') ||
+            rec.title.toLowerCase().includes('management')
+          )
+        ),
+        leadershipDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('preparation')
+          )
+        ),
+        executiveTransitionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('executive') ||
+            rec.title.toLowerCase().includes('transition') ||
+            rec.title.toLowerCase().includes('onboarding')
+          )
+        ),
+        leadershipRoleTransitionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership role') ||
+            rec.title.toLowerCase().includes('handover') ||
+            rec.title.toLowerCase().includes('transfer')
+          )
+        ),
+        talentPipelineNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('talent') ||
+            rec.title.toLowerCase().includes('pipeline') ||
+            rec.title.toLowerCase().includes('readiness')
+          )
+        ),
+        leadershipCompetencyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership competency') ||
+            rec.title.toLowerCase().includes('leadership skills') ||
+            rec.title.toLowerCase().includes('leadership capabilities')
+          )
+        ),
+        organizationalContinuityNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('organizational') ||
+            rec.title.toLowerCase().includes('continuity') ||
+            rec.title.toLowerCase().includes('stability')
+          )
+        ),
+        leadershipOnboardingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'talent' && (
+            rec.title.toLowerCase().includes('leadership onboarding') ||
+            rec.title.toLowerCase().includes('leadership integration') ||
+            rec.title.toLowerCase().includes('leadership orientation')
+          )
+        ),
+        transitionSchedule: {
+          type: activationType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          partOf: partOf,
+          sourceModule: sourceModule
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'talent')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -3249,6 +3477,23 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         moduleType: 'performance_assessment_module',
         partOf: 'performance_management_module',
         sourceModule: 'lxp'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Succession Plan Activation Alert',
+      type: 'succession_plan_activation',
+      config: { 
+        activationType: 'succession_planning',
+        advanceNoticeDays: 7,
+        reminderDays: [7, 3, 1],
+        moduleType: 'leadership_transition_module',
+        partOf: 'onboarding_module',
+        sourceModule: 'succession_planning'
       },
       status: 'active' as const,
       createdAt: new Date(),
