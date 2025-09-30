@@ -107,6 +107,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'performance_improvement_lxp':
       return processPerformanceImprovementLXPTrigger(trigger, unifiedResults, config);
     
+    case 'annual_performance_review_due':
+      return processAnnualPerformanceReviewTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -1095,6 +1098,133 @@ function processPerformanceImprovementLXPTrigger(trigger: any, results: UnifiedR
   return null;
 }
 
+function processAnnualPerformanceReviewTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
+  // It would be triggered when annual performance reviews are due based on employee hire dates or review cycles
+  
+  const reviewPeriod = config.reviewPeriod || 'annual';
+  const advanceNoticeDays = config.advanceNoticeDays || 30;
+  const reminderDays = config.reminderDays || [30, 14, 7, 1];
+  
+  // Check if there are performance review due indicators
+  const hasReviewDueIndicators = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('annual review') ||
+      rec.title.toLowerCase().includes('performance review') ||
+      rec.title.toLowerCase().includes('yearly evaluation') ||
+      rec.title.toLowerCase().includes('review due') ||
+      rec.title.toLowerCase().includes('evaluation period') ||
+      rec.title.toLowerCase().includes('performance assessment')
+    )
+  );
+  
+  // Check for performance management needs
+  const hasPerformanceManagementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance management') ||
+      rec.title.toLowerCase().includes('evaluation') ||
+      rec.title.toLowerCase().includes('assessment') ||
+      rec.title.toLowerCase().includes('review process') ||
+      rec.title.toLowerCase().includes('performance tracking')
+    )
+  );
+  
+  // Check for goal setting and review requirements
+  const hasGoalSettingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('goal setting') ||
+      rec.title.toLowerCase().includes('objective review') ||
+      rec.title.toLowerCase().includes('target assessment') ||
+      rec.title.toLowerCase().includes('kpi evaluation') ||
+      rec.title.toLowerCase().includes('performance metrics')
+    )
+  );
+  
+  // Check for feedback and development planning needs
+  const hasFeedbackNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('feedback') ||
+      rec.title.toLowerCase().includes('development plan') ||
+      rec.title.toLowerCase().includes('career planning') ||
+      rec.title.toLowerCase().includes('performance improvement') ||
+      rec.title.toLowerCase().includes('growth planning')
+    )
+  );
+  
+  // Check for compensation and promotion considerations
+  const hasCompensationNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('compensation') ||
+      rec.title.toLowerCase().includes('salary review') ||
+      rec.title.toLowerCase().includes('promotion') ||
+      rec.title.toLowerCase().includes('merit increase') ||
+      rec.title.toLowerCase().includes('bonus evaluation')
+    )
+  );
+  
+  // This trigger would typically be activated by external time-based events
+  // For now, we'll check if there are performance-related recommendations that indicate review needs
+  if (hasReviewDueIndicators || hasPerformanceManagementNeeds || hasGoalSettingNeeds || hasFeedbackNeeds || hasCompensationNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Annual performance review is due - activate performance management module for comprehensive evaluation',
+      action: 'activate_performance_management_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'time_based_scheduler',
+        reviewPeriod: reviewPeriod,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        reviewDueIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('annual review') ||
+            rec.title.toLowerCase().includes('performance review') ||
+            rec.title.toLowerCase().includes('review due')
+          )
+        ),
+        performanceManagementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance management') ||
+            rec.title.toLowerCase().includes('evaluation') ||
+            rec.title.toLowerCase().includes('assessment')
+          )
+        ),
+        goalSettingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('goal') ||
+            rec.title.toLowerCase().includes('objective') ||
+            rec.title.toLowerCase().includes('target')
+          )
+        ),
+        feedbackNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('feedback') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('career')
+          )
+        ),
+        compensationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('compensation') ||
+            rec.title.toLowerCase().includes('salary') ||
+            rec.title.toLowerCase().includes('promotion')
+          )
+        ),
+        reviewSchedule: {
+          period: reviewPeriod,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -1250,6 +1380,20 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Performance Improvement LXP Alert',
       type: 'performance_improvement_lxp',
       config: { improvementThreshold: 1.0 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Annual Performance Review Due Alert',
+      type: 'annual_performance_review_due',
+      config: { 
+        reviewPeriod: 'annual',
+        advanceNoticeDays: 30,
+        reminderDays: [30, 14, 7, 1]
+      },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
