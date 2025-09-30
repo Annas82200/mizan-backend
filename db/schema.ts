@@ -8,4 +8,5 @@ export * from './schema/agents.js';
 export * from './schema/benchmarking.js';
 export * from './schema/triggers.js';
 export * from './schema/learning.js';
+export * from './schema/lxp-extended.js'; // Module 1: LXP Extended Schema
 export * from './schema/audit.js';
