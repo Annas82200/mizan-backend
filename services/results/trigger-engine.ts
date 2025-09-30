@@ -131,6 +131,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'team_size_changes':
       return processTeamSizeChangesTrigger(trigger, unifiedResults, config);
     
+    case 'onboarding_completion':
+      return processOnboardingCompletionTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -2505,6 +2508,210 @@ function processTeamSizeChangesTrigger(trigger: any, results: UnifiedResults, co
   return null;
 }
 
+function processOnboardingCompletionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by onboarding module completion events
+  // It would be triggered when an employee completes their onboarding process, requiring performance baseline establishment
+  
+  const completionType = config.completionType || 'onboarding';
+  const advanceNoticeDays = config.advanceNoticeDays || 1;
+  const reminderDays = config.reminderDays || [1];
+  const moduleType = config.moduleType || 'performance_baseline_module';
+  const partOf = config.partOf || 'performance_management_module';
+  
+  // Check if there are onboarding completion indicators
+  const hasOnboardingCompletionIndicators = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('onboarding completion') ||
+      rec.title.toLowerCase().includes('onboarding finished') ||
+      rec.title.toLowerCase().includes('onboarding done') ||
+      rec.title.toLowerCase().includes('orientation complete') ||
+      rec.title.toLowerCase().includes('new hire ready') ||
+      rec.title.toLowerCase().includes('onboarding successful')
+    )
+  );
+  
+  // Check for performance baseline module needs (part of performance management module)
+  const hasPerformanceBaselineNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance baseline') ||
+      rec.title.toLowerCase().includes('baseline establishment') ||
+      rec.title.toLowerCase().includes('initial performance') ||
+      rec.title.toLowerCase().includes('starting performance') ||
+      rec.title.toLowerCase().includes('performance foundation')
+    )
+  );
+  
+  // Check for new employee performance tracking needs
+  const hasNewEmployeePerformanceNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('new employee performance') ||
+      rec.title.toLowerCase().includes('new hire performance') ||
+      rec.title.toLowerCase().includes('fresh employee') ||
+      rec.title.toLowerCase().includes('recent hire') ||
+      rec.title.toLowerCase().includes('new team member')
+    )
+  );
+  
+  // Check for performance management module activation
+  const hasPerformanceManagementNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('performance management') ||
+      rec.title.toLowerCase().includes('performance tracking') ||
+      rec.title.toLowerCase().includes('performance monitoring') ||
+      rec.title.toLowerCase().includes('performance evaluation') ||
+      rec.title.toLowerCase().includes('performance assessment')
+    )
+  );
+  
+  // Check for goal setting and objective establishment needs
+  const hasGoalSettingNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('goal setting') ||
+      rec.title.toLowerCase().includes('objective setting') ||
+      rec.title.toLowerCase().includes('target establishment') ||
+      rec.title.toLowerCase().includes('performance goals') ||
+      rec.title.toLowerCase().includes('initial objectives')
+    )
+  );
+  
+  // Check for skill assessment and competency evaluation needs
+  const hasSkillAssessmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('skill assessment') ||
+      rec.title.toLowerCase().includes('competency evaluation') ||
+      rec.title.toLowerCase().includes('capability assessment') ||
+      rec.title.toLowerCase().includes('initial skills') ||
+      rec.title.toLowerCase().includes('starting competencies')
+    )
+  );
+  
+  // Check for training completion and development planning needs
+  const hasTrainingDevelopmentNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('training completion') ||
+      rec.title.toLowerCase().includes('development planning') ||
+      rec.title.toLowerCase().includes('learning plan') ||
+      rec.title.toLowerCase().includes('skill development') ||
+      rec.title.toLowerCase().includes('career planning')
+    )
+  );
+  
+  // Check for integration and team dynamics needs
+  const hasIntegrationTeamDynamicsNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('team integration') ||
+      rec.title.toLowerCase().includes('team dynamics') ||
+      rec.title.toLowerCase().includes('workplace integration') ||
+      rec.title.toLowerCase().includes('cultural integration') ||
+      rec.title.toLowerCase().includes('team collaboration')
+    )
+  );
+  
+  // Check for probation period and evaluation setup needs
+  const hasProbationEvaluationNeeds = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('probation period') ||
+      rec.title.toLowerCase().includes('evaluation setup') ||
+      rec.title.toLowerCase().includes('review schedule') ||
+      rec.title.toLowerCase().includes('assessment timeline') ||
+      rec.title.toLowerCase().includes('performance review')
+    )
+  );
+  
+  // This trigger would typically be activated by external onboarding module events
+  // For now, we'll check if there are performance-related recommendations that indicate onboarding completion needs
+  if (hasOnboardingCompletionIndicators || hasPerformanceBaselineNeeds || hasNewEmployeePerformanceNeeds || hasPerformanceManagementNeeds || hasGoalSettingNeeds || hasSkillAssessmentNeeds || hasTrainingDevelopmentNeeds || hasIntegrationTeamDynamicsNeeds || hasProbationEvaluationNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Onboarding has been completed - activate performance baseline part of performance management module',
+      action: 'activate_performance_baseline_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'onboarding_module_completion',
+        completionType: completionType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        partOf: partOf,
+        onboardingCompletionIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('onboarding') ||
+            rec.title.toLowerCase().includes('orientation') ||
+            rec.title.toLowerCase().includes('new hire')
+          )
+        ),
+        performanceBaselineNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('baseline') ||
+            rec.title.toLowerCase().includes('initial') ||
+            rec.title.toLowerCase().includes('starting')
+          )
+        ),
+        newEmployeePerformanceNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('new employee') ||
+            rec.title.toLowerCase().includes('new hire') ||
+            rec.title.toLowerCase().includes('fresh')
+          )
+        ),
+        performanceManagementNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('performance management') ||
+            rec.title.toLowerCase().includes('performance tracking')
+          )
+        ),
+        goalSettingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('goal') ||
+            rec.title.toLowerCase().includes('objective') ||
+            rec.title.toLowerCase().includes('target')
+          )
+        ),
+        skillAssessmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('skill') ||
+            rec.title.toLowerCase().includes('competency') ||
+            rec.title.toLowerCase().includes('capability')
+          )
+        ),
+        trainingDevelopmentNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('training') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('learning')
+          )
+        ),
+        integrationTeamDynamicsNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('integration') ||
+            rec.title.toLowerCase().includes('team dynamics') ||
+            rec.title.toLowerCase().includes('collaboration')
+          )
+        ),
+        probationEvaluationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('probation') ||
+            rec.title.toLowerCase().includes('evaluation') ||
+            rec.title.toLowerCase().includes('review')
+          )
+        ),
+        baselineSchedule: {
+          type: completionType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          partOf: partOf
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -2780,6 +2987,22 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         reminderDays: [14, 7, 3, 1],
         moduleType: 'team_restructuring_module',
         tier: 'enterprise'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Onboarding Completion Alert',
+      type: 'onboarding_completion',
+      config: { 
+        completionType: 'onboarding',
+        advanceNoticeDays: 1,
+        reminderDays: [1],
+        moduleType: 'performance_baseline_module',
+        partOf: 'performance_management_module'
       },
       status: 'active' as const,
       createdAt: new Date(),
