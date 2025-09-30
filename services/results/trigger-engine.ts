@@ -83,6 +83,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'culture_alignment_reward':
       return processCultureAlignmentTrigger(trigger, unifiedResults, config);
     
+    case 'structure_optimal_talent':
+      return processStructureOptimalTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -302,6 +305,83 @@ function processCultureAlignmentTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
+function processStructureOptimalTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  const structureData = results.detailed_analysis.structure;
+  const optimalThreshold = config.optimalThreshold || 0.75; // 75% structure health threshold
+  
+  // Check if structure analysis indicates no additional layers or positions needed
+  const noAdditionalLayersNeeded = !structureData.weaknesses.some(weakness =>
+    weakness.toLowerCase().includes('add layer') ||
+    weakness.toLowerCase().includes('new position') ||
+    weakness.toLowerCase().includes('additional role') ||
+    weakness.toLowerCase().includes('expand structure') ||
+    weakness.toLowerCase().includes('hiring needed')
+  );
+  
+  // Check for optimal structure score
+  const hasOptimalStructureScore = structureData.score >= optimalThreshold;
+  
+  // Check for structure strengths indicating good organization
+  const hasStructureStrengths = structureData.strengths.some(strength =>
+    strength.toLowerCase().includes('optimal') ||
+    strength.toLowerCase().includes('efficient') ||
+    strength.toLowerCase().includes('well-structured') ||
+    strength.toLowerCase().includes('balanced') ||
+    strength.toLowerCase().includes('appropriate')
+  );
+  
+  // Check if recommendations focus on talent development rather than structure changes
+  const hasTalentDevelopmentFocus = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('talent') ||
+      rec.title.toLowerCase().includes('development') ||
+      rec.title.toLowerCase().includes('training') ||
+      rec.title.toLowerCase().includes('upskilling') ||
+      rec.title.toLowerCase().includes('career')
+    )
+  );
+  
+  // Check for no urgent hiring needs
+  const noUrgentHiring = !results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('urgent hiring') ||
+      rec.title.toLowerCase().includes('immediate hiring') ||
+      rec.title.toLowerCase().includes('critical position')
+    )
+  );
+  
+  if (noAdditionalLayersNeeded && hasOptimalStructureScore && hasStructureStrengths && (hasTalentDevelopmentFocus || noUrgentHiring)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Structure analysis shows optimal organization with no additional layers/positions needed - focus on talent management',
+      action: 'activate_talent_management_module',
+      priority: 'medium',
+      data: {
+        structureScore: structureData.score,
+        structureHealth: hasOptimalStructureScore ? 'Optimal' : 'Good',
+        structureStrengths: structureData.strengths.filter(strength =>
+          strength.toLowerCase().includes('optimal') ||
+          strength.toLowerCase().includes('efficient') ||
+          strength.toLowerCase().includes('well-structured')
+        ),
+        talentDevelopmentOpportunities: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('talent') ||
+            rec.title.toLowerCase().includes('development') ||
+            rec.title.toLowerCase().includes('training')
+          )
+        ),
+        noHiringNeeds: noUrgentHiring,
+        recommendations: results.recommendations.filter(r => r.category === 'structure')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -377,6 +457,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Culture Alignment Reward Alert',
       type: 'culture_alignment_reward',
       config: { alignmentThreshold: 0.8 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Structure Optimal Talent Alert',
+      type: 'structure_optimal_talent',
+      config: { optimalThreshold: 0.75 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
