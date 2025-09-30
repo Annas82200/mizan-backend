@@ -128,6 +128,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'legal_requirement_change':
       return processLegalRequirementChangeTrigger(trigger, unifiedResults, config);
     
+    case 'team_size_changes':
+      return processTeamSizeChangesTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -2297,6 +2300,211 @@ function processLegalRequirementChangeTrigger(trigger: any, results: UnifiedResu
   return null;
 }
 
+function processTeamSizeChangesTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by operational events (hiring, layoffs, restructuring, organizational changes)
+  // It would be triggered when team sizes change significantly, requiring team restructuring (Enterprise tier only)
+  
+  const changeType = config.changeType || 'team_restructuring';
+  const advanceNoticeDays = config.advanceNoticeDays || 14;
+  const reminderDays = config.reminderDays || [14, 7, 3, 1];
+  const moduleType = config.moduleType || 'team_restructuring_module';
+  const tier = config.tier || 'enterprise';
+  
+  // Check if there are team size change indicators
+  const hasTeamSizeChangeIndicators = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('team size change') ||
+      rec.title.toLowerCase().includes('team restructuring') ||
+      rec.title.toLowerCase().includes('organizational change') ||
+      rec.title.toLowerCase().includes('team expansion') ||
+      rec.title.toLowerCase().includes('team reduction') ||
+      rec.title.toLowerCase().includes('team reorganization')
+    )
+  );
+  
+  // Check for team restructuring module needs (Enterprise only)
+  const hasTeamRestructuringNeeds = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('team restructuring') ||
+      rec.title.toLowerCase().includes('organizational restructuring') ||
+      rec.title.toLowerCase().includes('team reorganization') ||
+      rec.title.toLowerCase().includes('structure optimization') ||
+      rec.title.toLowerCase().includes('team realignment')
+    )
+  );
+  
+  // Check for hiring and expansion needs
+  const hasHiringExpansionNeeds = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('hiring needs') ||
+      rec.title.toLowerCase().includes('team expansion') ||
+      rec.title.toLowerCase().includes('staff increase') ||
+      rec.title.toLowerCase().includes('workforce growth') ||
+      rec.title.toLowerCase().includes('team scaling')
+    )
+  );
+  
+  // Check for downsizing and reduction needs
+  const hasDownsizingReductionNeeds = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('team reduction') ||
+      rec.title.toLowerCase().includes('downsizing') ||
+      rec.title.toLowerCase().includes('staff reduction') ||
+      rec.title.toLowerCase().includes('workforce reduction') ||
+      rec.title.toLowerCase().includes('team consolidation')
+    )
+  );
+  
+  // Check for role and responsibility changes
+  const hasRoleResponsibilityChanges = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('role changes') ||
+      rec.title.toLowerCase().includes('responsibility changes') ||
+      rec.title.toLowerCase().includes('job restructuring') ||
+      rec.title.toLowerCase().includes('position changes') ||
+      rec.title.toLowerCase().includes('role realignment')
+    )
+  );
+  
+  // Check for department and division changes
+  const hasDepartmentDivisionChanges = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('department changes') ||
+      rec.title.toLowerCase().includes('division changes') ||
+      rec.title.toLowerCase().includes('organizational changes') ||
+      rec.title.toLowerCase().includes('business unit changes') ||
+      rec.title.toLowerCase().includes('functional changes')
+    )
+  );
+  
+  // Check for leadership and management changes
+  const hasLeadershipManagementChanges = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('leadership changes') ||
+      rec.title.toLowerCase().includes('management changes') ||
+      rec.title.toLowerCase().includes('supervisory changes') ||
+      rec.title.toLowerCase().includes('reporting changes') ||
+      rec.title.toLowerCase().includes('hierarchy changes')
+    )
+  );
+  
+  // Check for workflow and process changes
+  const hasWorkflowProcessChanges = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('workflow changes') ||
+      rec.title.toLowerCase().includes('process changes') ||
+      rec.title.toLowerCase().includes('operational changes') ||
+      rec.title.toLowerCase().includes('business process') ||
+      rec.title.toLowerCase().includes('workflow optimization')
+    )
+  );
+  
+  // Check for communication and collaboration changes
+  const hasCommunicationCollaborationChanges = results.recommendations.some(rec =>
+    rec.category === 'structure' && (
+      rec.title.toLowerCase().includes('communication changes') ||
+      rec.title.toLowerCase().includes('collaboration changes') ||
+      rec.title.toLowerCase().includes('team dynamics') ||
+      rec.title.toLowerCase().includes('interaction changes') ||
+      rec.title.toLowerCase().includes('coordination changes')
+    )
+  );
+  
+  // This trigger would typically be activated by external operational events
+  // For now, we'll check if there are structure-related recommendations that indicate team size changes
+  if (hasTeamSizeChangeIndicators || hasTeamRestructuringNeeds || hasHiringExpansionNeeds || hasDownsizingReductionNeeds || hasRoleResponsibilityChanges || hasDepartmentDivisionChanges || hasLeadershipManagementChanges || hasWorkflowProcessChanges || hasCommunicationCollaborationChanges) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Team size has changed significantly - activate team restructuring module (Enterprise tier only)',
+      action: 'activate_team_restructuring_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'operational_event',
+        changeType: changeType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        tier: tier,
+        teamSizeChangeIndicators: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('team') ||
+            rec.title.toLowerCase().includes('organizational') ||
+            rec.title.toLowerCase().includes('restructuring')
+          )
+        ),
+        teamRestructuringNeeds: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('restructuring') ||
+            rec.title.toLowerCase().includes('reorganization') ||
+            rec.title.toLowerCase().includes('realignment')
+          )
+        ),
+        hiringExpansionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('hiring') ||
+            rec.title.toLowerCase().includes('expansion') ||
+            rec.title.toLowerCase().includes('growth')
+          )
+        ),
+        downsizingReductionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('reduction') ||
+            rec.title.toLowerCase().includes('downsizing') ||
+            rec.title.toLowerCase().includes('consolidation')
+          )
+        ),
+        roleResponsibilityChanges: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('role') ||
+            rec.title.toLowerCase().includes('responsibility') ||
+            rec.title.toLowerCase().includes('position')
+          )
+        ),
+        departmentDivisionChanges: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('department') ||
+            rec.title.toLowerCase().includes('division') ||
+            rec.title.toLowerCase().includes('organizational')
+          )
+        ),
+        leadershipManagementChanges: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('leadership') ||
+            rec.title.toLowerCase().includes('management') ||
+            rec.title.toLowerCase().includes('supervisory')
+          )
+        ),
+        workflowProcessChanges: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('workflow') ||
+            rec.title.toLowerCase().includes('process') ||
+            rec.title.toLowerCase().includes('operational')
+          )
+        ),
+        communicationCollaborationChanges: results.recommendations.filter(rec =>
+          rec.category === 'structure' && (
+            rec.title.toLowerCase().includes('communication') ||
+            rec.title.toLowerCase().includes('collaboration') ||
+            rec.title.toLowerCase().includes('team dynamics')
+          )
+        ),
+        restructuringSchedule: {
+          type: changeType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          tier: tier
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'structure')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -2556,6 +2764,22 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         reminderDays: [7, 3, 1],
         moduleType: 'policy_update_module',
         lxpIntegration: true
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Team Size Changes Alert',
+      type: 'team_size_changes',
+      config: { 
+        changeType: 'team_restructuring',
+        advanceNoticeDays: 14,
+        reminderDays: [14, 7, 3, 1],
+        moduleType: 'team_restructuring_module',
+        tier: 'enterprise'
       },
       status: 'active' as const,
       createdAt: new Date(),
