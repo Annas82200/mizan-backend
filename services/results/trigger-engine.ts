@@ -89,6 +89,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'structure_inflated_recommendations':
       return processStructureInflatedTrigger(trigger, unifiedResults, config);
     
+    case 'candidate_hired_onboarding':
+      return processCandidateHiredTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -474,6 +477,82 @@ function processStructureInflatedTrigger(trigger: any, results: UnifiedResults, 
   return null;
 }
 
+function processCandidateHiredTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by hiring module events, not analysis results
+  // It would be triggered when a candidate is successfully hired through the hiring module
+  
+  // Check if there are recent hiring activities or new employee data
+  const hasNewHires = results.recommendations.some(rec =>
+    rec.category === 'hiring' && (
+      rec.title.toLowerCase().includes('hired') ||
+      rec.title.toLowerCase().includes('successful hire') ||
+      rec.title.toLowerCase().includes('candidate selected') ||
+      rec.title.toLowerCase().includes('offer accepted')
+    )
+  );
+  
+  // Check for onboarding-related recommendations
+  const hasOnboardingNeeds = results.recommendations.some(rec =>
+    rec.category === 'hiring' && (
+      rec.title.toLowerCase().includes('onboard') ||
+      rec.title.toLowerCase().includes('orientation') ||
+      rec.title.toLowerCase().includes('integration') ||
+      rec.title.toLowerCase().includes('welcome') ||
+      rec.title.toLowerCase().includes('setup')
+    )
+  );
+  
+  // Check for new employee setup requirements
+  const hasSetupRequirements = results.recommendations.some(rec =>
+    rec.category === 'hiring' && (
+      rec.title.toLowerCase().includes('setup') ||
+      rec.title.toLowerCase().includes('provision') ||
+      rec.title.toLowerCase().includes('access') ||
+      rec.title.toLowerCase().includes('training') ||
+      rec.title.toLowerCase().includes('documentation')
+    )
+  );
+  
+  // This trigger would typically be activated by external hiring module events
+  // For now, we'll check if there are hiring-related recommendations that indicate successful hires
+  if (hasNewHires || hasOnboardingNeeds || hasSetupRequirements) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Candidate successfully hired through hiring module - initiate onboarding process',
+      action: 'activate_onboarding_module',
+      priority: 'high',
+      data: {
+        triggerSource: 'hiring_module',
+        onboardingRequirements: results.recommendations.filter(rec =>
+          rec.category === 'hiring' && (
+            rec.title.toLowerCase().includes('onboard') ||
+            rec.title.toLowerCase().includes('setup') ||
+            rec.title.toLowerCase().includes('orientation')
+          )
+        ),
+        setupTasks: results.recommendations.filter(rec =>
+          rec.category === 'hiring' && (
+            rec.title.toLowerCase().includes('setup') ||
+            rec.title.toLowerCase().includes('provision') ||
+            rec.title.toLowerCase().includes('access')
+          )
+        ),
+        trainingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'hiring' && (
+            rec.title.toLowerCase().includes('training') ||
+            rec.title.toLowerCase().includes('orientation')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'hiring')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -569,6 +648,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Structure Inflated Recommendations Alert',
       type: 'structure_inflated_recommendations',
       config: { inflationThreshold: 0.3 },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Candidate Hired Onboarding Alert',
+      type: 'candidate_hired_onboarding',
+      config: {},
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
