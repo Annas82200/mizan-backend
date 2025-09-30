@@ -95,6 +95,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'lxp_completed_performance':
       return processLXPCompletedTrigger(trigger, unifiedResults, config);
     
+    case 'performance_excellent_reward':
+      return processPerformanceRewardTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -650,6 +653,104 @@ function processLXPCompletedTrigger(trigger: any, results: UnifiedResults, confi
   return null;
 }
 
+function processPerformanceRewardTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by performance management module events
+  // It would be triggered when performance management results show 100%+ performance
+  
+  const performanceThreshold = config.performanceThreshold || 1.0; // 100% performance threshold
+  
+  // Check if there are excellent performance indicators
+  const hasExcellentPerformance = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('excellent') ||
+      rec.title.toLowerCase().includes('outstanding') ||
+      rec.title.toLowerCase().includes('exceptional') ||
+      rec.title.toLowerCase().includes('exceeds expectations') ||
+      rec.title.toLowerCase().includes('100%') ||
+      rec.title.toLowerCase().includes('perfect score')
+    )
+  );
+  
+  // Check for high performance scores
+  const hasHighPerformanceScore = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('high performance') ||
+      rec.title.toLowerCase().includes('top performer') ||
+      rec.title.toLowerCase().includes('above target') ||
+      rec.title.toLowerCase().includes('exceeds goals')
+    )
+  );
+  
+  // Check for reward recommendations
+  const hasRewardRecommendations = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('reward') ||
+      rec.title.toLowerCase().includes('bonus') ||
+      rec.title.toLowerCase().includes('recognition') ||
+      rec.title.toLowerCase().includes('incentive') ||
+      rec.title.toLowerCase().includes('compensation')
+    )
+  );
+  
+  // Check for bonus eligibility indicators
+  const hasBonusEligibility = results.recommendations.some(rec =>
+    rec.category === 'performance' && (
+      rec.title.toLowerCase().includes('bonus eligible') ||
+      rec.title.toLowerCase().includes('performance bonus') ||
+      rec.title.toLowerCase().includes('merit increase') ||
+      rec.title.toLowerCase().includes('salary adjustment')
+    )
+  );
+  
+  // This trigger would typically be activated by external performance management module events
+  // For now, we'll check if there are performance-related recommendations that indicate excellent performance
+  if ((hasExcellentPerformance || hasHighPerformanceScore) && (hasRewardRecommendations || hasBonusEligibility)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Performance management results show 100%+ performance - activate reward module and bonus system',
+      action: 'activate_reward_module_and_bonus',
+      priority: 'high',
+      data: {
+        triggerSource: 'performance_management_module',
+        performanceLevel: hasExcellentPerformance ? 'Excellent' : 'High',
+        performanceIndicators: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('excellent') ||
+            rec.title.toLowerCase().includes('outstanding') ||
+            rec.title.toLowerCase().includes('100%')
+          )
+        ),
+        rewardRecommendations: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('reward') ||
+            rec.title.toLowerCase().includes('recognition') ||
+            rec.title.toLowerCase().includes('incentive')
+          )
+        ),
+        bonusEligibility: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('bonus') ||
+            rec.title.toLowerCase().includes('merit') ||
+            rec.title.toLowerCase().includes('compensation')
+          )
+        ),
+        performanceMetrics: results.recommendations.filter(rec =>
+          rec.category === 'performance' && (
+            rec.title.toLowerCase().includes('score') ||
+            rec.title.toLowerCase().includes('target') ||
+            rec.title.toLowerCase().includes('goal')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'performance')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -765,6 +866,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'LXP Completed Performance Alert',
       type: 'lxp_completed_performance',
       config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Performance Excellent Reward Alert',
+      type: 'performance_excellent_reward',
+      config: { performanceThreshold: 1.0 },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
