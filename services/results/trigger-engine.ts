@@ -125,6 +125,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'certification_expiring':
       return processCertificationExpiringTrigger(trigger, unifiedResults, config);
     
+    case 'legal_requirement_change':
+      return processLegalRequirementChangeTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -2089,6 +2092,211 @@ function processCertificationExpiringTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
+function processLegalRequirementChangeTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by external events (legal updates, regulatory changes, policy notifications)
+  // It would be triggered when legal requirements change, requiring policy updates and subsequent LXP training
+  
+  const requirementType = config.requirementType || 'legal';
+  const advanceNoticeDays = config.advanceNoticeDays || 7;
+  const reminderDays = config.reminderDays || [7, 3, 1];
+  const moduleType = config.moduleType || 'policy_update_module';
+  const lxpIntegration = config.lxpIntegration || true;
+  
+  // Check if there are legal requirement change indicators
+  const hasLegalRequirementChangeIndicators = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('legal requirement change') ||
+      rec.title.toLowerCase().includes('regulatory change') ||
+      rec.title.toLowerCase().includes('policy update') ||
+      rec.title.toLowerCase().includes('legal update') ||
+      rec.title.toLowerCase().includes('compliance change') ||
+      rec.title.toLowerCase().includes('regulation update')
+    )
+  );
+  
+  // Check for policy update module needs
+  const hasPolicyUpdateNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('policy update') ||
+      rec.title.toLowerCase().includes('policy revision') ||
+      rec.title.toLowerCase().includes('policy change') ||
+      rec.title.toLowerCase().includes('procedure update') ||
+      rec.title.toLowerCase().includes('guideline update')
+    )
+  );
+  
+  // Check for LXP integration needs (part of LXP)
+  const hasLXPIntegrationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('lxp integration') ||
+      rec.title.toLowerCase().includes('learning update') ||
+      rec.title.toLowerCase().includes('training update') ||
+      rec.title.toLowerCase().includes('education update') ||
+      rec.title.toLowerCase().includes('learning module')
+    )
+  );
+  
+  // Check for compliance and regulatory training needs
+  const hasComplianceTrainingNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('compliance training') ||
+      rec.title.toLowerCase().includes('regulatory training') ||
+      rec.title.toLowerCase().includes('legal training') ||
+      rec.title.toLowerCase().includes('policy training') ||
+      rec.title.toLowerCase().includes('procedure training')
+    )
+  );
+  
+  // Check for industry-specific regulatory changes
+  const hasIndustryRegulatoryNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('industry regulation') ||
+      rec.title.toLowerCase().includes('sector regulation') ||
+      rec.title.toLowerCase().includes('industry compliance') ||
+      rec.title.toLowerCase().includes('sector compliance') ||
+      rec.title.toLowerCase().includes('industry standard')
+    )
+  );
+  
+  // Check for workplace policy and procedure updates
+  const hasWorkplacePolicyNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('workplace policy') ||
+      rec.title.toLowerCase().includes('employee policy') ||
+      rec.title.toLowerCase().includes('hr policy') ||
+      rec.title.toLowerCase().includes('workplace procedure') ||
+      rec.title.toLowerCase().includes('employee handbook')
+    )
+  );
+  
+  // Check for data protection and privacy regulation changes
+  const hasDataProtectionNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('data protection') ||
+      rec.title.toLowerCase().includes('privacy regulation') ||
+      rec.title.toLowerCase().includes('gdpr') ||
+      rec.title.toLowerCase().includes('data privacy') ||
+      rec.title.toLowerCase().includes('information security')
+    )
+  );
+  
+  // Check for safety and health regulation changes
+  const hasSafetyHealthRegulationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('safety regulation') ||
+      rec.title.toLowerCase().includes('health regulation') ||
+      rec.title.toLowerCase().includes('workplace safety') ||
+      rec.title.toLowerCase().includes('occupational health') ||
+      rec.title.toLowerCase().includes('safety standard')
+    )
+  );
+  
+  // Check for employment law and labor regulation changes
+  const hasEmploymentLawNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('employment law') ||
+      rec.title.toLowerCase().includes('labor law') ||
+      rec.title.toLowerCase().includes('employment regulation') ||
+      rec.title.toLowerCase().includes('labor regulation') ||
+      rec.title.toLowerCase().includes('workplace law')
+    )
+  );
+  
+  // This trigger would typically be activated by external legal/regulatory events
+  // For now, we'll check if there are skills-related recommendations that indicate legal requirement changes
+  if (hasLegalRequirementChangeIndicators || hasPolicyUpdateNeeds || hasLXPIntegrationNeeds || hasComplianceTrainingNeeds || hasIndustryRegulatoryNeeds || hasWorkplacePolicyNeeds || hasDataProtectionNeeds || hasSafetyHealthRegulationNeeds || hasEmploymentLawNeeds) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'Legal requirement has changed - activate policy update module and integrate with LXP for training updates',
+      action: 'activate_policy_update_module_with_lxp_integration',
+      priority: 'high',
+      data: {
+        triggerSource: 'external_legal_regulatory_event',
+        requirementType: requirementType,
+        advanceNoticeDays: advanceNoticeDays,
+        reminderDays: reminderDays,
+        moduleType: moduleType,
+        lxpIntegration: lxpIntegration,
+        legalRequirementChangeIndicators: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('legal') ||
+            rec.title.toLowerCase().includes('regulatory') ||
+            rec.title.toLowerCase().includes('policy update')
+          )
+        ),
+        policyUpdateNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('policy') ||
+            rec.title.toLowerCase().includes('procedure') ||
+            rec.title.toLowerCase().includes('guideline')
+          )
+        ),
+        lxpIntegrationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('lxp') ||
+            rec.title.toLowerCase().includes('learning') ||
+            rec.title.toLowerCase().includes('training')
+          )
+        ),
+        complianceTrainingNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('compliance') ||
+            rec.title.toLowerCase().includes('regulatory') ||
+            rec.title.toLowerCase().includes('legal training')
+          )
+        ),
+        industryRegulatoryNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('industry') ||
+            rec.title.toLowerCase().includes('sector') ||
+            rec.title.toLowerCase().includes('regulation')
+          )
+        ),
+        workplacePolicyNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('workplace') ||
+            rec.title.toLowerCase().includes('employee') ||
+            rec.title.toLowerCase().includes('hr policy')
+          )
+        ),
+        dataProtectionNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('data protection') ||
+            rec.title.toLowerCase().includes('privacy') ||
+            rec.title.toLowerCase().includes('gdpr')
+          )
+        ),
+        safetyHealthRegulationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('safety') ||
+            rec.title.toLowerCase().includes('health') ||
+            rec.title.toLowerCase().includes('occupational')
+          )
+        ),
+        employmentLawNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('employment') ||
+            rec.title.toLowerCase().includes('labor') ||
+            rec.title.toLowerCase().includes('workplace law')
+          )
+        ),
+        policyUpdateSchedule: {
+          type: requirementType,
+          advanceNotice: advanceNoticeDays,
+          reminders: reminderDays,
+          moduleType: moduleType,
+          lxpIntegration: lxpIntegration
+        },
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -2332,6 +2540,22 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         advanceNoticeDays: 60,
         reminderDays: [60, 30, 14, 7, 1],
         moduleType: 'lxp_certification_renewal'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Legal Requirement Change Alert',
+      type: 'legal_requirement_change',
+      config: { 
+        requirementType: 'legal',
+        advanceNoticeDays: 7,
+        reminderDays: [7, 3, 1],
+        moduleType: 'policy_update_module',
+        lxpIntegration: true
       },
       status: 'active' as const,
       createdAt: new Date(),
