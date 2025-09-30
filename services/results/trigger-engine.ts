@@ -92,6 +92,9 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     case 'candidate_hired_onboarding':
       return processCandidateHiredTrigger(trigger, unifiedResults, config);
     
+    case 'lxp_completed_performance':
+      return processLXPCompletedTrigger(trigger, unifiedResults, config);
+    
     default:
       console.warn(`Unknown trigger type: ${type}`);
       return null;
@@ -553,6 +556,100 @@ function processCandidateHiredTrigger(trigger: any, results: UnifiedResults, con
   return null;
 }
 
+function processLXPCompletedTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+  // This trigger is typically activated by LXP module events when training plans are completed
+  // It would be triggered when LXP training plans are finished and performance evaluation is needed
+  
+  // Check if there are completed training activities
+  const hasCompletedTraining = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('completed') ||
+      rec.title.toLowerCase().includes('finished') ||
+      rec.title.toLowerCase().includes('training done') ||
+      rec.title.toLowerCase().includes('course completed')
+    )
+  );
+  
+  // Check for performance evaluation needs
+  const hasPerformanceEvaluationNeeds = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('evaluate') ||
+      rec.title.toLowerCase().includes('assess') ||
+      rec.title.toLowerCase().includes('measure') ||
+      rec.title.toLowerCase().includes('performance') ||
+      rec.title.toLowerCase().includes('review')
+    )
+  );
+  
+  // Check for skill improvement tracking
+  const hasSkillImprovementTracking = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('track') ||
+      rec.title.toLowerCase().includes('monitor') ||
+      rec.title.toLowerCase().includes('progress') ||
+      rec.title.toLowerCase().includes('improvement') ||
+      rec.title.toLowerCase().includes('development')
+    )
+  );
+  
+  // Check for LXP completion indicators
+  const hasLXPCompletion = results.recommendations.some(rec =>
+    rec.category === 'skills' && (
+      rec.title.toLowerCase().includes('lxp') ||
+      rec.title.toLowerCase().includes('learning') ||
+      rec.title.toLowerCase().includes('training plan') ||
+      rec.title.toLowerCase().includes('development plan')
+    )
+  );
+  
+  // This trigger would typically be activated by external LXP module events
+  // For now, we'll check if there are skills-related recommendations that indicate completed training
+  if ((hasCompletedTraining || hasLXPCompletion) && (hasPerformanceEvaluationNeeds || hasSkillImprovementTracking)) {
+    return {
+      id: randomUUID(),
+      triggerId: trigger.id,
+      reason: 'LXP training plans completed - initiate performance management to evaluate training effectiveness',
+      action: 'activate_performance_management_module',
+      priority: 'medium',
+      data: {
+        triggerSource: 'lxp_module',
+        completedTraining: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('completed') ||
+            rec.title.toLowerCase().includes('finished') ||
+            rec.title.toLowerCase().includes('lxp')
+          )
+        ),
+        performanceEvaluationNeeds: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('evaluate') ||
+            rec.title.toLowerCase().includes('assess') ||
+            rec.title.toLowerCase().includes('performance')
+          )
+        ),
+        skillTrackingRequirements: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('track') ||
+            rec.title.toLowerCase().includes('monitor') ||
+            rec.title.toLowerCase().includes('progress')
+          )
+        ),
+        trainingEffectiveness: results.recommendations.filter(rec =>
+          rec.category === 'skills' && (
+            rec.title.toLowerCase().includes('effectiveness') ||
+            rec.title.toLowerCase().includes('impact') ||
+            rec.title.toLowerCase().includes('outcome')
+          )
+        ),
+        recommendations: results.recommendations.filter(r => r.category === 'skills')
+      },
+      executed: false
+    };
+  }
+  
+  return null;
+}
+
 
 async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
   try {
@@ -657,6 +754,16 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       tenantId,
       name: 'Candidate Hired Onboarding Alert',
       type: 'candidate_hired_onboarding',
+      config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'LXP Completed Performance Alert',
+      type: 'lxp_completed_performance',
       config: {},
       status: 'active' as const,
       createdAt: new Date(),
