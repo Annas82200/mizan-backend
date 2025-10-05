@@ -1,7 +1,7 @@
 // server/services/socialmedia.ts
 
 import { db } from '../db/index.js';
-import { socialMediaPosts, orgSnapshots } from '../db/schema.js';
+import { socialMediaPosts, analyses } from '../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -25,19 +25,23 @@ export interface CampaignData {
   };
 }
 
+type PlatformType = 'linkedin' | 'twitter' | 'facebook' | 'instagram';
+type ContentType = 'platform_education' | 'framework_showcase' | 'feature_highlight' | 'success_story';
+
 export class SocialMediaService {
-  async createPost(tenantId: string, content: SocialMediaContent, createdBy: string): Promise<string> {
+  async createPost(tenantId: string, content: SocialMediaContent, createdBy: string, companyId?: string): Promise<string> {
     try {
       const postId = randomUUID();
-      
+
       await db.insert(socialMediaPosts).values({
         id: postId,
         tenantId,
+        companyId: companyId || tenantId, // Use tenantId as fallback
         platform: content.platform,
         content: content.content,
         hashtags: content.hashtags,
-        mediaUrl: content.mediaUrl,
-        scheduledAt: content.scheduledAt,
+        mediaUrls: content.mediaUrl ? [content.mediaUrl] : [],
+        scheduledFor: content.scheduledAt,
         status: content.scheduledAt ? 'scheduled' : 'draft',
         createdAt: new Date(),
         createdBy
@@ -53,17 +57,17 @@ export class SocialMediaService {
   async generateContentFromAnalysis(tenantId: string, analysisType: string): Promise<SocialMediaContent[]> {
     try {
       // Get latest analysis results
-      const snapshots = await db.query.orgSnapshots.findMany({
-        where: eq(orgSnapshots.tenantId, tenantId),
-        orderBy: [desc(orgSnapshots.createdAt)],
+      const analysisResults = await db.query.analyses.findMany({
+        where: eq(analyses.tenantId, tenantId),
+        orderBy: [desc(analyses.createdAt)],
         limit: 1
       });
 
-      if (snapshots.length === 0) {
+      if (analysisResults.length === 0) {
         throw new Error('No analysis data found for content generation');
       }
 
-      const analysis = snapshots[0].fullReport;
+      const analysis = analysisResults[0].results;
       const content: SocialMediaContent[] = [];
 
       // Generate platform-specific content
@@ -84,8 +88,8 @@ export class SocialMediaService {
   private async generatePlatformContent(platform: string, analysis: any, analysisType: string): Promise<SocialMediaContent> {
     // This would integrate with AI content generation
     // For now, returning mock content based on platform and analysis type
-    
-    const contentTemplates = {
+
+    const contentTemplates: Record<PlatformType, Record<ContentType, string>> = {
       linkedin: {
         platform_education: `🎯 Organizational Analysis Insights: Our latest ${analysisType} analysis reveals key opportunities for strategic growth. Discover how data-driven insights can transform your organization's performance. #OrganizationalDevelopment #DataDriven #Leadership`,
         framework_showcase: `📊 Introducing our comprehensive organizational framework that helps companies achieve strategic alignment. See how we measure and improve organizational health across multiple dimensions. #OrganizationalHealth #StrategicAlignment #BusinessTransformation`,
@@ -112,7 +116,9 @@ export class SocialMediaService {
       }
     };
 
-    const template = contentTemplates[platform]?.[analysisType] || contentTemplates[platform]?.platform_education || 'Default content';
+    const platformKey = platform as PlatformType;
+    const contentKey = analysisType as ContentType;
+    const template = contentTemplates[platformKey]?.[contentKey] || contentTemplates[platformKey]?.platform_education || 'Default content';
     
     return {
       platform,
@@ -157,7 +163,9 @@ export class SocialMediaService {
       }
     };
 
-    return mediaUrls[platform]?.[analysisType];
+    const platformKey = platform as PlatformType;
+    const contentKey = analysisType as ContentType;
+    return mediaUrls[platformKey]?.[contentKey];
   }
 
   async scheduleCampaign(campaignData: CampaignData, createdBy: string): Promise<string> {
@@ -255,7 +263,7 @@ export class SocialMediaService {
       await db.update(socialMediaPosts)
         .set({
           status,
-          error,
+          errorMessage: error,
           publishedAt: status === 'published' ? new Date() : undefined,
           updatedAt: new Date()
         })

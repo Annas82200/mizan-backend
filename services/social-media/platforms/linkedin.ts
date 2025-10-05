@@ -117,8 +117,7 @@ export class LinkedInService {
         throw new Error('LinkedIn account not found');
       }
 
-      const credentials = account.credentials as any;
-      return credentials.accessToken;
+      return account.accessToken || '';
     } catch (error) {
       console.error('Failed to get LinkedIn access token:', error);
       throw error;
@@ -137,7 +136,7 @@ export class LinkedInService {
       // Update the token in database
       await db.update(socialMediaAccounts)
         .set({
-          credentials: { accessToken: newAccessToken },
+          accessToken: newAccessToken,
           updatedAt: new Date()
         })
         .where(eq(socialMediaAccounts.accountId, accountId));

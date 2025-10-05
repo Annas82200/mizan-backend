@@ -29,11 +29,13 @@ export interface AnalysisSection {
   weaknesses: string[];
   opportunities: string[];
   risks: string[];
+  recommendations?: string[];
+  gaps?: string[];
 }
 
 export interface Recommendation {
   id: string;
-  category: 'structure' | 'culture' | 'skills' | 'engagement' | 'recognition' | 'performance' | 'benchmarking';
+  category: 'structure' | 'culture' | 'skills' | 'engagement' | 'recognition' | 'performance' | 'benchmarking' | 'hiring' | 'talent' | 'lxp' | 'retention';
   priority: 'high' | 'medium' | 'low';
   title: string;
   description: string;

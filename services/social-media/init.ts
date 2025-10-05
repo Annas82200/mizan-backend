@@ -8,10 +8,12 @@ import { addSocialMediaJob } from '../queue.js';
 export interface SocialMediaAccount {
   id: string;
   platform: string;
-  accountId: string;
-  credentials: any;
-  isActive: boolean;
-  lastSyncAt?: Date;
+  accountId: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  tokenExpiresAt: Date | null;
+  isActive: boolean | null;
+  lastSyncedAt: Date | null;
 }
 
 export async function initializeSocialMediaAutomation(): Promise<void> {
@@ -56,7 +58,7 @@ async function initializePlatform(account: any): Promise<void> {
     // Update last sync time
     await db.update(socialMediaAccounts)
       .set({
-        lastSyncAt: new Date(),
+        lastSyncedAt: new Date(),
         updatedAt: new Date()
       })
       .where(eq(socialMediaAccounts.id, account.id));
@@ -182,22 +184,26 @@ export async function shutdownSocialMedia(): Promise<void> {
 // Utility functions for managing social media accounts
 export async function addSocialMediaAccount(
   tenantId: string,
+  companyId: string,
   platform: string,
+  accountName: string,
   accountId: string,
-  credentials: any
+  accessToken: string,
+  refreshToken?: string
 ): Promise<string> {
   try {
     const account = await db.insert(socialMediaAccounts).values({
       id: crypto.randomUUID(),
       tenantId,
+      companyId,
       platform,
+      accountName,
       accountId,
-      credentials,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      accessToken,
+      refreshToken: refreshToken || null,
+      isActive: true
     }).returning();
-    
+
     console.log(`Added ${platform} account: ${accountId}`);
     return account[0].id;
   } catch (error) {
@@ -227,14 +233,16 @@ export async function getSocialMediaAccounts(tenantId: string): Promise<SocialMe
     const accounts = await db.query.socialMediaAccounts.findMany({
       where: eq(socialMediaAccounts.tenantId, tenantId)
     });
-    
+
     return accounts.map(account => ({
       id: account.id,
       platform: account.platform,
       accountId: account.accountId,
-      credentials: account.credentials,
+      accessToken: account.accessToken,
+      refreshToken: account.refreshToken,
+      tokenExpiresAt: account.tokenExpiresAt,
       isActive: account.isActive,
-      lastSyncAt: account.lastSyncAt
+      lastSyncedAt: account.lastSyncedAt
     }));
   } catch (error) {
     console.error('Failed to get social media accounts:', error);

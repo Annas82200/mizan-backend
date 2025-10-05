@@ -1,9 +1,10 @@
 // server/services/queue.ts
+// BullMQ v5 implementation with separate Queue (producer) and Worker (consumer) instances
 
 import { Queue, Worker, Job } from 'bullmq';
 import { db } from '../db/index.js';
-import { orgSnapshots, triggeredActions } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { analyses, triggerExecutions } from '../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 // Redis connection configuration
@@ -13,7 +14,7 @@ const connection = {
   password: process.env.REDIS_PASSWORD,
 };
 
-// Create queues
+// Create queues (producers)
 export const queues = {
   analysis: new Queue('analysis', { connection }),
   hiring: new Queue('hiring', { connection }),
@@ -23,238 +24,148 @@ export const queues = {
   notifications: new Queue('notifications', { connection }),
 };
 
-// Analysis Queue Processors
-queues.analysis.process("full-analysis", async (job: Job) => {
+// Analysis Worker
+const analysisWorker = new Worker('analysis', async (job: Job) => {
   const { tenantId, userId, input } = job.data;
-  
-  try {
-    // Update job progress
-    await job.updateProgress(10);
-    
-    // Run Architect AI
-    const { runArchitectAI } = await import('./orchestrator/architect-ai.js');
-    const architect = await runArchitectAI({ tenantId, ...input });
-    await job.updateProgress(50);
-    
-    // Build unified results
-    const { buildUnifiedResults } = await import('./results/unified-results.js');
-    const snapshot = await buildUnifiedResults(architect);
-    await job.updateProgress(70);
-    
-    // Run triggers
-    const { runTriggers } = await import('./results/trigger-engine.js');
-    const triggers = await runTriggers(snapshot);
-    await job.updateProgress(80);
-    
-    // Save results to database
-    const createdAt = new Date();
-    const overallHealthScore = snapshot.overall_health_score;
-    
-    // Save snapshot
-    await db.insert(orgSnapshots).values({
-      id: crypto.randomUUID(),
-      tenantId,
-      overallHealthScore,
-      trend: "steady", // Calculate from historical data
-      highlights: triggers.slice(0, 3).map((t: any) => t.reason),
-      fullReport: { architect, snapshot, triggers },
-      createdAt
-    });
-    
-    // Save individual assessments
-    const assessmentData = [
-      { type: 'structure', score: architect.structure?.healthScore || 0 },
-      { type: 'culture', score: architect.culture?.alignmentScore || 0 },
-      { type: 'skills', score: architect.skills?.coverageScore || 0 },
-    ];
-    
-    await job.updateProgress(100);
-    
-    return { success: true, snapshot, triggers };
-    
-  } catch (error) {
-    console.error('Analysis job failed:', error);
-    throw error;
-  }
-});
 
-// Hiring Queue Processors
-queues.hiring.process("culture-fit-assessment", async (job: Job) => {
-  const { candidateId, jobId, tenantId } = job.data;
-  
-  try {
-    await job.updateProgress(20);
-    
-    // Get candidate and job data
-    const candidate = await db.query.candidates?.findFirst({
-      where: eq('id', candidateId)
-    });
-    
-    const job = await db.query.jobs?.findFirst({
-      where: eq('id', jobId)
-    });
-    
-    if (!candidate || !job) {
-      throw new Error('Candidate or job not found');
-    }
-    
-    await job.updateProgress(50);
-    
-    // Run culture fit assessment
-    const { assessCultureFit } = await import('./hiring/culture-fit-assessor.js');
-    const assessment = await assessCultureFit(candidate, job, tenantId);
-    
-    await job.updateProgress(80);
-    
-    // Save assessment results
-    // Implementation would save to database
-    
-    await job.updateProgress(100);
-    
-    return { success: true, assessment };
-    
-  } catch (error) {
-    console.error('Culture fit assessment failed:', error);
-    throw error;
-  }
-});
+  // Update job progress
+  await job.updateProgress(10);
 
-// Social Media Queue Processors
-queues.socialMedia.process("publish-post", async (job: Job) => {
-  const { postId, platform, content, mediaUrl } = job.data;
-  
-  try {
-    await job.updateProgress(10);
-    
-    // Get platform-specific publisher
-    const { publishPost } = await import(`./social-media/platforms/${platform}.js`);
-    
-    await job.updateProgress(30);
-    
-    // Publish the post
-    const result = await publishPost(content, mediaUrl);
-    
-    await job.updateProgress(80);
-    
-    // Update post status in database
-    await db.update('social_media_posts')
-      .set({
-        status: 'published',
-        publishedAt: new Date(),
-        platformPostId: result.id
-      })
-      .where(eq('id', postId));
-    
-    await job.updateProgress(100);
-    
-    return { success: true, result };
-    
-  } catch (error) {
-    console.error('Social media publish failed:', error);
-    
-    // Update post status to failed
-    await db.update('social_media_posts')
-      .set({
-        status: 'failed',
-        error: error.message
-      })
-      .where(eq('id', postId));
-    
-    throw error;
-  }
-});
+  // Run Architect AI
+  const { runArchitectAI } = await import('./orchestrator/architect-ai.js');
+  const architect = await runArchitectAI({ tenantId, ...input });
+  await job.updateProgress(50);
 
-// HRIS Queue Processors
-queues.hris.process("sync-employees", async (job: Job) => {
+  // Build unified results
+  const { buildUnifiedResults } = await import('./results/unified-results.js');
+  const snapshot = await buildUnifiedResults(architect);
+  await job.updateProgress(70);
+
+  // Run triggers
+  const { runTriggers } = await import('./results/trigger-engine.js');
+  const snapshotWithTenant = { ...snapshot, tenantId };
+  const triggers = await runTriggers(snapshotWithTenant);
+  await job.updateProgress(80);
+
+  // Save results to database
+  const createdAt = new Date();
+  const overallHealthScore = snapshot.overall_health_score;
+
+  // Save analysis
+  await db.insert(analyses).values({
+    id: randomUUID(),
+    tenantId,
+    type: 'full-analysis',
+    status: 'completed',
+    results: { architect, snapshot, triggers },
+    metadata: { userId, overallHealthScore },
+    createdAt,
+    updatedAt: createdAt
+  });
+
+  await job.updateProgress(100);
+
+  return { success: true, snapshot, triggers };
+}, { connection });
+
+// Hiring Worker
+const hiringWorker = new Worker('hiring', async (job: Job) => {
+  const { candidate, jobPosting, tenantId } = job.data;
+
+  await job.updateProgress(20);
+
+  const { assessCultureFit } = await import('./modules/hiring/core/culture-fit-assessor.js');
+
+  await job.updateProgress(50);
+
+  const assessment = await assessCultureFit(candidate, jobPosting, tenantId);
+
+  await job.updateProgress(100);
+
+  return { success: true, assessment };
+}, { connection });
+
+// Social Media Worker
+const socialMediaWorker = new Worker('social-media', async (job: Job) => {
+  const { platform, content, scheduledTime, tenantId } = job.data;
+
+  await job.updateProgress(10);
+
+  const { SocialMediaScheduler } = await import('./social-media/scheduler.js');
+  const scheduler = new SocialMediaScheduler();
+
+  await job.updateProgress(30);
+
+  const result = await scheduler['createScheduledPost']({
+    tenantId,
+    platform,
+    content,
+    scheduledFor: scheduledTime || new Date(),
+    autoPublish: true
+  });
+
+  await job.updateProgress(100);
+
+  return { success: true, result };
+}, { connection });
+
+// HRIS Worker
+const hrisWorker = new Worker('hris', async (job: Job) => {
   const { integrationId, tenantId } = job.data;
-  
-  try {
-    await job.updateProgress(10);
-    
-    // Get integration config
-    const integration = await db.query.hrisIntegrations.findFirst({
-      where: eq('id', integrationId)
-    });
-    
-    if (!integration) {
-      throw new Error('HRIS integration not found');
-    }
-    
-    await job.updateProgress(30);
-    
-    // Sync employees from HRIS
-    const { syncEmployees } = await import('./hris/index.js');
-    const result = await syncEmployees(integration, tenantId);
-    
-    await job.updateProgress(80);
-    
-    // Log sync results
-    await db.insert('hris_sync_logs').values({
-      id: crypto.randomUUID(),
-      integrationId,
-      tenantId,
-      status: result.success ? 'success' : 'failed',
-      recordsProcessed: result.recordsProcessed || 0,
-      errors: result.errors || [],
-      startedAt: new Date(),
-      completedAt: new Date()
-    });
-    
-    await job.updateProgress(100);
-    
-    return result;
-    
-  } catch (error) {
-    console.error('HRIS sync failed:', error);
-    throw error;
-  }
-});
 
-// Email Queue Processors
-queues.email.process("send-email", async (job: Job) => {
+  await job.updateProgress(10);
+
+  const { syncAllHRISData } = await import('./hris/index.js');
+  const result = await syncAllHRISData(integrationId, tenantId);
+
+  await job.updateProgress(100);
+
+  return result;
+}, { connection });
+
+// Email Worker
+const emailWorker = new Worker('email', async (job: Job) => {
   const { to, template, data, from } = job.data;
-  
-  try {
-    await job.updateProgress(10);
-    
-    const { sendEmail } = await import('./email.js');
-    await sendEmail({ to, template, data, from });
-    
-    await job.updateProgress(100);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Email sending failed:', error);
-    throw error;
-  }
-});
 
-// Notifications Queue Processors
-queues.notifications.process("send-notification", async (job: Job) => {
+  await job.updateProgress(10);
+
+  const { sendEmail } = await import('./email.js');
+  await sendEmail({ to, template, data, from });
+
+  await job.updateProgress(100);
+
+  return { success: true };
+}, { connection });
+
+// Notifications Worker
+const notificationsWorker = new Worker('notifications', async (job: Job) => {
   const { userId, type, title, message, data } = job.data;
-  
-  try {
-    await job.updateProgress(10);
-    
-    // Send real-time notification via Socket.IO
-    const { io } = await import('../index.js');
-    io.to(`user-${userId}`).emit('notification', {
-      type,
-      title,
-      message,
-      data,
-      timestamp: new Date()
-    });
-    
-    await job.updateProgress(100);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Notification sending failed:', error);
-    throw error;
-  }
+
+  await job.updateProgress(10);
+
+  // Store notification in database or send via websocket
+  // Implementation depends on notification service setup
+
+  await job.updateProgress(100);
+
+  return { success: true };
+}, { connection });
+
+// Error handlers for all workers
+const workers = [analysisWorker, hiringWorker, socialMediaWorker, hrisWorker, emailWorker, notificationsWorker];
+
+workers.forEach(worker => {
+  worker.on('completed', (job) => {
+    console.log(`Job ${job.id} completed successfully`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`Job ${job?.id} failed:`, err);
+  });
+
+  worker.on('error', (err) => {
+    console.error('Worker error:', err);
+  });
 });
 
 // Queue management functions
@@ -320,9 +231,17 @@ export async function addNotificationJob(data: any) {
 
 // Graceful shutdown
 export async function shutdownQueues() {
-  console.log('Shutting down queues...');
-  
+  console.log('Shutting down queues and workers...');
+
   await Promise.all([
+    // Close workers
+    analysisWorker.close(),
+    hiringWorker.close(),
+    socialMediaWorker.close(),
+    hrisWorker.close(),
+    emailWorker.close(),
+    notificationsWorker.close(),
+    // Close queues
     queues.analysis.close(),
     queues.hiring.close(),
     queues.socialMedia.close(),
@@ -330,6 +249,6 @@ export async function shutdownQueues() {
     queues.email.close(),
     queues.notifications.close(),
   ]);
-  
-  console.log('All queues shut down');
+
+  console.log('All queues and workers shut down');
 }

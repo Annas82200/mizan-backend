@@ -89,30 +89,62 @@ export class CultureAgent extends ThreeEngineAgent {
   protected async loadFrameworks(): Promise<any> {
     const frameworks = await db
       .select()
-      .from(cultureFrameworks)
-      .where(eq(cultureFrameworks.isActive, true));
+      .from(cultureFrameworks);
 
     return {
-      mizanFramework: frameworks.find(f => f.name === 'Mizan 7-Cylinder'),
-      odModels: frameworks.filter(f => f.name !== 'Mizan 7-Cylinder'),
+      mizanFramework: frameworks.find(f => f.frameworkName === 'Mizan 7-Cylinder'),
+      odModels: frameworks.filter(f => f.frameworkName !== 'Mizan 7-Cylinder'),
       cylinders: {
-        1: { name: 'Survival', values: ['Security', 'Stability', 'Safety'] },
-        2: { name: 'Relationship', values: ['Belonging', 'Trust', 'Loyalty'] },
-        3: { name: 'Self-Esteem', values: ['Achievement', 'Recognition', 'Excellence'] },
-        4: { name: 'Transformation', values: ['Growth', 'Innovation', 'Adaptability'] },
-        5: { name: 'Internal Cohesion', values: ['Collaboration', 'Unity', 'Harmony'] },
-        6: { name: 'Making a Difference', values: ['Impact', 'Purpose', 'Contribution'] },
-        7: { name: 'Service', values: ['Legacy', 'Service', 'Wisdom'] }
-      },
-      enablingValues: [
-        'Security', 'Stability', 'Belonging', 'Trust', 'Achievement', 'Recognition',
-        'Growth', 'Innovation', 'Collaboration', 'Unity', 'Impact', 'Purpose',
-        'Legacy', 'Service'
-      ],
-      limitingValues: [
-        'Fear', 'Scarcity', 'Dependency', 'Conformity', 'Arrogance', 'Status-seeking',
-        'Chaos', 'Instability', 'Groupthink', 'Conflict-avoidance', 'Ego', 'Control'
-      ]
+        1: {
+          name: 'Safety & Survival',
+          ethicalPrinciple: 'Preservation of Life',
+          definition: 'Protecting life and dignity by ensuring health, stability, and freedom from harm.',
+          enablingValues: ['Safety', 'Stability', 'Preparedness', 'Wellbeing'],
+          limitingValues: ['Fear', 'Neglect', 'Instability', 'Complacency']
+        },
+        2: {
+          name: 'Belonging & Loyalty',
+          ethicalPrinciple: 'Human Dignity',
+          definition: 'Honoring the worth of every individual and fostering unity through loyalty and respect.',
+          enablingValues: ['Belonging', 'Dignity', 'Loyalty', 'Respect'],
+          limitingValues: ['Exclusion', 'Humiliation', 'Tribalism', 'Disrespect']
+        },
+        3: {
+          name: 'Growth & Achievement',
+          ethicalPrinciple: 'Striving with Excellence',
+          definition: 'Pursuing progress through discipline, accountability, and continuous learning.',
+          enablingValues: ['Achievement', 'Discipline', 'Accountability', 'Learning'],
+          limitingValues: ['Stagnation', 'Negligence', 'Blame-shifting', 'Arrogance']
+        },
+        4: {
+          name: 'Meaning & Contribution',
+          ethicalPrinciple: 'Service',
+          definition: 'Creating purpose by contributing to a cause greater than oneself.',
+          enablingValues: ['Purpose', 'Contribution', 'Service', 'Generosity'],
+          limitingValues: ['Apathy', 'Self-centeredness', 'Exploitation', 'Greed']
+        },
+        5: {
+          name: 'Integrity & Justice',
+          ethicalPrinciple: 'Justice and Accountability',
+          definition: 'Upholding fairness, honesty, and moral courage in all actions.',
+          enablingValues: ['Integrity', 'Fairness', 'Transparency', 'Courage'],
+          limitingValues: ['Dishonesty', 'Favoritism', 'Secrecy', 'Cowardice']
+        },
+        6: {
+          name: 'Wisdom & Compassion',
+          ethicalPrinciple: 'Mercy and Knowledge',
+          definition: 'Balancing reason with empathy to make thoughtful, kind decisions.',
+          enablingValues: ['Wisdom', 'Empathy', 'Patience', 'Humility'],
+          limitingValues: ['Ignorance', 'Cruelty', 'Impatience', 'Pride']
+        },
+        7: {
+          name: 'Transcendence & Unity',
+          ethicalPrinciple: 'Unity of Being',
+          definition: 'Connecting the material with the spiritual to achieve harmony and purpose.',
+          enablingValues: ['Unity', 'Harmony', 'Transcendence', 'Balance'],
+          limitingValues: ['Division', 'Discord', 'Materialism', 'Imbalance']
+        }
+      }
     };
   }
 
@@ -126,14 +158,14 @@ export class CultureAgent extends ThreeEngineAgent {
       totalAssessments: assessments.length,
       personalValues: this.aggregateValues(assessments.map(a => a.personalValues)),
       currentExperience: this.aggregateValues(assessments.map(a => a.currentExperience)),
-      desiredFuture: this.aggregateValues(assessments.map(a => a.desiredFuture)),
+      desiredFuture: this.aggregateValues(assessments.map(a => a.desiredExperience)),
       engagementStats: {
-        average: assessments.reduce((sum, a) => sum + (a.engagementLevel || 0), 0) / assessments.length,
-        distribution: this.calculateDistribution(assessments.map(a => a.engagementLevel || 0))
+        average: assessments.reduce((sum, a) => sum + (a.engagement || 0), 0) / assessments.length,
+        distribution: this.calculateDistribution(assessments.map(a => a.engagement || 0))
       },
       recognitionStats: {
-        average: assessments.reduce((sum, a) => sum + (a.recognitionLevel || 0), 0) / assessments.length,
-        distribution: this.calculateDistribution(assessments.map(a => a.recognitionLevel || 0))
+        average: assessments.reduce((sum, a) => sum + (a.recognition || 0), 0) / assessments.length,
+        distribution: this.calculateDistribution(assessments.map(a => a.recognition || 0))
       }
     };
 
@@ -144,7 +176,18 @@ export class CultureAgent extends ThreeEngineAgent {
     return `You are the Knowledge Engine for Mizan's Culture Agent. Your role is to apply organizational development frameworks and cultural models to understand the context and provide theoretical grounding.
 
 Key frameworks to consider:
-1. Mizan 7-Cylinder Framework (Survival, Relationship, Self-Esteem, Transformation, Internal Cohesion, Making a Difference, Service)
+1. Mizan 7-Cylinder Framework - A values-based progressive cultural maturity system:
+   - Cylinder 1: Safety & Survival (Preservation of Life)
+   - Cylinder 2: Belonging & Loyalty (Human Dignity)
+   - Cylinder 3: Growth & Achievement (Striving with Excellence)
+   - Cylinder 4: Meaning & Contribution (Service)
+   - Cylinder 5: Integrity & Justice (Justice and Accountability)
+   - Cylinder 6: Wisdom & Compassion (Mercy and Knowledge)
+   - Cylinder 7: Transcendence & Unity (Unity of Being)
+
+   Each cylinder has enabling values (that elevate culture) and limiting values (that constrain culture).
+   Organizations develop through cylinders sequentially - cannot skip levels.
+
 2. Schein's Organizational Culture Model
 3. Hofstede's Cultural Dimensions
 4. Denison Organizational Culture Model
@@ -303,24 +346,21 @@ Ensure all recommendations are grounded in both theory and data.`;
     await db.insert(cultureReports).values({
       tenantId: input.tenantId,
       reportType: input.targetType,
-      targetId: input.targetId || null,
-      entropyScore: result.finalOutput.entropy_score?.toString(),
-      cylinderHealth: result.finalOutput.cylinder_health,
-      valueGaps: result.finalOutput.value_gaps,
-      recommendations: result.finalOutput.recommendations,
-      triggers: result.finalOutput.triggers,
-      generatedBy: 'culture_agent'
+      reportData: {
+        targetId: input.targetId || null,
+        entropyScore: result.finalOutput.entropy_score?.toString(),
+        cylinderHealth: result.finalOutput.cylinder_health,
+        valueGaps: result.finalOutput.value_gaps,
+        recommendations: result.finalOutput.recommendations,
+        triggers: result.finalOutput.triggers,
+        generatedBy: 'culture_agent'
+      }
     });
   }
 }
 
 // Export convenience function for backward compatibility
 export async function analyzeCulture(input: any): Promise<any> {
-  const agent = new CultureAgentV2({
-    knowledgeEngine: { provider: 'openai', model: 'gpt-4' },
-    dataEngine: { provider: 'openai', model: 'gpt-4' },
-    reasoningEngine: { provider: 'openai', model: 'gpt-4' }
-  });
-  
-  return await agent.analyze(input);
+  const agent = new CultureAgent();
+  return await agent.analyzeCompanyCulture(input);
 }

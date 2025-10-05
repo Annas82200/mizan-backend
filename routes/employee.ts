@@ -4,11 +4,11 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { db } from '../db/index.js';
-import { 
-  cultureAssessments, 
+import {
+  cultureAssessments,
   employeeProfiles,
-  learningProgress,
-  users 
+  courseEnrollments,
+  users
 } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -20,7 +20,7 @@ router.use(authenticate);
 // Get employee dashboard
 router.get('/dashboard', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     
     // Get employee profile
     const profile = await db.query.employeeProfiles.findFirst({
@@ -33,31 +33,31 @@ router.get('/dashboard', async (req, res) => {
     
     // Get latest culture assessment
     const latestAssessment = await db.query.cultureAssessments.findFirst({
-      where: eq(cultureAssessments.employeeId, userId),
+      where: eq(cultureAssessments.userId, userId),
       orderBy: [desc(cultureAssessments.createdAt)]
     });
     
     // Get learning progress
-    const learningProgressData = await db.query.learningProgress.findMany({
-      where: eq(learningProgress.userId, userId),
-      orderBy: [desc(learningProgress.updatedAt)],
+    const courseEnrollmentsData = await db.query.courseEnrollments.findMany({
+      where: eq(courseEnrollments.employeeId, userId),
+      orderBy: [desc(courseEnrollments.updatedAt)],
       limit: 5
     });
     
-    res.json({
+    return res.json({
       profile,
       latestAssessment,
-      learningProgress: learningProgressData,
+      courseEnrollments: courseEnrollmentsData,
       stats: {
         assessmentsCompleted: latestAssessment ? 1 : 0,
-        coursesInProgress: learningProgressData.filter(l => l.status === 'in_progress').length,
-        coursesCompleted: learningProgressData.filter(l => l.status === 'completed').length
+        coursesInProgress: courseEnrollmentsData.filter((l: any) => !l.completedAt).length,
+        coursesCompleted: courseEnrollmentsData.filter((l: any) => l.completedAt).length
       }
     });
     
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ error: 'Failed to load dashboard' });
+    return res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
 
@@ -78,24 +78,17 @@ router.post('/assessment/culture', async (req, res) => {
     
     const [assessment] = await db.insert(cultureAssessments)
       .values({
-        id: crypto.randomUUID(),
-        tenantId: req.user.tenantId,
-        companyId: validatedData.companyId,
-        employeeId: req.user.id,
-        assessmentData: {
-          personalValues: validatedData.personalValues,
-          currentExperienceValues: validatedData.currentExperienceValues,
-          desiredFutureValues: validatedData.desiredFutureValues,
-          engagement: validatedData.engagementLevel,
-          recognition: validatedData.recognitionLevel,
-          comments: validatedData.additionalComments
-        },
-        status: 'submitted',
-        createdAt: new Date()
+        tenantId: req.user!.tenantId,
+        userId: req.user!.id,
+        personalValues: validatedData.personalValues,
+        currentExperience: validatedData.currentExperienceValues,
+        desiredExperience: validatedData.desiredFutureValues,
+        engagement: validatedData.engagementLevel,
+        recognition: validatedData.recognitionLevel
       })
       .returning();
     
-    res.json({
+    return res.json({
       success: true,
       assessmentId: assessment.id,
       message: 'Culture assessment submitted successfully'
@@ -111,7 +104,7 @@ router.post('/assessment/culture', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to submit assessment' });
+    return res.status(500).json({ error: 'Failed to submit assessment' });
   }
 });
 
@@ -121,29 +114,28 @@ router.get('/assessment/:id/results', async (req, res) => {
     const assessment = await db.query.cultureAssessments.findFirst({
       where: and(
         eq(cultureAssessments.id, req.params.id),
-        eq(cultureAssessments.employeeId, req.user.id)
+        eq(cultureAssessments.userId, req.user!.id)
       )
     });
     
     if (!assessment) {
       return res.status(404).json({ error: 'Assessment not found' });
     }
-    
-    if (assessment.status !== 'analyzed') {
-      return res.status(400).json({ 
+
+    if (!assessment.completedAt) {
+      return res.status(400).json({
         error: 'Results not ready yet',
-        status: assessment.status 
+        message: 'Assessment has not been analyzed yet'
       });
     }
-    
-    res.json({
-      assessment,
-      report: assessment.results
+
+    return res.json({
+      assessment
     });
     
   } catch (error) {
     console.error('Results fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch results' });
+    return res.status(500).json({ error: 'Failed to fetch results' });
   }
 });
 
@@ -161,7 +153,7 @@ router.put('/profile', async (req, res) => {
     
     // Check if profile exists
     const existingProfile = await db.query.employeeProfiles.findFirst({
-      where: eq(employeeProfiles.userId, req.user.id)
+      where: eq(employeeProfiles.userId, req.user!.id)
     });
     
     if (existingProfile) {
@@ -171,46 +163,45 @@ router.put('/profile', async (req, res) => {
           ...validatedData,
           updatedAt: new Date()
         })
-        .where(eq(employeeProfiles.userId, req.user.id))
+        .where(eq(employeeProfiles.userId, req.user!.id))
         .returning();
       
-      res.json(updated);
+      return res.json(updated);
     } else {
       // Create new
       const [created] = await db.insert(employeeProfiles)
         .values({
           id: crypto.randomUUID(),
-          userId: req.user.id,
-          ...validatedData,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          userId: req.user!.id,
+          tenantId: req.user!.tenantId,
+          ...validatedData
         })
         .returning();
       
-      res.json(created);
+      return res.json(created);
     }
     
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ error: 'Failed to update profile' });
+    return res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
 // Get learning modules
 router.get('/learning', async (req, res) => {
   try {
-    const progress = await db.query.learningProgress.findMany({
-      where: eq(learningProgress.userId, req.user.id),
+    const progress = await db.query.courseEnrollments.findMany({
+      where: eq(courseEnrollments.employeeId, req.user!.id),
       with: {
-        content: true
+        course: true
       }
     });
     
-    res.json(progress);
+    return res.json(progress);
     
   } catch (error) {
     console.error('Learning fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch learning modules' });
+    return res.status(500).json({ error: 'Failed to fetch learning modules' });
   }
 });
 

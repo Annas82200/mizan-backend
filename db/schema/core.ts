@@ -49,6 +49,26 @@ export const departments = pgTable('departments', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Alias for tenants - some routes use 'companies'
+export const companies = tenants;
+
+// Employee profiles
+export const employeeProfiles = pgTable('employee_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  tenantId: text('tenant_id').notNull(),
+  bio: text('bio'),
+  skills: jsonb('skills').$type<string[]>(),
+  interests: jsonb('interests').$type<string[]>(),
+  certifications: jsonb('certifications'),
+  profilePicture: text('profile_picture'),
+  linkedinUrl: text('linkedin_url'),
+  twitterUrl: text('twitter_url'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Core analysis tables
 export const analyses = pgTable('analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -74,6 +94,18 @@ export const structureAnalysisResults = pgTable('structure_analysis_results', {
   analysisId: text('analysis_id').notNull(),
   results: jsonb('results').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const orgStructures = pgTable('org_structures', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id'),
+  submittedBy: text('submitted_by'),
+  rawText: text('raw_text').notNull(),
+  parsedData: jsonb('parsed_data'),
+  analysisResult: jsonb('analysis_result'),
+  isPublic: boolean('is_public').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Relations

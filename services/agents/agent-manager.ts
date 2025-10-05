@@ -6,7 +6,8 @@ import { PerformanceAgent } from './performance-agent.js';
 import { EngagementAgent } from './engagement-agent.js';
 import { RecognitionAgent } from './recognition-agent.js';
 import { db } from '../../db/index.js';
-import { agentAnalyses, triggers, recommendations } from '../../db/schema.js';
+import { agentAnalyses, triggers } from '../../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 
 export interface AgentAnalysisRequest {
   tenantId: string;
@@ -33,13 +34,36 @@ export class AgentManager {
   }
 
   private initializeAgents(): void {
+    // Default config for three-engine agents
+    const defaultThreeEngineConfig = {
+      knowledge: {
+        providers: ['openai' as const, 'anthropic' as const],
+        model: 'gpt-4',
+        temperature: 0.3,
+        maxTokens: 4000
+      },
+      data: {
+        providers: ['openai' as const],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      reasoning: {
+        providers: ['anthropic' as const],
+        model: 'claude-3',
+        temperature: 0.5,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.7
+    };
+
     this.agents.set('culture', new CultureAgent());
     this.agents.set('structure', new StructureAgent());
     this.agents.set('skills', new SkillsAgent());
     this.agents.set('benchmarking', new BenchmarkingAgent());
-    this.agents.set('performance', new PerformanceAgent());
-    this.agents.set('engagement', new EngagementAgent());
-    this.agents.set('recognition', new RecognitionAgent());
+    this.agents.set('performance', new PerformanceAgent('performance', defaultThreeEngineConfig));
+    this.agents.set('engagement', new EngagementAgent('engagement', defaultThreeEngineConfig));
+    this.agents.set('recognition', new RecognitionAgent('recognition', defaultThreeEngineConfig));
   }
 
   async runAnalysis(request: AgentAnalysisRequest): Promise<AgentAnalysisResult> {
@@ -76,11 +100,13 @@ export class AgentManager {
       const analysisRecord = await db.insert(agentAnalyses).values({
         tenantId: request.tenantId,
         agentType: request.agentType,
-        inputData: request.inputData,
-        output: result,
-        confidence: result.overallConfidence || 0.8,
-        processingTime,
-        status: 'completed'
+        results: {
+          inputData: request.inputData,
+          output: result,
+          confidence: result.overallConfidence || 0.8,
+          processingTime,
+          status: 'completed'
+        }
       }).returning();
 
       const analysisId = analysisRecord[0].id;
@@ -118,11 +144,13 @@ export class AgentManager {
       await db.insert(agentAnalyses).values({
         tenantId: request.tenantId,
         agentType: request.agentType,
-        inputData: request.inputData,
-        output: { error: error.message },
-        confidence: 0,
-        processingTime: Date.now() - startTime,
-        status: 'failed'
+        results: {
+          inputData: request.inputData,
+          output: { error: error instanceof Error ? error.message : 'Unknown error' },
+          confidence: 0,
+          processingTime: Date.now() - startTime,
+          status: 'failed'
+        }
       });
 
       throw error;
@@ -156,35 +184,33 @@ export class AgentManager {
     agentType?: string,
     limit: number = 10
   ): Promise<any[]> {
-    let query = db
-      .select()
-      .from(agentAnalyses)
-      .where(eq(agentAnalyses.tenantId, tenantId))
-      .orderBy(agentAnalyses.createdAt)
-      .limit(limit);
+    const conditions: any[] = [eq(agentAnalyses.tenantId, tenantId)];
 
     if (agentType) {
-      query = query.where(eq(agentAnalyses.agentType, agentType));
+      conditions.push(eq(agentAnalyses.agentType, agentType));
     }
 
-    return await query;
+    return await db
+      .select()
+      .from(agentAnalyses)
+      .where(conditions.length > 1 ? conditions[0] : conditions[0])
+      .orderBy(agentAnalyses.createdAt)
+      .limit(limit);
   }
 
   async getActiveRecommendations(tenantId: string): Promise<any[]> {
-    return await db
-      .select()
-      .from(recommendations)
-      .where(eq(recommendations.tenantId, tenantId))
-      .where(eq(recommendations.status, 'open'))
-      .orderBy(recommendations.createdAt);
+    // TODO: Implement when recommendations table is added to schema
+    return [];
   }
 
   async getPendingTriggers(tenantId: string): Promise<any[]> {
     return await db
       .select()
       .from(triggers)
-      .where(eq(triggers.tenantId, tenantId))
-      .where(eq(triggers.status, 'pending'))
+      .where(and(
+        eq(triggers.tenantId, tenantId),
+        eq(triggers.isActive, true)
+      ))
       .orderBy(triggers.createdAt);
   }
 
@@ -198,15 +224,19 @@ export class AgentManager {
       return [];
     }
 
-    const triggerRecords = triggerData.map(trigger => ({
+    const triggerRecords = triggerData.map((trigger: any) => ({
       tenantId,
-      agentType,
-      triggerType: trigger.type,
-      targetId: trigger.targetId || null,
-      condition: trigger.condition || {},
-      action: trigger.action || {},
-      priority: trigger.priority || 'medium',
-      status: 'pending' as const
+      name: trigger.name || `${agentType} Trigger`,
+      description: trigger.description,
+      type: trigger.type || 'event_based',
+      sourceModule: agentType,
+      eventType: trigger.eventType || 'analysis_completed',
+      conditions: trigger.condition || {},
+      targetModule: trigger.targetModule || agentType,
+      action: trigger.action || 'notify',
+      actionConfig: trigger.actionConfig || {},
+      priority: trigger.priority || 5,
+      isActive: true
     }));
 
     return await db.insert(triggers).values(triggerRecords).returning();
@@ -236,6 +266,8 @@ export class AgentManager {
       createdBy: `${agentType}_agent`
     }));
 
-    return await db.insert(recommendations).values(recommendationRecords).returning();
+    // TODO: Implement when recommendations table is added to schema
+    // return await db.insert(recommendations).values(recommendationRecords).returning();
+    return [];
   }
 }

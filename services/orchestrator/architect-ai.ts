@@ -1,10 +1,10 @@
 // server/services/orchestrator/architect-ai.ts
 
 import { StructureAgentV2 } from '../agents/structure/structure-agent.js';
-import { CultureAgentV2 } from '../agents/base/three-engine-agent.js';
-import { SkillsAgentV2 } from '../agents/base/three-engine-agent.js';
+import { CultureAgent } from '../agents/culture-agent.js';
+import { SkillsAgent } from '../agents/skills-agent.js';
 import { db } from '../../db/index.js';
-import { companies, users } from '../../db/schema.js';
+import { companies, users, departments } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export interface ArchitectAIInput {
@@ -46,9 +46,15 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
     }
     
     // Initialize agents
-    const structureAgent = new StructureAgentV2(input.tenantId);
-    const cultureAgent = new CultureAgentV2(input.tenantId);
-    const skillsAgent = new SkillsAgentV2(input.tenantId);
+    const agentConfig = {
+      knowledge: { providers: ['anthropic' as const], model: 'claude-3-5-sonnet-20241022', temperature: 0.1, maxTokens: 4000 },
+      data: { providers: ['openai' as const], model: 'gpt-4', temperature: 0.1, maxTokens: 4000 },
+      reasoning: { providers: ['anthropic' as const], model: 'claude-3', temperature: 0.5, maxTokens: 4000 },
+      consensusThreshold: 0.7
+    };
+    const structureAgent = new StructureAgentV2('structure', agentConfig);
+    const cultureAgent = new CultureAgent();
+    const skillsAgent = new SkillsAgent();
     
     // Run analyses in parallel
     const [structureResult, cultureResult, skillsResult] = await Promise.allSettled([
@@ -123,25 +129,24 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
   }
 }
 
-async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput): Promise<any> {
+async function runCultureAnalysis(agent: CultureAgent, input: ArchitectAIInput): Promise<any> {
   try {
     const analysisInput = {
-      companyId: input.companyId,
       tenantId: input.tenantId,
-      companyValues: input.companyValues || [],
-      strategy: input.strategy,
-      employeeAssessments: input.employeeData || []
+      targetType: 'company' as const,
+      targetId: input.companyId
     };
-    
-    const result = await agent.analyzeCulture(analysisInput);
-    
+
+    const result = await agent.analyzeCompanyCulture(analysisInput);
+
     return {
-      alignmentScore: result.analysis?.alignmentScore || 0,
-      isHealthy: result.analysis?.isHealthyForStrategy || false,
-      culturalEntropy: result.analysis?.culturalEntropy || 0,
-      focusCylinder: result.analysis?.focusCylinder || '',
-      interventions: result.analysis?.interventions || [],
-      recommendations: result.analysis?.recommendations || []
+      healthScore: 1 - result.entropyScore, // Convert entropy to health score
+      alignmentScore: 1 - result.entropyScore,
+      isHealthy: result.entropyScore < 0.3,
+      culturalEntropy: result.entropyScore,
+      focusCylinder: Object.keys(result.cylinderHealth)[0] || '',
+      interventions: result.recommendations,
+      recommendations: result.recommendations
     };
   } catch (error) {
     console.error('Culture analysis failed:', error);
@@ -149,23 +154,23 @@ async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput
   }
 }
 
-async function runSkillsAnalysis(agent: SkillsAgentV2, input: ArchitectAIInput): Promise<any> {
+async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): Promise<any> {
   try {
     const analysisInput = {
-      companyId: input.companyId,
       tenantId: input.tenantId,
-      strategy: input.strategy,
-      employees: input.employeeData || []
+      targetType: 'company' as const,
+      targetId: input.companyId
     };
-    
+
     const result = await agent.analyzeSkills(analysisInput);
-    
+
     return {
-      coverageScore: result.analysis?.skillCoverage || 0,
-      hasRightSkills: result.analysis?.hasRightSkillsForStrategy || false,
-      criticalGaps: result.analysis?.criticalGaps || [],
-      trainingNeeds: result.analysis?.trainingNeeds || [],
-      recommendations: result.analysis?.recommendations || []
+      healthScore: result.overallCoverage,
+      coverageScore: result.overallCoverage,
+      hasRightSkills: result.overallCoverage > 0.7,
+      criticalGaps: result.skillGaps.filter(g => g.priority === 'critical' || g.priority === 'high'),
+      trainingNeeds: result.trainingTriggers,
+      recommendations: result.recommendations
     };
   } catch (error) {
     console.error('Skills analysis failed:', error);
@@ -174,27 +179,36 @@ async function runSkillsAnalysis(agent: SkillsAgentV2, input: ArchitectAIInput):
 }
 
 async function getDefaultOrgChart(companyId: string): Promise<any> {
-  // Get departments and users for the company
-  const departments = await db.query.departments.findMany({
-    where: eq('companyId', companyId),
-    with: {
-      employees: true
+  // Note: companyId is actually the tenantId in our data model
+  const tenantId = companyId;
+
+  // Get departments for the tenant
+  const departmentsList = await db.query.departments.findMany({
+    where: eq(departments.tenantId, tenantId)
+  });
+
+  // Get users for the tenant
+  const usersList = await db.query.users.findMany({
+    where: eq(users.tenantId, tenantId)
+  });
+
+  // Count employees per department
+  const deptEmployeeCounts = usersList.reduce((acc, user) => {
+    if (user.departmentId) {
+      acc[user.departmentId] = (acc[user.departmentId] || 0) + 1;
     }
-  });
-  
-  const users = await db.query.users.findMany({
-    where: eq('companyId', companyId)
-  });
-  
+    return acc;
+  }, {} as Record<string, number>);
+
   return {
-    departments: departments.map(dept => ({
+    departments: departmentsList.map(dept => ({
       id: dept.id,
       name: dept.name,
-      headCount: dept.employees.length,
+      headCount: deptEmployeeCounts[dept.id] || 0,
       manager: dept.managerId
     })),
     reportingLines: [], // Would be populated from actual data
-    roles: users.map(user => ({
+    roles: usersList.map(user => ({
       id: user.id,
       title: user.role,
       department: user.departmentId,

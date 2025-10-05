@@ -9,6 +9,7 @@ import { tenants, users } from './core.js';
 export const cultureAssessments = pgTable('culture_assessments', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: text('tenant_id').notNull(),
+  companyId: text('company_id'), // Reference to company/tenant
   userId: text('user_id').notNull(),
   personalValues: jsonb('personal_values'), // Selected personal values
   currentExperience: jsonb('current_experience'), // Current company experience values
@@ -28,6 +29,40 @@ export const cultureReports = pgTable('culture_reports', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// 7 Cylinders Assessment Scores
+export const cylinderScores = pgTable('cylinder_scores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  targetType: text('target_type').notNull(), // 'individual', 'department', 'company'
+  targetId: text('target_id').notNull(), // userId, departmentId, or companyId
+  assessmentId: text('assessment_id'), // Reference to culture assessment
+
+  // Individual Cylinder Scores (0-100)
+  cylinder1Safety: integer('cylinder1_safety'),
+  cylinder2Belonging: integer('cylinder2_belonging'),
+  cylinder3Growth: integer('cylinder3_growth'),
+  cylinder4Meaning: integer('cylinder4_meaning'),
+  cylinder5Integrity: integer('cylinder5_integrity'),
+  cylinder6Wisdom: integer('cylinder6_wisdom'),
+  cylinder7Transcendence: integer('cylinder7_transcendence'),
+
+  // Enabling and Limiting Values (JSONB for flexibility)
+  enablingValues: jsonb('enabling_values'), // { "Safety": 85, "Stability": 80, ... }
+  limitingValues: jsonb('limiting_values'), // { "Fear": 15, "Instability": 20, ... }
+
+  // Overall Metrics
+  overallScore: integer('overall_score'), // 0-100 average
+  culturalMaturity: integer('cultural_maturity'), // 1-7 (highest cylinder reached)
+  entropyScore: integer('entropy_score'), // 0-100 (percentage of limiting values)
+
+  // Metadata
+  assessmentDate: timestamp('assessment_date').notNull().defaultNow(),
+  assessedBy: text('assessed_by'), // 'culture_agent', userId, or 'system'
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Relations
 export const cultureAssessmentsRelations = relations(cultureAssessments, ({ one }) => ({
   tenant: one(tenants, {
@@ -43,6 +78,13 @@ export const cultureAssessmentsRelations = relations(cultureAssessments, ({ one 
 export const cultureReportsRelations = relations(cultureReports, ({ one }) => ({
   tenant: one(tenants, {
     fields: [cultureReports.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const cylinderScoresRelations = relations(cylinderScores, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [cylinderScores.tenantId],
     references: [tenants.id],
   }),
 }));

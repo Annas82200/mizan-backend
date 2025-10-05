@@ -39,7 +39,7 @@ export class TwitterService {
       // Create the tweet
       const tweet = await this.client.v2.tweet({
         text: content,
-        media: mediaIds.length > 0 ? { media_ids: mediaIds } : undefined
+        media: mediaIds.length > 0 ? { media_ids: mediaIds as [string] } : undefined
       });
       
       return {

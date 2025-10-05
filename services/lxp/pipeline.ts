@@ -69,13 +69,13 @@ export class LxpPipelineService {
       
       // Get talent profile
       const talentProfile = await db.query.talentProfiles.findFirst({
-        where: eq(talentProfiles.userId, employeeId)
+        where: eq(talentProfiles.employeeId, employeeId)
       });
       
       // Get current learning progress
       const currentProgress = await db.query.learningProgress.findMany({
         where: and(
-          eq(learningProgress.userId, employeeId),
+          eq(learningProgress.employeeId, employeeId),
           eq(learningProgress.tenantId, tenantId)
         )
       });
@@ -385,14 +385,15 @@ export class LxpPipelineService {
       // Create learning progress record
       await db.insert(learningProgress).values({
         id: randomUUID(),
-        userId: employeeId,
+        employeeId: employeeId,
         tenantId,
-        moduleType: module.type,
-        moduleId: module.id,
-        status: 'in_progress',
-        progress: 0,
-        startedAt: new Date(),
-        lastAccessedAt: new Date()
+        courseId: module.id,
+        progress: 0
+        // moduleType: module.type,
+        // moduleId: module.id,
+        // status: 'in_progress',
+        // startedAt: new Date(),
+        // lastAccessedAt: new Date()
       });
       
       console.log(`Started module ${module.id} for employee ${employeeId}`);
@@ -407,15 +408,15 @@ export class LxpPipelineService {
       // Update learning progress
       await db.update(learningProgress)
         .set({
-          status: 'completed',
+          // status: 'completed',
           progress: 100,
-          completedAt: new Date(),
-          lastAccessedAt: new Date()
+          // completedAt: new Date(),
+          // lastAccessedAt: new Date()
         })
         .where(and(
-          eq(learningProgress.userId, employeeId),
+          eq(learningProgress.employeeId, employeeId),
           eq(learningProgress.tenantId, tenantId),
-          eq(learningProgress.moduleId, module.id)
+          eq(learningProgress.courseId, module.id)
         ));
       
       console.log(`Completed module ${module.id} for employee ${employeeId}`);

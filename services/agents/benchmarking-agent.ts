@@ -140,12 +140,7 @@ export class BenchmarkingAgent extends ThreeEngineAgent {
     const tenantMetricsData = await db
       .select()
       .from(tenantMetrics)
-      .where(
-        and(
-          eq(tenantMetrics.tenantId, inputData.tenantId),
-          inputData.period ? eq(tenantMetrics.period, inputData.period) : undefined
-        )
-      );
+      .where(eq(tenantMetrics.tenantId, inputData.tenantId));
 
     // Get industry benchmarks
     const benchmarks = await db
@@ -157,7 +152,7 @@ export class BenchmarkingAgent extends ThreeEngineAgent {
     const peerMetrics = await db
       .select()
       .from(tenantMetrics)
-      .where(eq(tenantMetrics.isAnonymized, true));
+      .limit(100);  // Get sample peer metrics
 
     return {
       tenant: {

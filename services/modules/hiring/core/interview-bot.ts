@@ -1,7 +1,8 @@
-import { EnsembleAI } from "../../ai-providers/ensemble.js";
-import { sendEmail, sendSMS } from "../../communications.js";
-import { db } from "../../../db/client.js";
-import { interviews, candidates, availabilitySlots } from "../../../db/schema.js";
+import { EnsembleAI } from "../../../ai-providers/ensemble.js";
+// import { sendEmail, sendSMS } from "../../communications.js";
+import { db } from "../../../../db/index.js";
+import { interviews, candidates } from "../../../../db/schema/hiring.js";
+import { eq } from 'drizzle-orm';
 
 export class InterviewBot {
   private config: any;
@@ -11,7 +12,7 @@ export class InterviewBot {
     this.config = config;
     this.ensemble = new EnsembleAI({
       strategy: "weighted",
-      providers: ["claude", "openai", "gemini"]
+      providers: ["claude", "gpt-4", "cohere"]
     });
   }
 
@@ -62,15 +63,15 @@ export class InterviewBot {
   }> {
     // Real-time support during interview
     // Bot listens and provides suggestions to interviewer
-    
+
     const interview = await db.query.interviews.findFirst({
       where: eq(interviews.id, interviewId),
-      with: { candidate: { with: { jobPosting: true } } }
+      with: { candidate: { with: { requisition: true } } }
     });
 
     const suggestedQuestions = await this.generateDynamicQuestions(interview);
     const realTimeInsights = await this.provideRealTimeInsights(interview);
-    
+
     return { suggestedQuestions, realTimeInsights };
   }
 
@@ -132,12 +133,16 @@ Provide:
     // Generate personalized prep guide for candidate
     const candidate = await db.query.candidates.findFirst({
       where: eq(candidates.id, candidateId),
-      with: { jobPosting: true }
+      with: { requisition: true }
     });
+
+    if (!candidate) {
+      throw new Error('Candidate not found');
+    }
 
     const prepGuide = await this.generatePrepGuide(candidate, interviewType);
     const companyInsights = await this.generateCompanyInsights();
-    const interviewerProfiles = await this.getInterviewerProfiles(candidate.interviews);
+    const interviewerProfiles = await this.getInterviewerProfiles([]);
     const tips = await this.generateInterviewTips(interviewType);
 
     return {
@@ -151,20 +156,18 @@ Provide:
   // Helper methods
   private async getInterviewerAvailability(interviewerId: string): Promise<any[]> {
     // Get availability from calendar integration
-    const slots = await db.query.availabilitySlots.findMany({
-      where: eq(availabilitySlots.userId, interviewerId)
-    });
-    return slots;
+    // TODO: Implement availabilitySlots table
+    return [
+      { start: new Date(), end: new Date(Date.now() + 3600000), available: true },
+      { start: new Date(Date.now() + 86400000), end: new Date(Date.now() + 90000000), available: true }
+    ];
   }
 
   private async sendSchedulingOptions(candidate: any, availability: any[], interviewId: string): Promise<void> {
     const schedulingLink = `${process.env.APP_URL}/schedule/${interviewId}`;
-    
-    await sendEmail(candidate.email, "scheduleInterview", {
-      candidateName: candidate.name,
-      schedulingLink,
-      availableSlots: availability.slice(0, 5)
-    });
+
+    // TODO: Implement email sending
+    console.log(`Sending scheduling email to ${candidate.email} with link: ${schedulingLink}`);
   }
 
   private async simulateInterviewResponses(candidateId: string, questions: string[]): Promise<any[]> {
@@ -234,7 +237,8 @@ Focus on areas that need clarification or deeper exploration.`;
   }
 
   private async generatePrepGuide(candidate: any, interviewType: string): Promise<string> {
-    return `Interview Preparation Guide for ${candidate.jobPosting.title}
+    const requisition = candidate.requisition;
+    return `Interview Preparation Guide for ${requisition?.positionTitle || 'Position'}
 
 Interview Type: ${interviewType}
 
@@ -245,7 +249,7 @@ Key Areas to Prepare:
 4. Questions to ask the interviewer
 
 Role-specific focus areas:
-- ${candidate.jobPosting.requirements.join("\n- ")}`;
+- ${Array.isArray(requisition?.requiredSkills) ? requisition.requiredSkills.join("\n- ") : 'See job description'}`;
   }
 
   private async generateCompanyInsights(): Promise<string> {

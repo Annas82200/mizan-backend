@@ -1,6 +1,6 @@
 // server/routes/entry.ts
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/index.js';
@@ -49,11 +49,11 @@ router.post('/analyze-org', async (req, res) => {
     const [inputRecord] = await db.insert(orgInputs)
       .values({
         tenantId: '8775dc10-1b28-4901-99ad-287fee00ddc2', // For anonymous analysis
-        inputType: 'org_structure',
         data: {
+          type: 'org_structure',
           email: req.body.email || 'anonymous',
           orgName: req.body.orgName || 'Anonymous Organization',
-          orgSize: validatedData.departments.reduce((sum, dept) => sum + dept.headCount, 0),
+          orgSize: validatedData.departments.reduce((sum: number, dept) => sum + dept.headCount, 0),
           industry: req.body.industry || 'Not Specified',
           inputData: validatedData
         }
@@ -85,7 +85,7 @@ router.post('/analyze-org', async (req, res) => {
       .returning();
     
     // Return results
-    res.json({
+    return res.json({
       success: true,
       analysisId: result.id,
       results: {
@@ -96,20 +96,20 @@ router.post('/analyze-org', async (req, res) => {
         recommendations: analysisResult.recommendations
       }
     });
-    
+
   } catch (error) {
     console.error('Structure analysis error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         error: 'Invalid input data',
         details: error.errors
       });
     }
-    
-    res.status(500).json({
+
+    return res.status(500).json({
       error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -124,15 +124,15 @@ router.get('/analysis/:id', async (req, res) => {
     if (!result) {
       return res.status(404).json({ error: 'Analysis not found' });
     }
-    
-    res.json({
+
+    return res.json({
       success: true,
       result
     });
-    
+
   } catch (error) {
     console.error('Error fetching analysis:', error);
-    res.status(500).json({ error: 'Failed to fetch analysis' });
+    return res.status(500).json({ error: 'Failed to fetch analysis' });
   }
 });
 
@@ -151,15 +151,15 @@ router.get('/analysis/:id/pdf', async (req, res) => {
     // const pdfBuffer = await generatePDFReport(result); // TODO: Implement PDF generation
     
     // For now, return JSON instead of PDF
-    res.json({
+    return res.json({
       message: 'PDF generation not implemented yet',
       analysisId: result.id,
       result: result
     });
-    
+
   } catch (error) {
     console.error('Error generating PDF:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
+    return res.status(500).json({ error: 'Failed to generate PDF' });
   }
 });
 
@@ -202,7 +202,7 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
     console.log('📋 Framework loaded with', frameworkData.length, 'cylinders');
 
     // Process employee survey responses
-    const processedResponses = employeeResponses?.map(response => ({
+    const processedResponses = employeeResponses?.map((response: any) => ({
       personalValues: response.personalValues || [],
       currentExperience: response.currentExperience || [],
       desiredExperience: response.desiredExperience || [],
@@ -238,8 +238,8 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
         totalResponses: processedResponses.length,
         responseQuality: processedResponses.length > 0 ? 'High' : 'No Data',
         valuesAlignment: valuesAlignment,
-        averageRecognition: processedResponses.reduce((sum, r) => sum + r.recognition, 0) / Math.max(processedResponses.length, 1),
-        averageEngagement: processedResponses.reduce((sum, r) => sum + r.engagement, 0) / Math.max(processedResponses.length, 1)
+        averageRecognition: processedResponses.reduce((sum: number, r: any) => sum + r.recognition, 0) / Math.max(processedResponses.length, 1),
+        averageEngagement: processedResponses.reduce((sum: number, r: any) => sum + r.engagement, 0) / Math.max(processedResponses.length, 1)
       },
       
       // Dual reports
@@ -357,9 +357,9 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
 
     console.log('✅ Culture analysis completed successfully');
 
-    res.json({
+    return res.json({
       success: true,
-      analysis: mockCultureAnalysis,
+      analysis: cultureAnalysis,
       metadata: {
         analysisType: 'culture_7_cylinders',
         framework: 'Mizan 7-Cylinders Framework',
@@ -370,9 +370,9 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Culture analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -565,7 +565,7 @@ router.post('/analyze-skills', async (req: Request, res: Response) => {
     console.error('Skills analysis error:', error);
     res.status(500).json({
       error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -806,7 +806,7 @@ router.post('/analyze-performance', async (req: Request, res: Response) => {
     console.error('Performance analysis error:', error);
     res.status(500).json({
       error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -1010,25 +1010,25 @@ router.post('/analyze-comprehensive', async (req: Request, res: Response) => {
     console.error('Comprehensive analysis error:', error);
     res.status(500).json({
       error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Helper functions for culture analysis
-function analyzeValuesAlignment(responses, framework) {
+function analyzeValuesAlignment(responses: any[], framework: any): number {
   if (!responses || responses.length === 0) return 75; // Default score
-  
+
   // Calculate alignment between personal values and current experience
   let totalAlignment = 0;
   let responseCount = 0;
-  
-  responses.forEach(response => {
+
+  responses.forEach((response: any) => {
     const personalValues = response.personalValues || [];
     const currentExperience = response.currentExperience || [];
     
     if (personalValues.length > 0 && currentExperience.length > 0) {
-      const overlap = personalValues.filter(value => currentExperience.includes(value)).length;
+      const overlap = personalValues.filter((value: any) => currentExperience.includes(value)).length;
       const alignment = (overlap / personalValues.length) * 100;
       totalAlignment += alignment;
       responseCount++;
@@ -1038,19 +1038,19 @@ function analyzeValuesAlignment(responses, framework) {
   return responseCount > 0 ? Math.round(totalAlignment / responseCount) : 75;
 }
 
-function calculateCulturalEntropy(responses, framework) {
+function calculateCulturalEntropy(responses: any[], framework: any): number {
   if (!responses || responses.length === 0) return 25; // Default entropy
-  
+
   // Calculate entropy based on variance in responses
   let totalVariance = 0;
   let responseCount = 0;
-  
-  responses.forEach(response => {
+
+  responses.forEach((response: any) => {
     const currentExp = response.currentExperience || [];
     const desiredExp = response.desiredExperience || [];
     
     if (currentExp.length > 0 && desiredExp.length > 0) {
-      const gap = desiredExp.filter(value => !currentExp.includes(value)).length;
+      const gap = desiredExp.filter((value: any) => !currentExp.includes(value)).length;
       const variance = (gap / desiredExp.length) * 100;
       totalVariance += variance;
       responseCount++;
@@ -1061,9 +1061,9 @@ function calculateCulturalEntropy(responses, framework) {
   return Math.min(Math.round(avgVariance), 100);
 }
 
-function calculateCylinderScores(responses, framework) {
+function calculateCylinderScores(responses: any[], framework: any): any {
   // Map framework cylinders to scores based on employee responses
-  const cylinderMapping = {
+  const cylinderMapping: Record<string, string> = {
     'Safety & Survival': 'wellbeing',
     'Belonging & Loyalty': 'belonging', 
     'Growth & Achievement': 'mastery',
@@ -1073,19 +1073,19 @@ function calculateCylinderScores(responses, framework) {
     'Transcendence & Unity': 'progress'
   };
   
-  const scores = {};
-  
-  framework.forEach(cylinder => {
+  const scores: Record<string, number> = {};
+
+  framework.forEach((cylinder: any) => {
     const cylinderKey = cylinderMapping[cylinder.name] || 'general';
-    const cylinderValues = cylinder.positiveValues.map(v => v.name);
+    const cylinderValues = cylinder.positiveValues.map((v: any) => v.name);
     
     // Calculate score based on how often cylinder values appear in responses
     let cylinderScore = 0;
     let responseCount = 0;
     
-    responses.forEach(response => {
+    responses.forEach((response: any) => {
       const currentExp = response.currentExperience || [];
-      const matches = currentExp.filter(value => cylinderValues.includes(value)).length;
+      const matches = currentExp.filter((value: any) => cylinderValues.includes(value)).length;
       if (currentExp.length > 0) {
         cylinderScore += (matches / currentExp.length) * 100;
         responseCount++;
@@ -1098,8 +1098,8 @@ function calculateCylinderScores(responses, framework) {
   return scores;
 }
 
-function generateEmployeeReports(responses, framework, companyValues) {
-  return responses.map((response, index) => ({
+function generateEmployeeReports(responses: any[], framework: any, companyValues: any): any[] {
+  return responses.map((response: any, index: number) => ({
     employeeId: `emp_${index + 1}`,
     personalValuesAnalysis: {
       selectedValues: response.personalValues,
@@ -1125,7 +1125,7 @@ function generateEmployeeReports(responses, framework, companyValues) {
   }));
 }
 
-function generateAdminReport(responses, framework, companyValues, vision, mission) {
+function generateAdminReport(responses: any[], framework: any, companyValues: any, vision: any, mission: any): any {
   const aggregatedData = aggregateResponses(responses);
   const departmentAnalysis = analyzeDepartmentCulture(responses);
   const entropyAnalysis = analyzeOrganizationalEntropy(responses, framework);
@@ -1159,33 +1159,33 @@ function generateAdminReport(responses, framework, companyValues, vision, missio
 }
 
 // Helper functions for analysis
-function mapValuesToFramework(values, framework) {
-  return framework.map(cylinder => ({
+function mapValuesToFramework(values: any[], framework: any): any {
+  return framework.map((cylinder: any) => ({
     cylinderName: cylinder.name,
-    matchingValues: values.filter(value => 
-      cylinder.positiveValues.some(v => v.name === value)
+    matchingValues: values.filter((value: any) =>
+      cylinder.positiveValues.some((v: any) => v.name === value)
     ),
-    score: values.filter(value => 
-      cylinder.positiveValues.some(v => v.name === value)
+    score: values.filter((value: any) =>
+      cylinder.positiveValues.some((v: any) => v.name === value)
     ).length
   }));
 }
 
-function calculateAlignment(values1, values2) {
+function calculateAlignment(values1: any[], values2: any[]): number {
   if (!values1 || !values2 || values1.length === 0 || values2.length === 0) return 0;
   const overlap = values1.filter(value => values2.includes(value)).length;
   return Math.round((overlap / Math.max(values1.length, values2.length)) * 100);
 }
 
-function aggregateResponses(responses) {
+function aggregateResponses(responses: any[]): any {
   const allValues = responses.flatMap(r => [
     ...(r.personalValues || []),
     ...(r.currentExperience || []),
     ...(r.desiredExperience || [])
   ]);
   
-  const valueCounts = {};
-  allValues.forEach(value => {
+  const valueCounts: Record<string, number> = {};
+  allValues.forEach((value: any) => {
     valueCounts[value] = (valueCounts[value] || 0) + 1;
   });
   
@@ -1197,18 +1197,18 @@ function aggregateResponses(responses) {
   return { topValues, valueCounts };
 }
 
-function generatePersonalityInsights(personalValues, framework) {
-  const cylinderAffinities = framework.map(cylinder => ({
+function generatePersonalityInsights(personalValues: any[], framework: any): any {
+  const cylinderAffinities = framework.map((cylinder: any) => ({
     name: cylinder.name,
     ethicalPrinciple: cylinder.ethicalPrinciple,
-    affinity: personalValues.filter(value => 
-      cylinder.positiveValues.some(v => v.name === value)
+    affinity: personalValues.filter((value: any) =>
+      cylinder.positiveValues.some((v: any) => v.name === value)
     ).length,
-    matchingValues: personalValues.filter(value => 
-      cylinder.positiveValues.some(v => v.name === value)
+    matchingValues: personalValues.filter((value: any) =>
+      cylinder.positiveValues.some((v: any) => v.name === value)
     )
-  })).sort((a, b) => b.affinity - a.affinity);
-  
+  })).sort((a: any, b: any) => b.affinity - a.affinity);
+
   return {
     primaryCylinder: cylinderAffinities[0],
     secondaryCylinder: cylinderAffinities[1],
@@ -1303,7 +1303,7 @@ router.post('/clients/:clientId/analyze', async (req, res) => {
       }
     };
 
-    const result = analysisResults[analysisType];
+    const result = analysisResults[analysisType as keyof typeof analysisResults];
     if (!result) {
       return res.status(400).json({
         success: false,
@@ -1311,12 +1311,12 @@ router.post('/clients/:clientId/analyze', async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       result
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Analysis failed'
     });
@@ -1363,5 +1363,77 @@ router.get('/clients/:clientId/data', (req, res) => {
     });
   }
 });
+
+// Additional helper functions (stubs - to be fully implemented)
+function generatePersonalRecommendations(response: any, framework: any): string[] {
+  return ['Focus on values alignment', 'Enhance team collaboration', 'Seek growth opportunities'];
+}
+
+function generateRecognitionRecommendations(recognitionScore: number): string[] {
+  return recognitionScore < 5
+    ? ['Increase peer recognition programs', 'Implement regular feedback sessions']
+    : ['Maintain current recognition practices', 'Share success stories'];
+}
+
+function generateEngagementRecommendations(engagementScore: number): string[] {
+  return engagementScore < 5
+    ? ['Improve communication channels', 'Increase autonomy in tasks']
+    : ['Sustain engagement initiatives', 'Foster innovation culture'];
+}
+
+function analyzeDepartmentCulture(responses: any[]): any {
+  return {
+    departments: [],
+    crossDepartmentAlignment: 75,
+    culturalConsistency: 80
+  };
+}
+
+function analyzeOrganizationalEntropy(responses: any[], framework: any): any {
+  return {
+    overallEntropy: 25,
+    entropyByDepartment: {},
+    trends: 'stable'
+  };
+}
+
+function calculateCompanyValuesAlignment(responses: any[], companyValues: any, framework?: any): number {
+  return 78;
+}
+
+function identifyValuesGaps(responses: any[], companyValues: any, framework?: any): any[] {
+  return [];
+}
+
+function calculateOverallCultureHealth(responses: any[], framework?: any): number {
+  return 82;
+}
+
+function calculateCylinderHealth(responses: any[], framework: any): any {
+  return {};
+}
+
+function analyzeCultureStrategyAlignment(responses: any[], vision: any, mission: any, framework?: any): any {
+  return {
+    visionAlignment: 75,
+    missionAlignment: 80,
+    strategicConsistency: 78
+  };
+}
+
+function generateStrategicCultureRecommendations(responses: any[], vision: any, mission: any, framework: any): string[] {
+  return [
+    'Align team objectives with company vision',
+    'Strengthen mission communication',
+    'Foster strategic thinking across levels'
+  ];
+}
+
+function generateCultureActionItems(responses: any[], framework: any, companyValues: any): any[] {
+  return [
+    { priority: 'high', action: 'Improve values alignment', timeline: '30 days' },
+    { priority: 'medium', action: 'Enhance communication', timeline: '60 days' }
+  ];
+}
 
 export default router;

@@ -2,9 +2,11 @@
 
 import { UnifiedResults } from './unified-results.js';
 import { db } from '../../db/index.js';
-import { triggers, triggeredActions } from '../../db/schema.js';
+import { triggers, triggerExecutions } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { lxpModule } from '../modules/lxp/lxp-module.js';
+import { hiringModule } from '../modules/hiring/hiring-module.js';
 
 export interface Trigger {
   id: string;
@@ -25,14 +27,17 @@ export interface TriggerResult {
   executed: boolean;
 }
 
-export async function runTriggers(unifiedResults: UnifiedResults): Promise<TriggerResult[]> {
+export async function runTriggers(unifiedResults: UnifiedResults & { tenantId: string }): Promise<TriggerResult[]> {
   console.log('Running trigger engine for unified results');
-  
+
   try {
+    // Initialize LXP module if needed
+    await initializeModules(unifiedResults.tenantId);
+
     // Get active triggers for the tenant
     const activeTriggers = await db.query.triggers.findMany({
       where: and(
-        eq(triggers.status, 'active'),
+        eq(triggers.isActive, true),
         eq(triggers.tenantId, unifiedResults.tenantId || 'default-tenant')
       )
     });
@@ -64,9 +69,180 @@ export async function runTriggers(unifiedResults: UnifiedResults): Promise<Trigg
   }
 }
 
+/**
+ * Initialize all modules
+ */
+async function initializeModules(tenantId: string): Promise<void> {
+  try {
+    console.log('[Trigger Engine] Initializing modules...');
+
+    // Initialize LXP module
+    const lxpHealth = await lxpModule.checkHealth();
+    if (!lxpHealth.healthy) {
+      console.log('[Trigger Engine] Initializing LXP module...');
+      await lxpModule.initialize();
+    } else {
+      console.log('[Trigger Engine] LXP module already initialized');
+    }
+
+    // Initialize Hiring module
+    const hiringHealth = await hiringModule.checkHealth();
+    if (!hiringHealth.healthy) {
+      console.log('[Trigger Engine] Initializing Hiring module...');
+      await hiringModule.initialize({
+        tenantId: tenantId || 'default-tenant',
+        moduleId: 'hiring-module',
+        enabled: true
+      });
+    } else {
+      console.log('[Trigger Engine] Hiring module already initialized');
+    }
+
+    // Add other module initializations here as they are implemented
+
+    console.log('[Trigger Engine] All modules initialized successfully');
+  } catch (error) {
+    console.error('[Trigger Engine] Error initializing modules:', error);
+    // Don't throw error - allow trigger engine to continue with fallback processing
+  }
+}
+
 async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Promise<TriggerResult | null> {
   const { type, config } = trigger;
   
+  // ============================================================================
+  // LXP Module Integration - Task 1.5.1
+  // ============================================================================
+  // Check if this trigger should be handled by the LXP module
+  const lxpTriggerTypes = [
+    'skill_gaps_critical',
+    'culture_learning_needed', 
+    'employee_skill_gap',
+    'performance_perfect_lxp',
+    'performance_improvement_lxp',
+    'compliance_training_due',
+    'safety_training_expired',
+    'certification_expiring',
+    'legal_requirement_change',
+    'proactive_training',
+    'lxp_training_completion',
+    'training_completion',
+    'onboarding_completion'
+  ];
+
+  // ============================================================================
+  // Hiring Module Integration - Task 3.5.1
+  // ============================================================================
+  // Check if this trigger should be handled by the Hiring module
+  const hiringTriggerTypes = [
+    'hiring_needs_urgent',
+    'structure_analysis_expansion',
+    'candidate_applied',
+    'interview_completed',
+    'offer_accepted',
+    'candidate_screening_required',
+    'interview_scheduling_required',
+    'offer_generation_required'
+  ];
+
+  if (lxpTriggerTypes.includes(type)) {
+    try {
+      console.log(`[Trigger Engine] Routing trigger ${type} to LXP module`);
+      
+      // Initialize LXP module if not already initialized
+      if (!lxpModule.getStatus().status || lxpModule.getStatus().status === 'inactive') {
+        await lxpModule.initialize();
+      }
+      
+      // Process trigger through LXP module
+      const lxpResult = await lxpModule.handleTrigger(type, config, unifiedResults);
+      
+      if (lxpResult.success) {
+        // Convert LXP module result to trigger result
+        const triggerResult: TriggerResult = {
+          id: randomUUID(),
+          triggerId: trigger.id,
+          reason: `LXP module processed ${type} trigger`,
+          action: lxpResult.action,
+          priority: lxpResult.confidence > 0.8 ? 'high' : lxpResult.confidence > 0.6 ? 'medium' : 'low',
+          data: lxpResult.data,
+          executed: true
+        };
+        
+        // Handle next triggers if any
+        if (lxpResult.nextTriggers.length > 0) {
+          console.log(`[Trigger Engine] LXP module generated ${lxpResult.nextTriggers.length} next triggers`);
+          // In a real implementation, these would be queued for processing
+        }
+        
+        return triggerResult;
+      } else {
+        console.error(`[Trigger Engine] LXP module failed to process trigger ${type}:`, lxpResult.error);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[Trigger Engine] Error processing trigger ${type} through LXP module:`, error);
+      // Fall back to original processing
+    }
+  }
+
+  if (hiringTriggerTypes.includes(type)) {
+    try {
+      console.log(`[Trigger Engine] Routing trigger ${type} to Hiring module`);
+      
+      // Initialize Hiring module if not already initialized
+      if (!hiringModule.getStatus().status || hiringModule.getStatus().status === 'inactive') {
+        await hiringModule.initialize({
+          tenantId: config.tenantId || 'default-tenant',
+          moduleId: 'hiring-module',
+          enabled: true
+        });
+      }
+
+      // Process trigger through Hiring module
+      // Cast unifiedResults to include tenantId since we know it has it at runtime
+      const resultsWithTenant = unifiedResults as UnifiedResults & { tenantId: string };
+      const hiringContext = {
+        triggerType: type,
+        tenantId: resultsWithTenant.tenantId || 'default-tenant',
+        data: config,
+        timestamp: new Date().toISOString(),
+        priority: 'medium' as const
+      };
+      const hiringResult = await hiringModule.handleTrigger(hiringContext);
+      
+      if (hiringResult.success) {
+        // Convert Hiring module result to trigger result
+        const triggerResult: TriggerResult = {
+          id: randomUUID(),
+          triggerId: trigger.id,
+          reason: `Hiring module processed ${type} trigger`,
+          action: hiringResult.action,
+          priority: hiringResult.confidence > 0.8 ? 'high' : hiringResult.confidence > 0.6 ? 'medium' : 'low',
+          data: hiringResult.data,
+          executed: true
+        };
+        
+        // Handle next triggers if any
+        if (hiringResult.nextTriggers && hiringResult.nextTriggers.length > 0) {
+          console.log(`[Trigger Engine] Hiring module generated ${hiringResult.nextTriggers.length} next triggers`);
+          // In a real implementation, these would be queued for processing
+        }
+        
+        return triggerResult;
+      } else {
+        console.error(`[Trigger Engine] Hiring module failed to process trigger ${type}:`, hiringResult.error);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[Trigger Engine] Error processing trigger ${type} through Hiring module:`, error);
+      // Fall back to original processing
+    }
+  }
+  
+  // ============================================================================
+  // Original Trigger Processing (Fallback)
+  // ============================================================================
   switch (type) {
     case 'skill_gaps_critical':
       return processSkillGapsTrigger(trigger, unifiedResults, config);
@@ -3914,25 +4090,24 @@ function processLeadershipGapPredictionTrigger(trigger: any, results: UnifiedRes
 }
 
 
-async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults): Promise<void> {
+async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults & { tenantId: string }): Promise<void> {
   try {
-    await db.insert(triggeredActions).values({
+    await db.insert(triggerExecutions).values({
       id: randomUUID(),
       tenantId: unifiedResults.tenantId || 'default-tenant',
       triggerId: trigger.id,
-      actionType: result.action,
-      status: 'pending',
-      input: {
-        trigger: trigger,
-        result: result,
-        unifiedResults: {
-          healthScore: unifiedResults.overall_health_score,
-          trend: unifiedResults.trend
-        }
+      status: 'completed',
+      inputData: {
+        trigger: trigger.type,
+        config: trigger.config
       },
-      executedAt: new Date()
+      outputData: {
+        action: result.action,
+        priority: result.priority,
+        data: result.data
+      }
     });
-    
+
     console.log(`Logged triggered action: ${result.action} for trigger ${trigger.name}`);
   } catch (error) {
     console.error('Failed to log triggered action:', error);
@@ -3958,6 +4133,63 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       name: 'Hiring Needs Alert',
       type: 'hiring_needs_urgent',
       config: {},
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Structure Analysis Expansion Alert',
+      type: 'structure_analysis_expansion',
+      config: { 
+        expansionThreshold: 0.7,
+        moduleType: 'hiring_module',
+        urgencyLevel: 'high'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Candidate Applied Alert',
+      type: 'candidate_applied',
+      config: { 
+        moduleType: 'hiring_module',
+        workflow: 'candidate_screening',
+        urgencyLevel: 'medium'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Interview Completed Alert',
+      type: 'interview_completed',
+      config: { 
+        moduleType: 'hiring_module',
+        workflow: 'offer_generation',
+        scoreThreshold: 3.5,
+        urgencyLevel: 'medium'
+      },
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: randomUUID(),
+      tenantId,
+      name: 'Offer Accepted Alert',
+      type: 'offer_accepted',
+      config: { 
+        moduleType: 'onboarding_module',
+        workflow: 'employee_onboarding',
+        urgencyLevel: 'high'
+      },
       status: 'active' as const,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -4300,9 +4532,15 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
   
   try {
     for (const trigger of defaultTriggers) {
-      await db.insert(triggers).values(trigger);
+      await db.insert(triggers).values({
+        ...trigger,
+        sourceModule: 'performance',
+        eventType: trigger.type,
+        targetModule: 'performance',
+        action: 'notify'
+      } as any);
     }
-    
+
     console.log(`Created ${defaultTriggers.length} default triggers for tenant ${tenantId}`);
   } catch (error) {
     console.error('Failed to create default triggers:', error);

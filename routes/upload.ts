@@ -1,10 +1,12 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { authenticate } from "../middleware/auth.js";
-import { analyzeStructure } from "../services/agents/structure-agent.js";
-import { db } from "../db/client.js";
-import { orgStructures } from "../db/schema.js";
+import { StructureAgentV2 } from "../services/agents/structure/structure-agent.js";
+import { db } from "../db/index.js";
+import { orgStructures } from "../db/schema/core.js";
+import { eq, desc } from "drizzle-orm";
+import { AnalysisResult } from "../types/shared.js";
 
 const router = Router();
 
@@ -38,19 +40,19 @@ function parseCSVOrgStructure(buffer: Buffer): string {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-    });
-    
+    }) as Array<Record<string, string>>;
+
     // Convert CSV rows to indented text format
     // Expected columns: level, title, reports_to
     let orgText = "";
-    
+
     for (const record of records) {
       const level = parseInt(record.level || "0");
       const title = record.title || record.role || record.position || "Unknown";
       const indent = "  ".repeat(level);
       orgText += `${indent}${title}\n`;
     }
-    
+
     return orgText.trim();
   } catch (error) {
     throw new Error("Failed to parse CSV file");
@@ -65,7 +67,7 @@ function parseExcelOrgStructure(buffer: Buffer): string {
 }
 
 // Public upload endpoint (no auth required for free tier)
-router.post("/analyze", upload.single("file"), async (req, res) => {
+router.post("/analyze", upload.single("file"), async (req: Request, res: Response) => {
   try {
     if (!req.file && !req.body.orgText) {
       return res.status(400).json({ error: "No file or text provided" });
@@ -85,32 +87,58 @@ router.post("/analyze", upload.single("file"), async (req, res) => {
       }
     }
     
-    // Analyze the structure
-    const result = await analyzeStructure({ orgText });
-    
+    // Analyze the structure using StructureAgentV2
+    const agentConfig = {
+      knowledge: {
+        providers: ['openai' as const, 'anthropic' as const],
+        model: 'gpt-4',
+        temperature: 0.3,
+        maxTokens: 4000
+      },
+      data: {
+        providers: ['openai' as const],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      reasoning: {
+        providers: ['anthropic' as const],
+        model: 'claude-3',
+        temperature: 0.5,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.7
+    };
+    const agent = new StructureAgentV2('structure', agentConfig);
+    const result = await agent.analyze({
+      tenantId: req.user?.tenantId || 'public',
+      userId: req.user?.id || 'anonymous',
+      orgText
+    }) as unknown as AnalysisResult;
+
     // Store for analytics (public analysis)
     await db.insert(orgStructures).values({
       submittedBy: req.user?.id || null,
       tenantId: req.user?.tenantId || null,
       rawText: orgText,
-      parsedData: result.roles,
+      parsedData: result.roles || result,
       analysisResult: result,
       isPublic: !req.user,
     });
-    
-    res.json(result);
+
+    return res.json(result);
   } catch (error) {
     console.error("Upload analysis failed:", error);
     if (error instanceof Error) {
-      res.status(400).json({ error: error.message });
+      return res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     } else {
-      res.status(500).json({ error: "Analysis failed" });
+      return res.status(500).json({ error: "Analysis failed" });
     }
   }
 });
 
 // Authenticated upload for saving org structures
-router.post("/save", authenticate, upload.single("file"), async (req, res) => {
+router.post("/save", authenticate, upload.single("file"), async (req: Request, res: Response) => {
   try {
     if (!req.file && !req.body.orgText) {
       return res.status(400).json({ error: "No file or text provided" });
@@ -126,33 +154,57 @@ router.post("/save", authenticate, upload.single("file"), async (req, res) => {
       }
     }
     
-    const result = await analyzeStructure({ 
-      orgText, 
-      tenantId: req.user!.tenantId || undefined 
-    });
-    
+    // Analyze the structure using StructureAgentV2
+    const agentConfig = {
+      knowledge: {
+        providers: ['openai' as const, 'anthropic' as const],
+        model: 'gpt-4',
+        temperature: 0.3,
+        maxTokens: 4000
+      },
+      data: {
+        providers: ['openai' as const],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      reasoning: {
+        providers: ['anthropic' as const],
+        model: 'claude-3',
+        temperature: 0.5,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.7
+    };
+    const agent = new StructureAgentV2('structure', agentConfig);
+    const result = await agent.analyze({
+      tenantId: req.user!.tenantId!,
+      userId: req.user!.id,
+      orgText
+    }) as unknown as AnalysisResult;
+
     // Save to database
     const [saved] = await db.insert(orgStructures).values({
       submittedBy: req.user!.id,
       tenantId: req.user!.tenantId,
       rawText: orgText,
-      parsedData: result.roles,
+      parsedData: result.roles || result,
       analysisResult: result,
       isPublic: false,
     }).returning();
     
-    res.json({
+    return res.json({
       id: saved.id,
       ...result,
     });
   } catch (error) {
     console.error("Save org structure failed:", error);
-    res.status(500).json({ error: "Failed to save organization structure" });
+    return res.status(500).json({ error: "Failed to save organization structure" });
   }
 });
 
 // Get saved org structures
-router.get("/structures", authenticate, async (req, res) => {
+router.get("/structures", authenticate, async (req: Request, res: Response) => {
   try {
     const structures = await db.query.orgStructures.findMany({
       where: eq(orgStructures.tenantId, req.user!.tenantId!),
@@ -160,9 +212,9 @@ router.get("/structures", authenticate, async (req, res) => {
       limit: 10,
     });
     
-    res.json({ structures });
+    return res.json({ structures });
   } catch (error) {
-    res.status(500).json({ error: "Failed to retrieve structures" });
+    return res.status(500).json({ error: "Failed to retrieve structures" });
   }
 });
 

@@ -1,7 +1,7 @@
 // server/services/lxp/pipeline.ts
 
-import { db } from '../../db/index.js';
-import { learningProgress, users, talentProfiles } from '../../db/schema.js';
+import { db } from '../../../../db/index.js';
+import { learningProgress, users, talentProfiles } from '../../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -69,13 +69,13 @@ export class LxpPipelineService {
       
       // Get talent profile
       const talentProfile = await db.query.talentProfiles.findFirst({
-        where: eq(talentProfiles.userId, employeeId)
+        where: eq(talentProfiles.employeeId, employeeId)
       });
-      
+
       // Get current learning progress
       const currentProgress = await db.query.learningProgress.findMany({
         where: and(
-          eq(learningProgress.userId, employeeId),
+          eq(learningProgress.employeeId, employeeId),
           eq(learningProgress.tenantId, tenantId)
         )
       });
@@ -115,7 +115,7 @@ export class LxpPipelineService {
       
       // Process each module
       for (let i = 0; i < pipelineRun.modules.length; i++) {
-        const module = pipelineRun.modules[i];
+        const module = pipelineRun.modules[i as any];
         
         try {
           // Start module
@@ -384,15 +384,9 @@ export class LxpPipelineService {
     try {
       // Create learning progress record
       await db.insert(learningProgress).values({
-        id: randomUUID(),
-        userId: employeeId,
+        employeeId: employeeId,
         tenantId,
-        moduleType: module.type,
-        moduleId: module.id,
-        status: 'in_progress',
-        progress: 0,
-        startedAt: new Date(),
-        lastAccessedAt: new Date()
+        progress: 0
       });
       
       console.log(`Started module ${module.id} for employee ${employeeId}`);
@@ -407,15 +401,13 @@ export class LxpPipelineService {
       // Update learning progress
       await db.update(learningProgress)
         .set({
-          status: 'completed',
           progress: 100,
-          completedAt: new Date(),
-          lastAccessedAt: new Date()
+          updatedAt: new Date()
         })
         .where(and(
-          eq(learningProgress.userId, employeeId),
+          eq(learningProgress.employeeId, employeeId),
           eq(learningProgress.tenantId, tenantId),
-          eq(learningProgress.moduleId, module.id)
+          eq(learningProgress.courseId, module.id)
         ));
       
       console.log(`Completed module ${module.id} for employee ${employeeId}`);

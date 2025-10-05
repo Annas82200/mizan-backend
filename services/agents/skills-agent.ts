@@ -84,11 +84,11 @@ export class SkillsAgent extends ThreeEngineAgent {
   protected async loadFrameworks(): Promise<any> {
     const taxonomies = await db
       .select()
-      .from(skillsTaxonomies)
-      .where(eq(skillsTaxonomies.isActive, true));
+      .from(skillsTaxonomies);
+      // .where(eq(skillsTaxonomies.isActive, true));
 
     return {
-      onetFramework: taxonomies.find(t => t.source === 'O*NET'),
+      onetFramework: taxonomies.find((t: any) => t.source === 'O*NET'),
       bloomsTaxonomy: {
         name: "Bloom's Taxonomy",
         levels: ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'],
@@ -132,12 +132,14 @@ export class SkillsAgent extends ThreeEngineAgent {
       .select()
       .from(companyStrategies)
       .where(eq(companyStrategies.tenantId, inputData.tenantId))
-      .where(eq(companyStrategies.status, 'active'))
+      // .where(eq(companyStrategies.status, 'active'))
       .limit(1);
 
+    const strategyData = strategy.length > 0 ? strategy[0] : null;
+    const strategyObj = strategyData ? (strategyData.objectives as any) : {};
     const processedData = {
       currentSkills: this.aggregateCurrentSkills(employeeSkillsData),
-      requiredSkills: strategy.length > 0 ? strategy[0].requiredSkills : {},
+      requiredSkills: strategyObj?.requiredSkills || {},
       employeeCount: employeeSkillsData.length,
       skillDistribution: this.calculateSkillDistribution(employeeSkillsData),
       certificationData: this.aggregateCertifications(employeeSkillsData),
@@ -396,13 +398,15 @@ Ensure recommendations are practical and aligned with business needs.`;
   private async storeAnalysis(input: SkillsAnalysisInput, result: any): Promise<void> {
     await db.insert(skillsReports).values({
       tenantId: input.tenantId,
-      reportType: input.targetType,
-      targetId: input.targetId || null,
-      skillCoverage: result.finalOutput.overall_coverage?.toString(),
-      skillGaps: result.finalOutput.skill_gaps,
-      recommendations: result.finalOutput.recommendations,
-      trainingTriggers: result.finalOutput.training_triggers,
-      generatedBy: 'skills_agent'
+      reportData: {
+        reportType: input.targetType,
+        targetId: input.targetId || null,
+        skillCoverage: result.finalOutput.overall_coverage?.toString(),
+        skillGaps: result.finalOutput.skill_gaps,
+        recommendations: result.finalOutput.recommendations,
+        trainingTriggers: result.finalOutput.training_triggers,
+        generatedBy: 'skills_agent'
+      }
     });
   }
 }

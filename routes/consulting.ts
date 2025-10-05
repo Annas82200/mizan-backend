@@ -26,15 +26,16 @@ router.post('/request', async (req, res) => {
     const [request] = await db.insert(consultingRequests)
       .values({
         id: crypto.randomUUID(),
-        ...validatedData,
-        status: 'pending',
-        createdAt: new Date()
+        tenantId: 'public', // Public consulting requests don't have tenantId
+        requestType: validatedData.type,
+        description: `${validatedData.message}\n\nCompany: ${validatedData.company}\nContact: ${validatedData.name} (${validatedData.email})${validatedData.preferredDate ? `\nPreferred Date: ${validatedData.preferredDate}` : ''}`,
+        status: 'pending'
       })
       .returning();
     
     // TODO: Send notification email
     
-    res.json({
+    return res.json({
       success: true,
       requestId: request.id,
       message: 'Consultation request received. We will contact you within 24 hours.'
@@ -50,7 +51,7 @@ router.post('/request', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to submit request' });
+    return res.status(500).json({ error: 'Failed to submit request' });
   }
 });
 
@@ -67,11 +68,11 @@ router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, re
       }
     });
     
-    res.json(requests);
+    return res.json(requests);
     
   } catch (error) {
     console.error('Requests fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch requests' });
+    return res.status(500).json({ error: 'Failed to fetch requests' });
   }
 });
 
@@ -94,11 +95,11 @@ router.put('/requests/:id', authorize(['superadmin']), async (req, res) => {
       return res.status(404).json({ error: 'Request not found' });
     }
     
-    res.json(updated);
+    return res.json(updated);
     
   } catch (error) {
     console.error('Request update error:', error);
-    res.status(500).json({ error: 'Failed to update request' });
+    return res.status(500).json({ error: 'Failed to update request' });
   }
 });
 
@@ -109,11 +110,11 @@ router.get('/consultants', async (req, res) => {
       where: eq(consultants.isActive, true)
     });
     
-    res.json(consultantList);
+    return res.json(consultantList);
     
   } catch (error) {
     console.error('Consultants fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch consultants' });
+    return res.status(500).json({ error: 'Failed to fetch consultants' });
   }
 });
 

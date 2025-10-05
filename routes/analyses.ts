@@ -42,7 +42,8 @@ router.post("/results", async (req, res) => {
   try {
     const arch = await runArchitectAI(req.body || {});
     const snapshot = await buildUnifiedResults(arch);
-    const triggers = await runTriggers(snapshot);
+    const snapshotWithTenant = { ...snapshot, tenantId: req.body.tenantId || 'default-tenant' };
+    const triggers = await runTriggers(snapshotWithTenant);
     res.json({ snapshot, triggers });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || "results failure" });

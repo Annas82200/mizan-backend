@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AgentManager } from '../services/agents/agent-manager.js';
-import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -19,7 +19,7 @@ const multiAgentRequestSchema = z.object({
 });
 
 // Run single agent analysis
-router.post('/analyze', authenticateToken, requireRole(['admin', 'manager']), async (req, res) => {
+router.post('/analyze', authenticateToken, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const { agentType, inputData, priority } = analysisRequestSchema.parse(req.body);
     
@@ -34,21 +34,21 @@ router.post('/analyze', authenticateToken, requireRole(['admin', 'manager']), as
       priority
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     console.error('Agent analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Run multi-agent analysis
-router.post('/analyze/multi', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/analyze/multi', authenticateToken, authorize(['admin']), async (req, res) => {
   try {
     const { agentTypes, inputData } = multiAgentRequestSchema.parse(req.body);
     
@@ -62,15 +62,15 @@ router.post('/analyze/multi', authenticateToken, requireRole(['admin']), async (
       inputData
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: results
     });
   } catch (error) {
     console.error('Multi-agent analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Multi-agent analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -90,15 +90,15 @@ router.get('/history', authenticateToken, async (req, res) => {
       limit ? parseInt(limit as string) : 10
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: history
     });
   } catch (error) {
     console.error('Get history error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get analysis history',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -112,21 +112,21 @@ router.get('/recommendations', authenticateToken, async (req, res) => {
 
     const recommendations = await agentManager.getActiveRecommendations(req.user.tenantId);
 
-    res.json({
+    return res.json({
       success: true,
       data: recommendations
     });
   } catch (error) {
     console.error('Get recommendations error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get recommendations',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Get pending triggers
-router.get('/triggers', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/triggers', authenticateToken, authorize(['admin']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -134,15 +134,15 @@ router.get('/triggers', authenticateToken, requireRole(['admin']), async (req, r
 
     const triggers = await agentManager.getPendingTriggers(req.user.tenantId);
 
-    res.json({
+    return res.json({
       success: true,
       data: triggers
     });
   } catch (error) {
     console.error('Get triggers error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get triggers',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
@@ -167,21 +167,21 @@ router.post('/culture/assess', authenticateToken, async (req, res) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     console.error('Culture analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Culture analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Structure-specific endpoints
-router.post('/structure/analyze', authenticateToken, requireRole(['admin', 'manager']), async (req, res) => {
+router.post('/structure/analyze', authenticateToken, authorize(['admin', 'manager']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -199,21 +199,21 @@ router.post('/structure/analyze', authenticateToken, requireRole(['admin', 'mana
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     console.error('Structure analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Structure analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Skills-specific endpoints
-router.post('/skills/analyze', authenticateToken, requireRole(['admin', 'manager']), async (req, res) => {
+router.post('/skills/analyze', authenticateToken, authorize(['admin', 'manager']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -232,21 +232,21 @@ router.post('/skills/analyze', authenticateToken, requireRole(['admin', 'manager
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     console.error('Skills analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Skills analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });
 
 // Benchmarking-specific endpoints
-router.post('/benchmarking/compare', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/benchmarking/compare', authenticateToken, authorize(['admin']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -269,15 +269,15 @@ router.post('/benchmarking/compare', authenticateToken, requireRole(['admin']), 
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     console.error('Benchmarking analysis error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Benchmarking analysis failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error instanceof Error ? error.message : 'Unknown error' : 'Unknown error'
     });
   }
 });

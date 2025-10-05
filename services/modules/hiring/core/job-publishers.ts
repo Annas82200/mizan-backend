@@ -1,6 +1,8 @@
 export async function publishToLinkedIn(posting: any): Promise<{
   success: boolean;
   postId?: string;
+  platform?: string;
+  url?: string;
   error?: string;
 }> {
   try {
@@ -30,15 +32,26 @@ export async function publishToLinkedIn(posting: any): Promise<{
       }
     };
 
-    // Mock successful response
+    // In production, would make actual API call to LinkedIn
+    // For now, simulate successful posting
+    const postId = `li_post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log('LinkedIn job posting simulated:', {
+      postId,
+      content: posting.linkedInOptimized,
+      visibility: 'PUBLIC'
+    });
+    
     return {
       success: true,
-      postId: `li_post_${Date.now()}`
+      postId,
+      platform: 'linkedin',
+      url: `https://linkedin.com/posts/${postId}`
     };
   } catch (error) {
     return {
       success: false,
-      error: error.message
+      error: (error as Error).message
     };
   }
 }
@@ -69,7 +82,7 @@ export async function publishToJobBoards(posting: any): Promise<{
         return {
           platform: platform.name,
           success: false,
-          error: error.message
+          error: (error as Error).message
         };
       }
     })

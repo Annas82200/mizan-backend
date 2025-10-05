@@ -1,7 +1,7 @@
 // server/services/hris/index.ts
 
 import { db } from '../../db/index.js';
-import { hrisIntegrations, hrisSyncLogs, users, companies } from '../../db/schema.js';
+import { hrisIntegrations, hrisSyncLogs, users, companies, departments as departmentsTable } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -92,7 +92,7 @@ class BambooHRProvider implements HRISProvider {
         recordsProcessed: 0,
         recordsCreated: 0,
         recordsUpdated: 0,
-        errors: [error.message]
+        errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
   }
@@ -133,7 +133,7 @@ class BambooHRProvider implements HRISProvider {
         recordsProcessed: 0,
         recordsCreated: 0,
         recordsUpdated: 0,
-        errors: [error.message]
+        errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
   }
@@ -157,7 +157,7 @@ class BambooHRProvider implements HRISProvider {
         recordsProcessed: 0,
         recordsCreated: 0,
         recordsUpdated: 0,
-        errors: [error.message]
+        errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
   }
@@ -199,7 +199,7 @@ class BambooHRProvider implements HRISProvider {
           created++;
         }
       } catch (error) {
-        errors.push(`Failed to process employee ${emp.email}: ${error.message}`);
+        errors.push(`Failed to process employee ${emp.email}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -215,7 +215,7 @@ class BambooHRProvider implements HRISProvider {
       try {
         // Get company for tenant
         const company = await db.query.companies.findFirst({
-          where: eq(companies.tenantId, tenantId)
+          where: eq(companies.id, tenantId)
         });
 
         if (!company) {
@@ -225,33 +225,30 @@ class BambooHRProvider implements HRISProvider {
 
         // Check if department exists
         const existingDept = await db.query.departments.findFirst({
-          where: eq('name', dept.name)
+          where: eq(departmentsTable.name, dept.name)
         });
 
         if (existingDept) {
           // Update existing department
-          await db.update('departments')
+          await db.update(departmentsTable)
             .set({
               managerId: dept.manager,
               updatedAt: new Date()
             })
-            .where(eq('id', existingDept.id));
+            .where(eq(departmentsTable.id, existingDept.id));
           updated++;
         } else {
           // Create new department
-          await db.insert('departments').values({
+          await db.insert(departmentsTable).values({
             id: randomUUID(),
             tenantId,
-            companyId: company.id,
             name: dept.name,
-            managerId: dept.manager,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            managerId: dept.manager
           });
           created++;
         }
     } catch (error) {
-        errors.push(`Failed to process department ${dept.name}: ${error.message}`);
+        errors.push(`Failed to process department ${dept.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -437,7 +434,7 @@ export async function syncAllHRISData(integrationId: string, tenantId: string): 
       recordsProcessed: 0,
       recordsCreated: 0,
       recordsUpdated: 0,
-      errors: [error.message]
+      errors: [error instanceof Error ? error.message : 'Unknown error']
     };
   }
 }

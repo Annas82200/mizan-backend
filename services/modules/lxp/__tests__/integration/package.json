@@ -1,0 +1,62 @@
+{
+  "name": "lxp-workflow-integration-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for LXP workflow components",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "test:debug": "jest --detectOpenHandles --forceExit",
+    "test:performance": "jest --testNamePattern='Performance'",
+    "test:workflows": "jest --testNamePattern='Workflow'",
+    "test:integration": "jest --testPathPattern='integration'",
+    "test:clean": "jest --clearCache && jest",
+    "test:ci": "jest --ci --coverage --watchAll=false"
+  },
+  "dependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3",
+    "supertest": "^6.3.3",
+    "@types/jest": "^29.5.8",
+    "@types/supertest": "^2.0.16"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/integration/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "../workflows/**/*.ts",
+      "../core/**/*.ts",
+      "!**/*.d.ts",
+      "!**/__tests__/**",
+      "!**/node_modules/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  },
+  "keywords": [
+    "lxp",
+    "workflow",
+    "integration",
+    "tests",
+    "jest",
+    "typescript"
+  ],
+  "author": "Mizan Team",
+  "license": "MIT"
+}

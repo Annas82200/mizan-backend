@@ -1,4 +1,4 @@
-import { EnsembleAI } from "../../ai-providers/ensemble.js";
+import { EnsembleAI } from '../../../ai-providers/ensemble.js';
 
 export async function generateJobPosting(params: {
   role: string;
@@ -46,10 +46,11 @@ Create:
 
 Focus on attracting diverse, qualified candidates.`;
 
+  const companyData = params.company as Record<string, unknown>;
   const response = await ensemble.call({
     agent: "JobPostingGenerator",
     engine: "knowledge",
-    tenantId: params.company.tenantId,
+    tenantId: (companyData.tenantId as string) || '',
     prompt,
     temperature: 0.6
   });

@@ -154,7 +154,7 @@ export class EngagementAgent extends ThreeEngineAgent {
         .from(cultureAssessments)
         .where(and(
           eq(cultureAssessments.tenantId, request.tenantId),
-          request.employeeId ? eq(cultureAssessments.employeeId, request.employeeId) : undefined,
+          request.employeeId ? eq(cultureAssessments.userId, request.employeeId) : undefined,
           timeframeFilter ? gte(cultureAssessments.createdAt, timeframeFilter.start) : undefined,
           timeframeFilter ? lte(cultureAssessments.createdAt, timeframeFilter.end) : undefined
         ))
@@ -163,18 +163,17 @@ export class EngagementAgent extends ThreeEngineAgent {
       // Get employee profiles for demographic analysis
       const employees = await db.select()
         .from(employeeProfiles)
-        .where(and(
-          eq(employeeProfiles.tenantId, request.tenantId),
-          request.departmentId ? eq(employeeProfiles.departmentId, request.departmentId) : undefined
-        ));
+        .where(
+          eq(employeeProfiles.tenantId, request.tenantId)
+          // Note: department filtering would require join with users table
+        );
 
       // Get performance reviews for correlation analysis
       const reviews = await db.select()
         .from(performanceReviews)
         .where(and(
           eq(performanceReviews.tenantId, request.tenantId),
-          request.departmentId ? eq(performanceReviews.departmentId, request.departmentId) : undefined,
-          timeframeFilter ? gte(performanceReviews.reviewDate, timeframeFilter.start) : undefined
+          timeframeFilter ? gte(performanceReviews.reviewEndDate, timeframeFilter.start) : undefined
         ));
 
       // Calculate engagement metrics from available data
@@ -713,9 +712,54 @@ export class EngagementAgent extends ThreeEngineAgent {
 
   private assessDataQuality(assessments: any[], employees: any[]): string {
     const responseRate = assessments.length / Math.max(employees.length, 1);
-    
+
     if (responseRate > 0.8) return 'high';
     if (responseRate > 0.5) return 'medium';
     return 'low';
+  }
+
+  // Required abstract methods from ThreeEngineAgent
+  protected async loadFrameworks(): Promise<any> {
+    return {};
+  }
+
+  protected async processData(inputData: any): Promise<any> {
+    return inputData;
+  }
+
+  protected getKnowledgeSystemPrompt(): string {
+    return 'You are the Knowledge Engine for Mizan Engagement Agent.';
+  }
+
+  protected getDataSystemPrompt(): string {
+    return 'You are the Data Engine for Mizan Engagement Agent.';
+  }
+
+  protected getReasoningSystemPrompt(): string {
+    return 'You are the Reasoning Engine for Mizan Engagement Agent.';
+  }
+
+  protected buildKnowledgePrompt(inputData: any, frameworks: any): string {
+    return JSON.stringify(inputData);
+  }
+
+  protected buildDataPrompt(processedData: any, knowledgeOutput: any): string {
+    return JSON.stringify({ processedData, knowledgeOutput });
+  }
+
+  protected buildReasoningPrompt(inputData: any, knowledgeOutput: any, dataOutput: any): string {
+    return JSON.stringify({ inputData, knowledgeOutput, dataOutput });
+  }
+
+  protected parseKnowledgeOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  protected parseDataOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  protected parseReasoningOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
   }
 }

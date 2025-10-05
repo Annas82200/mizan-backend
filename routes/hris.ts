@@ -2,7 +2,8 @@ import { Router as HRISRouter } from 'express';
 import { authenticate as authMiddleware, authorize as authzMiddleware } from '../middleware/auth.js';
 import { db as dbConnection } from '../db/index.js';
 import { hrisIntegrations, hrisSyncLogs } from '../db/schema.js';
-import { eq as equals, and as both } from 'drizzle-orm';
+import { eq as equals, and as both, desc } from 'drizzle-orm';
+import crypto from 'crypto';
 
 const hrisRouter = HRISRouter();
 
@@ -14,7 +15,7 @@ hrisRouter.use(authzMiddleware(['clientAdmin', 'superadmin']));
 hrisRouter.get('/integrations', async (req, res) => {
   try {
     const integrations = await dbConnection.query.hrisIntegrations.findMany({
-      where: equals(hrisIntegrations.tenantId, req.user.tenantId),
+      where: equals(hrisIntegrations.tenantId, req.user!.tenantId),
       with: {
         syncLogs: {
           orderBy: [desc(hrisSyncLogs.startedAt)],
@@ -22,12 +23,12 @@ hrisRouter.get('/integrations', async (req, res) => {
         }
       }
     });
-    
-    res.json(integrations);
-    
+
+    return res.json(integrations);
+
   } catch (error) {
     console.error('HRIS integrations fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch integrations' });
+    return res.status(500).json({ error: 'Failed to fetch integrations' });
   }
 });
 
@@ -43,7 +44,7 @@ hrisRouter.post('/integrations/:provider', async (req, res) => {
     const [integration] = await dbConnection.insert(hrisIntegrations)
       .values({
         id: crypto.randomUUID(),
-        tenantId: req.user.tenantId,
+        tenantId: req.user!.tenantId,
         provider,
         config,
         status: 'pending_auth',
@@ -51,12 +52,12 @@ hrisRouter.post('/integrations/:provider', async (req, res) => {
         updatedAt: new Date()
       })
       .returning();
-    
-    res.json(integration);
-    
+
+    return res.json(integration);
+
   } catch (error) {
     console.error('HRIS configuration error:', error);
-    res.status(500).json({ error: 'Failed to configure integration' });
+    return res.status(500).json({ error: 'Failed to configure integration' });
   }
 });
 
@@ -66,7 +67,7 @@ hrisRouter.post('/integrations/:id/test', async (req, res) => {
     const integration = await dbConnection.query.hrisIntegrations.findFirst({
       where: both(
         equals(hrisIntegrations.id, req.params.id),
-        equals(hrisIntegrations.tenantId, req.user.tenantId)
+        equals(hrisIntegrations.tenantId, req.user!.tenantId)
       )
     });
     
@@ -75,15 +76,15 @@ hrisRouter.post('/integrations/:id/test', async (req, res) => {
     }
     
     // TODO: Implement actual connection test based on provider
-    
-    res.json({
+
+    return res.json({
       success: true,
       message: 'Connection test successful'
     });
-    
+
   } catch (error) {
     console.error('HRIS test error:', error);
-    res.status(500).json({ error: 'Connection test failed' });
+    return res.status(500).json({ error: 'Connection test failed' });
   }
 });
 
@@ -93,7 +94,7 @@ hrisRouter.post('/integrations/:id/sync', async (req, res) => {
     const integration = await dbConnection.query.hrisIntegrations.findFirst({
       where: both(
         equals(hrisIntegrations.id, req.params.id),
-        equals(hrisIntegrations.tenantId, req.user.tenantId)
+        equals(hrisIntegrations.tenantId, req.user!.tenantId)
       )
     });
     
@@ -112,16 +113,16 @@ hrisRouter.post('/integrations/:id/sync', async (req, res) => {
       .returning();
     
     // TODO: Trigger actual sync job
-    
-    res.json({
+
+    return res.json({
       success: true,
       syncId: syncLog.id,
       message: 'Sync started'
     });
-    
+
   } catch (error) {
     console.error('HRIS sync error:', error);
-    res.status(500).json({ error: 'Failed to start sync' });
+    return res.status(500).json({ error: 'Failed to start sync' });
   }
 });
 
@@ -135,15 +136,15 @@ hrisRouter.get('/sync/:id/status', async (req, res) => {
       }
     });
     
-    if (!syncLog || syncLog.integration.tenantId !== req.user.tenantId) {
+    if (!syncLog || syncLog.integration.tenantId !== req.user!.tenantId) {
       return res.status(404).json({ error: 'Sync not found' });
     }
-    
-    res.json(syncLog);
-    
+
+    return res.json(syncLog);
+
   } catch (error) {
     console.error('Sync status error:', error);
-    res.status(500).json({ error: 'Failed to fetch sync status' });
+    return res.status(500).json({ error: 'Failed to fetch sync status' });
   }
 });
 

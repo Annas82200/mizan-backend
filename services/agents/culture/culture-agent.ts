@@ -4,14 +4,14 @@ import { OpenAI } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
-import { db } from "../../../db";
-import { 
-  assessments, 
-  companies, 
-  cylinders,
-  cylinderValues,
-  organizationStrategies 
-} from "../../../db/schema";
+import { db } from "../../../db/index.js";
+import {
+  assessments,
+  companies
+  // cylinders,
+  // cylinderValues,
+  // organizationStrategies
+} from "../../../db/schema.js";
 import { eq, and, inArray } from "drizzle-orm";
 
 interface MizanCylinder {
@@ -62,24 +62,25 @@ export class CultureAgent {
 
   async initialize(tenantId: string) {
     // Load the Mizan framework configuration from database
-    const cylindersData = await db.query.cylinders.findMany({
-      where: eq(cylinders.tenantId, tenantId),
-      with: {
-        values: true
-      }
-    });
+    // TODO: Implement cylinders table
+    const cylindersData: any[] = []; // await db.query.cylinders.findMany({
+    //   where: eq(cylinders.tenantId, tenantId),
+    //   with: {
+    //     values: true
+    //   }
+    // });
 
-    this.mizanFramework = cylindersData.map(cyl => ({
+    this.mizanFramework = cylindersData.map((cyl: any) => ({
       level: cyl.level,
       name: cyl.name,
       definition: cyl.definition,
       ethicalPrinciple: cyl.ethicalPrinciple,
       enablingValues: cyl.values
-        .filter(v => v.type === 'enabling')
-        .map(v => v.value),
+        .filter((v: any) => v.type === 'enabling')
+        .map((v: any) => v.value),
       limitingValues: cyl.values
-        .filter(v => v.type === 'limiting')
-        .map(v => v.value)
+        .filter((v: any) => v.type === 'limiting')
+        .map((v: any) => v.value)
     }));
   }
 
@@ -108,12 +109,13 @@ export class CultureAgent {
   }
 
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    const strategyData = await db.query.organizationStrategies.findFirst({
-      where: eq(organizationStrategies.companyId, companyId),
-      orderBy: (strategies, { desc }) => [desc(strategies.createdAt)]
-    });
+    // TODO: Implement organizationStrategies table
+    // const strategyData = await db.query.organizationStrategies.findFirst({
+    //   where: eq(organizationStrategies.companyId, companyId),
+    //   orderBy: (strategies: any, { desc }: any) => [desc(strategies.createdAt)]
+    // });
 
-    return strategyData?.strategy || "";
+    return ""; // strategyData?.strategy || "";
   }
 
   private async mapValuesToMizanFramework(companyValues: string[]): Promise<any> {
@@ -369,12 +371,12 @@ Return detailed JSON analysis with actionable recommendations.`;
 
   private async analyzeCylinderHealth(mapping: any): Promise<any> {
     // Detailed analysis of each cylinder's health
-    const health = {};
-    
+    const health: Record<number, { status: string; score: number; enabling?: number; limiting?: number }> = {};
+
     for (let i = 1; i <= 7; i++) {
       const dist = mapping.cylinderDistribution[i] || { enabling: 0, limiting: 0 };
       const total = dist.enabling + dist.limiting;
-      
+
       if (total === 0) {
         health[i] = { status: 'missing', score: 0 };
       } else {

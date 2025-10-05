@@ -18,7 +18,7 @@ interface ScheduledPost {
   tenantId: string;
   platform: string;
   content: GeneratedContent;
-  scheduledTime: Date;
+  scheduledFor: Date;
   status: 'scheduled' | 'published' | 'failed' | 'cancelled';
   createdAt: Date;
 }
@@ -51,7 +51,7 @@ export class SocialMediaScheduler {
               tenantId: request.tenantId,
               platform,
               content: contentSeries[i],
-              scheduledTime: postTimes[i],
+              scheduledFor: postTimes[i],
               autoPublish: request.autoPublish
             });
 
@@ -95,8 +95,8 @@ export class SocialMediaScheduler {
 
     while (currentDate <= endDate) {
       // Schedule at optimal times based on platform best practices
-      const scheduledTime = this.getOptimalPostTime(currentDate);
-      schedule.push(new Date(scheduledTime));
+      const scheduledFor = this.getOptimalPostTime(currentDate);
+      schedule.push(new Date(scheduledFor));
       
       currentDate.setDate(currentDate.getDate() + interval);
     }
@@ -123,7 +123,7 @@ export class SocialMediaScheduler {
     tenantId: string;
     platform: string;
     content: GeneratedContent;
-    scheduledTime: Date;
+    scheduledFor: Date;
     autoPublish: boolean;
   }): Promise<ScheduledPost> {
     const postId = `post-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -132,12 +132,11 @@ export class SocialMediaScheduler {
     await db.insert(socialMediaPosts).values({
       id: postId,
       tenantId: params.tenantId,
+      companyId: params.tenantId,
       platform: params.platform,
       content: JSON.stringify(params.content),
-      scheduledTime: params.scheduledTime,
-      status: 'scheduled',
-      autoPublish: params.autoPublish,
-      createdAt: new Date()
+      scheduledFor: params.scheduledFor,
+      status: 'scheduled'
     });
 
     return {
@@ -145,7 +144,7 @@ export class SocialMediaScheduler {
       tenantId: params.tenantId,
       platform: params.platform,
       content: params.content,
-      scheduledTime: params.scheduledTime,
+      scheduledFor: params.scheduledFor,
       status: 'scheduled',
       createdAt: new Date()
     };
@@ -155,24 +154,24 @@ export class SocialMediaScheduler {
     const conditions = [eq(socialMediaPosts.tenantId, tenantId)];
     
     if (startDate) {
-      conditions.push(gte(socialMediaPosts.scheduledTime, startDate));
+      conditions.push(gte(socialMediaPosts.scheduledFor, startDate));
     }
     
     if (endDate) {
-      conditions.push(lte(socialMediaPosts.scheduledTime, endDate));
+      conditions.push(lte(socialMediaPosts.scheduledFor, endDate));
     }
 
     const posts = await db.select()
       .from(socialMediaPosts)
       .where(and(...conditions))
-      .orderBy(socialMediaPosts.scheduledTime);
+      .orderBy(socialMediaPosts.scheduledFor);
 
     return posts.map(post => ({
       id: post.id,
       tenantId: post.tenantId,
       platform: post.platform,
       content: JSON.parse(post.content),
-      scheduledTime: post.scheduledTime,
+      scheduledFor: post.scheduledFor || new Date(),
       status: post.status as any,
       createdAt: post.createdAt
     }));
@@ -237,7 +236,7 @@ export class SocialMediaScheduler {
 
     while (currentDate <= endDate) {
       const dayPosts = posts.filter(post => 
-        post.scheduledTime.toDateString() === currentDate.toDateString()
+        post.scheduledFor.toDateString() === currentDate.toDateString()
       );
 
       calendar.push({
@@ -246,7 +245,7 @@ export class SocialMediaScheduler {
           id: post.id,
           platform: post.platform,
           preview: post.content.text.substring(0, 100) + '...',
-          time: post.scheduledTime.toLocaleTimeString()
+          time: post.scheduledFor.toLocaleTimeString()
         }))
       });
 

@@ -4,18 +4,19 @@ import { OpenAI } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
-import { db } from "../../../db";
-import { 
-  employees,
+import { db } from "../../../db/index.js";
+import {
+  // employees,
   employeeSkills,
   employeeProfiles,
-  organizationStrategies,
-  companySkillRequirements,
-  skillGaps
-} from "../../../db/schema";
+  // organizationStrategies,
+  // companySkillRequirements,
+  // skillGaps
+} from "../../../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import * as pdfParse from "pdf-parse";
-import { StructureAgent } from "../structure/structure-agent";
+// import * as pdfParse from "pdf-parse";  // TODO: Install pdf-parse package
+const pdfParse: any = null;  // Placeholder
+import { StructureAgentV2 as StructureAgent } from "../structure/structure-agent.js";
 
 interface SkillsAnalysisInput {
   companyId: string;
@@ -106,7 +107,13 @@ export class SkillsAgent {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
     this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
-    this.structureAgent = new StructureAgent();
+    const agentConfig = {
+      knowledge: { providers: ['anthropic' as const], model: 'claude-3-5-sonnet-20241022', temperature: 0.1, maxTokens: 4000 },
+      data: { providers: ['openai' as const], model: 'gpt-4', temperature: 0.1, maxTokens: 4000 },
+      reasoning: { providers: ['anthropic' as const], model: 'claude-3', temperature: 0.5, maxTokens: 4000 },
+      consensusThreshold: 0.7
+    };
+    this.structureAgent = new StructureAgent('structure', agentConfig);
   }
 
   async analyzeSkills(input: SkillsAnalysisInput): Promise<any> {
@@ -470,18 +477,19 @@ Return factual analysis based ONLY on provided data. Include confidence levels.`
   }
 
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    const strategy = await db.query.organizationStrategies.findFirst({
-      where: eq(organizationStrategies.companyId, companyId),
-      orderBy: (strategies, { desc }) => [desc(strategies.createdAt)]
-    });
-    
-    return strategy?.strategy || "";
+    // TODO: Implement organizationStrategies table
+    // const strategy = await db.query.organizationStrategies.findFirst({
+    //   where: eq(organizationStrategies.companyId, companyId),
+    //   orderBy: (strategies: any, { desc }: any) => [desc(strategies.createdAt)]
+    // });
+    // return strategy?.strategy || "";
+    return "";
   }
 
   private aggregateSkillsInventory(skills: any[]): any {
     // Aggregate all skills across employees
-    const inventory = {};
-    
+    const inventory: any = {};
+
     skills.forEach(employee => {
       employee.skills?.forEach((skill: any) => {
         if (!inventory[skill.name]) {

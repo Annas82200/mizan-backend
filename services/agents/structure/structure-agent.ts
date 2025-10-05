@@ -1,8 +1,8 @@
 // server/services/agents/structure/structure-agent-v2.ts
 
-import { ThreeEngineAgent } from '../base/three-engine-agent.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
 import { db } from '../../../db/index.js';
-import { companies, departments, users } from '../../../db/schema.js';
+import { tenants, departments, users } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 interface StructureAnalysisInput {
@@ -62,6 +62,52 @@ export class StructureAgentV2 extends ThreeEngineAgent {
   protected getAgentDomain(): string {
     return 'Organizational Structure, Design Theory, and Organizational Architecture';
   }
+
+  // Required abstract method implementations
+  protected async loadFrameworks(): Promise<void> {
+    // TODO: Implement framework loading
+  }
+
+  protected async processData(inputData: any): Promise<any> {
+    // TODO: Implement data processing
+    return inputData;
+  }
+
+  protected getKnowledgeSystemPrompt(): string {
+    return 'Knowledge system prompt for structure analysis';
+  }
+
+  protected getDataSystemPrompt(): string {
+    return 'Data system prompt for structure analysis';
+  }
+
+  protected getReasoningSystemPrompt(): string {
+    return 'Reasoning system prompt for structure analysis';
+  }
+
+  protected parseKnowledgeOutput(output: any): any {
+    return output;
+  }
+
+  protected parseDataOutput(output: any): any {
+    return output;
+  }
+
+  protected parseReasoningOutput(output: any): any {
+    return output;
+  }
+
+  protected buildKnowledgePrompt(inputData: any): string {
+    return 'Knowledge prompt';
+  }
+
+  protected buildDataPrompt(inputData: any): string {
+    return 'Data prompt';
+  }
+
+  protected buildReasoningPrompt(inputData: any): string {
+    return 'Reasoning prompt';
+  }
   
   protected getKnowledgeBase(): any {
     return {
@@ -69,12 +115,12 @@ export class StructureAgentV2 extends ThreeEngineAgent {
       structureTypes: {
         functional: {
           characteristics: ['Grouped by function', 'Clear hierarchy', 'Specialized departments'],
-          bestFor: ['Small-medium companies', 'Stable environments', 'Efficiency focus'],
+          bestFor: ['Small-medium tenants', 'Stable environments', 'Efficiency focus'],
           limitations: ['Silos', 'Slow decision-making', 'Limited flexibility']
         },
         divisional: {
           characteristics: ['Product/market divisions', 'Semi-autonomous units', 'Duplication of functions'],
-          bestFor: ['Large companies', 'Diverse products/markets', 'Growth strategy'],
+          bestFor: ['Large tenants', 'Diverse products/markets', 'Growth strategy'],
           limitations: ['Resource duplication', 'Competition between divisions']
         },
         matrix: {
@@ -182,13 +228,10 @@ Base ALL conclusions on the actual org chart data and established organizational
     }
     
     // Execute three-engine analysis
-    const result = await this.executeThreeEngineAnalysis(
-      input,
-      'Organizational Structure Analysis'
-    );
+    const result = await this.analyze(input);
     
     // Structure the result
-    const analysis: StructureAnalysisResult = result.analysis;
+    const analysis: StructureAnalysisResult = result.finalOutput as StructureAnalysisResult;
     
     // Trigger hiring module if critical needs identified
     if (analysis.hiringNeeds.some(need => need.urgency === 'critical')) {
@@ -206,23 +249,23 @@ Base ALL conclusions on the actual org chart data and established organizational
    */
   async getOrganizationalStructure(companyId: string, tenantId: string): Promise<any> {
     // Fetch from database
-    const departments = await db.query.departments.findMany({
-      where: eq(departments.companyId, companyId),
+    const departmentsData = await db.query.departments.findMany({
+      where: eq(departments.tenantId, tenantId),
       with: {
-        employees: true
+        users: true
       }
     });
-    
+
     const structure = {
-      type: await this.identifyStructureType(departments),
-      departments: departments.map(d => ({
+      type: await this.identifyStructureType(departmentsData),
+      departments: departmentsData.map((d: any) => ({
         id: d.id,
         name: d.name,
-        size: d.employees.length,
+        size: d.users?.length || 0,
         level: d.level
       })),
-      levels: this.calculateOrganizationalLevels(departments),
-      totalEmployees: departments.reduce((sum, d) => sum + d.employees.length, 0)
+      levels: this.calculateOrganizationalLevels(departmentsData),
+      totalEmployees: departmentsData.reduce((sum: number, d: any) => sum + (d.users?.length || 0), 0)
     };
     
     return structure;
@@ -243,16 +286,17 @@ Base ALL conclusions on the actual org chart data and established organizational
   }
   
   private calculateOrganizationalLevels(departments: any[]): number {
-    return Math.max(...departments.map(d => d.level || 1));
+    return Math.max(...departments.map((d: any) => d.level || 1));
   }
   
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    const strategy = await db.query.organizationStrategies.findFirst({
-      where: eq(organizationStrategies.companyId, companyId),
-      orderBy: (strategies, { desc }) => [desc(strategies.createdAt)]
-    });
-    
-    return strategy?.strategy || '';
+    // TODO: Implement organizationStrategies table
+    // const strategy = await db.query.organizationStrategies.findFirst({
+    //   where: eq(organizationStrategies.companyId, companyId),
+    //   orderBy: (strategies: any, { desc }: any) => [desc(strategies.createdAt)]
+    // });
+    // return strategy?.strategy || '';
+    return '';
   }
   
   private async triggerHiringModule(hiringNeeds: any[], companyId: string): Promise<void> {
@@ -270,7 +314,28 @@ Base ALL conclusions on the actual org chart data and established organizational
 
 // Example usage
 async function demonstrateStructureAnalysis() {
-  const structureAgent = new StructureAgentV2('tenant-123');
+  const agentConfig: ThreeEngineConfig = {
+    knowledge: {
+      providers: ['anthropic' as const],
+      model: 'claude-3-5-sonnet-20241022',
+      temperature: 0.1,
+      maxTokens: 4000
+    },
+    data: {
+      providers: ['openai' as const],
+      model: 'gpt-4',
+      temperature: 0.1,
+      maxTokens: 4000
+    },
+    reasoning: {
+      providers: ['anthropic' as const],
+      model: 'claude-3',
+      temperature: 0.5,
+      maxTokens: 4000
+    },
+    consensusThreshold: 0.7
+  };
+  const structureAgent = new StructureAgentV2('structure', agentConfig);
   
   const analysis = await structureAgent.analyzeStructure({
     companyId: 'company-456',

@@ -35,7 +35,9 @@ export class AutomatedFlowService {
         tenantId,
         name,
         description,
-        steps: steps,
+        flowType: 'manual',
+        steps: steps as any,
+        isActive: true,
         status: 'active',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -65,6 +67,11 @@ export class AutomatedFlowService {
         throw new Error('Flow not found');
       }
       
+      // Ensure steps exist
+      if (!flow.steps || !Array.isArray(flow.steps) || flow.steps.length === 0) {
+        throw new Error('Flow has no steps defined');
+      }
+
       const executionId = randomUUID();
       const execution: FlowExecution = {
         id: executionId,
@@ -75,7 +82,7 @@ export class AutomatedFlowService {
         context,
         startedAt: new Date()
       };
-      
+
       await db.insert(flowExecutions).values({
         id: executionId,
         flowId,
@@ -85,8 +92,8 @@ export class AutomatedFlowService {
         context: context,
         startedAt: new Date()
       });
-      
-      await this.executeFlowSteps(flow.steps, execution);
+
+      await this.executeFlowSteps(flow.steps as unknown as FlowStep[], execution);
       
       return execution;
     } catch (error) {
@@ -110,7 +117,7 @@ export class AutomatedFlowService {
         const result = await this.executeStep(step, execution);
         execution.context = { ...execution.context, ...result };
         
-        currentStepId = step.nextSteps[0] || null;
+        currentStepId = step.nextSteps[0] || '';
         
         if (currentStepId) {
           await db.update(flowExecutions)
@@ -140,15 +147,16 @@ export class AutomatedFlowService {
       
     } catch (error) {
       console.error('Failed to execute flow steps:', error);
-      
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       execution.status = 'failed';
-      execution.error = error.message;
+      execution.error = errorMessage;
       execution.completedAt = new Date();
       
       await db.update(flowExecutions)
         .set({
           status: 'failed',
-          error: error.message,
+          error: errorMessage,
           completedAt: new Date(),
           updatedAt: new Date()
         })

@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { users, tenants, userRoles } from '../db/schema.js';
+import { users, tenants } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();
@@ -58,17 +58,12 @@ router.post('/signup', async (req, res) => {
     if (validatedData.plan !== 'free') {
       const [tenant] = await db.insert(tenants)
         .values({
-          id: crypto.randomUUID(),
           name: validatedData.company || `${validatedData.name}'s Organization`,
-          plan: validatedData.plan as any,
-          status: 'trial',
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
-          settings: {},
-          createdAt: new Date(),
-          updatedAt: new Date()
+          plan: validatedData.plan,
+          status: 'active'
         })
         .returning();
-      
+
       tenantId = tenant.id;
     }
     
@@ -78,22 +73,18 @@ router.post('/signup', async (req, res) => {
     // Create user
     const [user] = await db.insert(users)
       .values({
-        id: crypto.randomUUID(),
         tenantId,
         email: validatedData.email,
         passwordHash: hashedPassword,
         name: validatedData.name,
-        role: validatedData.plan !== 'free' ? 'clientAdmin' : 'employee',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        role: validatedData.plan !== 'free' ? 'clientAdmin' : 'employee'
       })
       .returning();
     
     // Generate token
     const token = generateToken(user);
     
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
@@ -115,7 +106,7 @@ router.post('/signup', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Signup failed' });
+    return res.status(500).json({ error: 'Signup failed' });
   }
 });
 
@@ -146,7 +137,7 @@ router.post('/login', async (req, res) => {
     // Generate token
     const token = generateToken(user);
     
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
@@ -169,14 +160,14 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Login failed' });
+    return res.status(500).json({ error: 'Login failed' });
   }
 });
 
 // Logout endpoint
 router.post('/logout', (req, res) => {
   // Clear any server-side session if using sessions
-  res.json({ success: true, message: 'Logged out successfully' });
+  return res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Get current user
@@ -204,7 +195,7 @@ router.get('/me', async (req, res) => {
         return res.status(401).json({ error: 'User not found' });
       }
       
-      res.json({
+      return res.json({
         id: user.id,
         email: user.email,
         name: user.name,
@@ -219,7 +210,7 @@ router.get('/me', async (req, res) => {
     
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to get user' });
+    return res.status(500).json({ error: 'Failed to get user' });
   }
 });
 

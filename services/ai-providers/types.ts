@@ -1,4 +1,5 @@
-import { AIProviderKey } from "@mizan/shared/schema";
+// import { AIProviderKey } from "@mizan/shared/schema";
+export type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'claude' | 'gpt-4' | 'cohere' | string;
 
 export type EngineType = "knowledge" | "data" | "reasoning";
 

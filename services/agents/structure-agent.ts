@@ -128,23 +128,23 @@ export class StructureAgent extends ThreeEngineAgent {
       .select()
       .from(companyStrategies)
       .where(eq(companyStrategies.tenantId, inputData.tenantId))
-      .where(eq(companyStrategies.status, 'active'))
+      // .where(eq(companyStrategies.status, 'active'))
       .limit(1);
 
     if (structure.length === 0) {
       throw new Error('No organization structure found for tenant');
     }
 
-    const structureData = structure[0].structureData as any;
+    const structureData = structure[0].structureData as Record<string, unknown>;
     const strategyData = strategy.length > 0 ? strategy[0] : null;
 
     return {
       structure: this.analyzeStructureData(structureData),
       strategy: strategyData ? {
         objectives: strategyData.objectives,
-        requiredSkills: strategyData.requiredSkills,
-        targetValues: strategyData.targetValues,
-        timeframe: strategyData.timeframe
+        requiredSkills: (strategyData as Record<string, unknown>).requiredSkills,
+        targetValues: (strategyData as Record<string, unknown>).targetValues,
+        timeframe: (strategyData as Record<string, unknown>).timeframe
       } : null,
       metadata: {
         structureId: structure[0].id,
@@ -366,11 +366,7 @@ Ensure recommendations are practical and theory-based.`;
 
 // Export convenience function for backward compatibility
 export async function analyzeStructure(input: StructureAnalysisInput): Promise<StructureAnalysisOutput> {
-  const agent = new StructureAgent({
-    knowledgeEngine: { provider: 'openai', model: 'gpt-4' },
-    dataEngine: { provider: 'openai', model: 'gpt-4' },
-    reasoningEngine: { provider: 'openai', model: 'gpt-4' }
-  });
-  
-  return await agent.analyze(input);
+  const agent = new StructureAgent();
+
+  return await agent.analyzeOrganizationStructure(input);
 }

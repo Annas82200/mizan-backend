@@ -6,7 +6,7 @@ import {
   orgSnapshots,
   actionModules,
   learningExperiences,
-  employeeProgress,
+  employeeProfiles,
   learningAssignments,
 } from "../db/schema.js";
 import { hashPassword } from "../services/auth.js";
@@ -133,7 +133,7 @@ async function seed() {
     // Clear existing data
     console.log("Clearing existing data...");
     await db.delete(learningAssignments);
-    await db.delete(employeeProgress);
+    await db.delete(employeeProfiles);
     await db.delete(learningExperiences);
     await db.delete(actionModules);
     await db.delete(orgSnapshots);
@@ -146,51 +146,21 @@ async function seed() {
     const [tenant1, tenant2] = await db.insert(tenants).values([
       {
         name: "Aurora Biotech",
-        plan: "growth",
+        domain: "aurorabiotech.com",
+        plan: "pro",
         status: "active",
-        primaryContact: "demo@aurorabiotech.com",
-        aiProviders: {
-          knowledge: ["claude", "openai"],
-          data: ["gemini"],
-          reasoning: ["openai", "mistral"],
-        },
-        features: {
-          entryAnalyzer: true,
-          orchestrator: true,
-          actionModules: true,
-          lxpPipeline: true,
-          benchmarking: true,
-        },
-        integrations: {
-          hris: ["workday"],
-          dataResidency: "cloud",
-          environment: "prod",
-        },
-        valuesFramework: DEFAULT_VALUES_FRAMEWORK,
+        industry: "Biotechnology",
+        employeeCount: 150,
+        primaryContact: "demo@aurorabiotech.com"
       },
       {
         name: "Demo Company",
+        domain: "democompany.com",
         plan: "free",
-        status: "trial",
-        primaryContact: "demo@democompany.com",
-        aiProviders: {
-          knowledge: ["openai"],
-          data: ["openai"],
-          reasoning: ["openai"],
-        },
-        features: {
-          entryAnalyzer: true,
-          orchestrator: false,
-          actionModules: false,
-          lxpPipeline: false,
-          benchmarking: false,
-        },
-        integrations: {
-          hris: [],
-          dataResidency: "cloud",
-          environment: "sandbox",
-        },
-        valuesFramework: DEFAULT_VALUES_FRAMEWORK,
+        status: "active",
+        industry: "Technology",
+        employeeCount: 50,
+        primaryContact: "demo@democompany.com"
       },
     ]).returning();
 
@@ -204,7 +174,7 @@ async function seed() {
         passwordHash: await hashPassword("admin123!"),
         name: "Super Admin",
         role: "superadmin",
-        tenantId: null,
+        tenantId: tenant1.id, // Must have tenantId, can't be null
       },
       {
         email: "demo@aurorabiotech.com",
@@ -212,8 +182,7 @@ async function seed() {
         name: "Sarah Chen",
         title: "Chief People Officer",
         role: "clientAdmin",
-        tenantId: tenant1.id,
-        cylinderFocus: 6,
+        tenantId: tenant1.id
       },
       {
         email: "employee@aurorabiotech.com",
@@ -221,9 +190,7 @@ async function seed() {
         name: "Alex Rivera",
         title: "Senior Scientist",
         role: "employee",
-        tenantId: tenant1.id,
-        cylinderFocus: 3,
-        reportsTo: "demo@aurorabiotech.com",
+        tenantId: tenant1.id
       },
       {
         email: "demo@democompany.com",
@@ -231,7 +198,7 @@ async function seed() {
         name: "Demo User",
         title: "HR Manager",
         role: "clientAdmin",
-        tenantId: tenant2.id,
+        tenantId: tenant2.id
       },
     ]).returning();
 
@@ -239,32 +206,48 @@ async function seed() {
     console.log("Creating action modules...");
     await db.insert(actionModules).values([
       {
-        category: "Hiring",
-        title: "Role Clarity Scorecard",
-        description: "Codify outcomes, craft signals and align interview loops to Cylinder 3 mastery values.",
-        triggerTags: ["structure", "talent", "values-cylinder-3"],
-        effort: "medium",
+        tenantId: tenant1.id,
+        moduleType: "hiring",
+        config: {
+          category: "Hiring",
+          title: "Role Clarity Scorecard",
+          description: "Codify outcomes, craft signals and align interview loops to Cylinder 3 mastery values.",
+          triggerTags: ["structure", "talent", "values-cylinder-3"],
+          effort: "medium"
+        }
       },
       {
-        category: "Onboarding",
-        title: "Narrative Onboarding Sprint",
-        description: "90-minute immersion linking Cylinder 2 belonging stories to Cylinder 5 purpose narrative.",
-        triggerTags: ["culture", "belonging", "values-cylinder-2"],
-        effort: "low",
+        tenantId: tenant1.id,
+        moduleType: "onboarding",
+        config: {
+          category: "Onboarding",
+          title: "Narrative Onboarding Sprint",
+          description: "90-minute immersion linking Cylinder 2 belonging stories to Cylinder 5 purpose narrative.",
+          triggerTags: ["culture", "belonging", "values-cylinder-2"],
+          effort: "low"
+        }
       },
       {
-        category: "Performance",
-        title: "Adaptive Goal Canvas",
-        description: "Enable Cylinder 4 autonomy by wiring goal cadences with peer calibration.",
-        triggerTags: ["performance", "autonomy", "values-cylinder-4"],
-        effort: "medium",
+        tenantId: tenant1.id,
+        moduleType: "performance",
+        config: {
+          category: "Performance",
+          title: "Adaptive Goal Canvas",
+          description: "Enable Cylinder 4 autonomy by wiring goal cadences with peer calibration.",
+          triggerTags: ["performance", "autonomy", "values-cylinder-4"],
+          effort: "medium"
+        }
       },
       {
-        category: "Rewards",
-        title: "Peer Recognition Rituals",
-        description: "Design lightweight kudos loops anchored in Cylinder 2 belonging.",
-        triggerTags: ["recognition", "belonging", "values-cylinder-2"],
-        effort: "low",
+        tenantId: tenant1.id,
+        moduleType: "rewards",
+        config: {
+          category: "Rewards",
+          title: "Peer Recognition Rituals",
+          description: "Design lightweight kudos loops anchored in Cylinder 2 belonging.",
+          triggerTags: ["recognition", "belonging", "values-cylinder-2"],
+          effort: "low"
+        }
       },
     ]);
 
@@ -272,28 +255,26 @@ async function seed() {
     console.log("Creating learning experiences...");
     const experiences = await db.insert(learningExperiences).values([
       {
-        title: "Stability Playbook",
-        description: "Design operating guardrails that stabilize rapid scaling teams.",
-        cylinder: 1,
-        estimatedMinutes: 35,
-        format: "course",
-        tags: ["ops", "safety", "foundation"],
+        tenantId: tenant1.id,
+        employeeId: demoUsers[1].id,
+        experienceType: "course_completion",
+        data: {
+          title: "Stability Playbook",
+          description: "Design operating guardrails that stabilize rapid scaling teams.",
+          cylinder: 1,
+          completedAt: new Date()
+        }
       },
       {
-        title: "Belonging Story Sprint",
-        description: "Craft micro-stories that anchor team rituals in belonging values.",
-        cylinder: 2,
-        estimatedMinutes: 50,
-        format: "ritual",
-        tags: ["culture", "facilitation", "belonging"],
-      },
-      {
-        title: "Mastery Ladder Lab",
-        description: "Map apprenticeship ladders and calibrate growth loops for craft excellence.",
-        cylinder: 3,
-        estimatedMinutes: 70,
-        format: "coaching",
-        tags: ["skills", "craft", "mentorship"],
+        tenantId: tenant1.id,
+        employeeId: demoUsers[2].id,
+        experienceType: "workshop",
+        data: {
+          title: "Belonging Story Sprint",
+          description: "Craft micro-stories that anchor team rituals in belonging values.",
+          cylinder: 2,
+          tags: ["culture", "facilitation", "belonging"]
+        }
       },
     ]).returning();
 
@@ -302,19 +283,23 @@ async function seed() {
     await db.insert(assessments).values([
       {
         tenantId: tenant1.id,
-        type: "structure",
-        score: "0.72",
-        summary: "Org flattened two layers in R&D; collaboration loops improved.",
-        triadConfidence: "0.82",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        employeeId: demoUsers[1].id,
+        assessmentType: "structure_analysis",
+        results: {
+          score: 0.72,
+          summary: "Org flattened two layers in R&D; collaboration loops improved.",
+          confidence: 0.82
+        }
       },
       {
         tenantId: tenant1.id,
-        type: "culture",
-        score: "0.68",
-        summary: "Values alignment increasing yet belonging cues lag for new hires.",
-        triadConfidence: "0.78",
-        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+        employeeId: demoUsers[2].id,
+        assessmentType: "culture_fit",
+        results: {
+          score: 0.68,
+          summary: "Values alignment increasing yet belonging cues lag for new hires.",
+          confidence: 0.78
+        }
       },
     ]);
 
@@ -323,44 +308,40 @@ async function seed() {
     await db.insert(orgSnapshots).values([
       {
         tenantId: tenant1.id,
-        overallHealthScore: "0.70",
-        trend: "up",
-        highlights: ["Engagement +5% QoQ", "Game-based onboarding launched", "Skills gaps in data science identified"],
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        snapshotData: {
+          overallHealthScore: 0.70,
+          trend: "up",
+          highlights: ["Engagement +5% QoQ", "Game-based onboarding launched", "Skills gaps in data science identified"]
+        }
       },
     ]);
 
-    // Create employee progress
-    console.log("Creating employee progress...");
+    // Create employee profiles
+    console.log("Creating employee profiles...");
     const employeeUser = demoUsers.find(u => u.email === "employee@aurorabiotech.com");
     if (employeeUser) {
-      const [progress] = await db.insert(employeeProgress).values([
+      await db.insert(employeeProfiles).values([
         {
-          employeeId: employeeUser.id,
+          userId: employeeUser.id,
           tenantId: tenant1.id,
-          xp: 1280,
-          streak: 6,
-          lastActivityAt: new Date(),
+          bio: "Senior Scientist with expertise in molecular biology",
+          skills: ["molecular biology", "data analysis", "lab management"]
         },
       ]).returning();
 
       // Create learning assignments
       await db.insert(learningAssignments).values([
         {
-          progressId: progress.id,
-          experienceId: experiences[0].id,
-          status: "completed",
-          progress: "1.00",
-          nextAction: "Share learnings with team",
-          completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          tenantId: tenant1.id,
+          employeeId: employeeUser.id,
+          assignmentType: "course_completion",
+          status: "completed"
         },
         {
-          progressId: progress.id,
-          experienceId: experiences[1].id,
-          status: "in_progress",
-          progress: "0.45",
-          nextAction: "Complete story workshop",
-          startedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          tenantId: tenant1.id,
+          employeeId: employeeUser.id,
+          assignmentType: "workshop",
+          status: "in_progress"
         },
       ]);
     }

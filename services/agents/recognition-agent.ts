@@ -1,6 +1,6 @@
 import { ThreeEngineAgent } from './base/three-engine-agent.js';
 import { db } from '../../db/index.js';
-import { performanceReviews, employeeProfiles, cultureAssessments } from '../../db/schema.js';
+import { performanceReviews, employeeProfiles, cultureAssessments, users } from '../../db/schema.js';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 interface RecognitionAnalysisRequest {
@@ -190,19 +190,19 @@ export class RecognitionAgent extends ThreeEngineAgent {
         .from(performanceReviews)
         .where(and(
           eq(performanceReviews.tenantId, request.tenantId),
-          request.departmentId ? eq(performanceReviews.departmentId, request.departmentId) : undefined,
+          request.departmentId ? eq(users.departmentId, request.departmentId) : undefined,
           request.employeeId ? eq(performanceReviews.employeeId, request.employeeId) : undefined,
-          timeframeFilter ? gte(performanceReviews.reviewDate, timeframeFilter.start) : undefined,
-          timeframeFilter ? lte(performanceReviews.reviewDate, timeframeFilter.end) : undefined
+          timeframeFilter ? gte(performanceReviews.reviewEndDate, timeframeFilter.start) : undefined,
+          timeframeFilter ? lte(performanceReviews.reviewEndDate, timeframeFilter.end) : undefined
         ))
-        .orderBy(desc(performanceReviews.reviewDate));
+        .orderBy(desc(performanceReviews.reviewEndDate));
 
       // Get employee profiles
       const employees = await db.select()
         .from(employeeProfiles)
         .where(and(
           eq(employeeProfiles.tenantId, request.tenantId),
-          request.departmentId ? eq(employeeProfiles.departmentId, request.departmentId) : undefined
+          request.departmentId ? eq(users.departmentId, request.departmentId) : undefined
         ));
 
       // Get culture assessments for correlation analysis
@@ -371,7 +371,7 @@ export class RecognitionAgent extends ThreeEngineAgent {
     if (events.length === 0 || employees.length === 0) return 50;
     
     // Calculate distribution fairness
-    const recognitionCounts = events.reduce((acc, event) => {
+    const recognitionCounts = events.reduce((acc: any, event: any) => {
       acc[event.receiverId] = (acc[event.receiverId] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -380,9 +380,9 @@ export class RecognitionAgent extends ThreeEngineAgent {
     const coverageRate = recognizedEmployees / employees.length;
     
     // Calculate distribution variance
-    const counts = Object.values(recognitionCounts);
-    const avgCount = counts.reduce((sum, count) => sum + count, 0) / counts.length;
-    const variance = counts.reduce((sum, count) => sum + Math.pow(count - avgCount, 2), 0) / counts.length;
+    const counts = Object.values(recognitionCounts) as number[];
+    const avgCount = counts.reduce((sum: number, count: number) => sum + count, 0) / counts.length;
+    const variance = counts.reduce((sum: number, count: number) => sum + Math.pow(count - avgCount, 2), 0) / counts.length;
     const fairnessScore = Math.max(0, 100 - (variance * 10)); // Lower variance = higher fairness
     
     return Math.round((coverageRate * 50) + (fairnessScore * 0.5));
@@ -398,7 +398,7 @@ export class RecognitionAgent extends ThreeEngineAgent {
   private calculateDiversityScore(events: any[]): number {
     if (events.length === 0) return 40;
     
-    const typeDistribution = events.reduce((acc, event) => {
+    const typeDistribution = events.reduce((acc: any, event: any) => {
       acc[event.type] = (acc[event.type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -409,11 +409,17 @@ export class RecognitionAgent extends ThreeEngineAgent {
     return Math.round((uniqueTypes / maxTypes) * 100);
   }
 
-  private analyzeRecognitionTypes(dataResult: any) {
+  private analyzeRecognitionTypes(dataResult: any): {
+    peer: { count: number; satisfaction: number };
+    manager: { count: number; satisfaction: number };
+    formal: { count: number; satisfaction: number };
+    informal: { count: number; satisfaction: number };
+    public: { count: number; satisfaction: number };
+  } {
     const { recognitionData } = dataResult;
     const { events } = recognitionData;
-    
-    const typeAnalysis = events.reduce((acc, event) => {
+
+    const typeAnalysis = events.reduce((acc: any, event: any) => {
       if (!acc[event.type]) {
         acc[event.type] = { count: 0, totalSatisfaction: 0 };
       }
@@ -421,23 +427,25 @@ export class RecognitionAgent extends ThreeEngineAgent {
       acc[event.type].totalSatisfaction += (event.meaningfulness || 70);
       return acc;
     }, {} as Record<string, { count: number; totalSatisfaction: number }>);
-    
-    const result: any = {};
+
+    const result = {
+      peer: { count: 0, satisfaction: 0 },
+      manager: { count: 0, satisfaction: 0 },
+      formal: { count: 0, satisfaction: 0 },
+      informal: { count: 0, satisfaction: 0 },
+      public: { count: 0, satisfaction: 0 }
+    };
+
     Object.entries(typeAnalysis).forEach(([type, data]) => {
-      result[type] = {
-        count: data.count,
-        satisfaction: Math.round(data.totalSatisfaction / data.count)
-      };
-    });
-    
-    // Ensure all types are represented
-    const allTypes = ['peer', 'manager', 'formal', 'informal', 'public'];
-    allTypes.forEach(type => {
-      if (!result[type]) {
-        result[type] = { count: 0, satisfaction: 0 };
+      const typedData = data as { count: number; totalSatisfaction: number };
+      if (type in result) {
+        result[type as keyof typeof result] = {
+          count: typedData.count,
+          satisfaction: Math.round(typedData.totalSatisfaction / typedData.count)
+        };
       }
     });
-    
+
     return result;
   }
 
@@ -501,7 +509,7 @@ export class RecognitionAgent extends ThreeEngineAgent {
     const { events } = recognitionData;
     
     // Identify employees who haven't received recognition recently
-    const recognitionCounts = events.reduce((acc, event) => {
+    const recognitionCounts = events.reduce((acc: any, event: any) => {
       acc[event.receiverId] = (acc[event.receiverId] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -516,7 +524,7 @@ export class RecognitionAgent extends ThreeEngineAgent {
         department: emp.department || 'Unknown',
         lastRecognition: recognitionCount > 0 ? '2 weeks ago' : '3+ months ago',
         performance: 75 + Math.random() * 20, // Mock performance score
-        riskLevel: recognitionCount === 0 ? 'high' : recognitionCount < 2 ? 'medium' : 'low'
+        riskLevel: (recognitionCount === 0 ? 'high' : recognitionCount < 2 ? 'medium' : 'low') as 'high' | 'medium' | 'low'
       };
     }).filter(emp => emp.riskLevel !== 'low');
   }
@@ -767,9 +775,54 @@ export class RecognitionAgent extends ThreeEngineAgent {
 
   private assessDataQuality(reviews: any[], employees: any[]): string {
     const dataPoints = reviews.length + employees.length;
-    
+
     if (dataPoints > 50) return 'high';
     if (dataPoints > 20) return 'medium';
     return 'low';
+  }
+
+  // Required abstract methods from ThreeEngineAgent
+  protected async loadFrameworks(): Promise<any> {
+    return {}; // Recognition doesn't use frameworks
+  }
+
+  protected async processData(inputData: any): Promise<any> {
+    return inputData; // Data already processed in gatherData
+  }
+
+  protected getKnowledgeSystemPrompt(): string {
+    return 'You are the Knowledge Engine for Mizan Recognition Agent.';
+  }
+
+  protected getDataSystemPrompt(): string {
+    return 'You are the Data Engine for Mizan Recognition Agent.';
+  }
+
+  protected getReasoningSystemPrompt(): string {
+    return 'You are the Reasoning Engine for Mizan Recognition Agent.';
+  }
+
+  protected buildKnowledgePrompt(inputData: any, frameworks: any): string {
+    return JSON.stringify(inputData);
+  }
+
+  protected buildDataPrompt(processedData: any, knowledgeOutput: any): string {
+    return JSON.stringify({ processedData, knowledgeOutput });
+  }
+
+  protected buildReasoningPrompt(inputData: any, knowledgeOutput: any, dataOutput: any): string {
+    return JSON.stringify({ inputData, knowledgeOutput, dataOutput });
+  }
+
+  protected parseKnowledgeOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  protected parseDataOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  protected parseReasoningOutput(response: string): any {
+    try { return JSON.parse(response); } catch { return {}; }
   }
 }

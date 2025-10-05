@@ -32,7 +32,9 @@
     "dist",
     "coverage",
     "**/*.spec.ts",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "**/__tests__/**",
+    "index-simple.ts"
   ],
   "ts-node": {
     "esm": true,

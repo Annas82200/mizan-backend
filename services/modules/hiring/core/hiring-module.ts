@@ -1,13 +1,12 @@
-import { db } from "../../../db/client.js";
+import { db } from "../../../../db/index.js";
 import { 
   hiringRequisitions, 
-  jobPostings, 
   candidates, 
   interviews,
-  cultureFitAssessments,
-  hiringStages 
-} from "../../../db/schema.js";
-import { EnsembleAI } from "../../ai-providers/ensemble.js";
+  offers 
+} from "../../../../db/schema/hiring.js";
+import { eq } from 'drizzle-orm';
+import { EnsembleAI } from "../../../ai-providers/ensemble.js";
 import { generateJobPosting } from "./job-posting-generator.js";
 import { InterviewBot } from "./interview-bot.js";
 import { CultureFitAssessor } from "./culture-fit-assessor.js";
@@ -37,7 +36,7 @@ export class HiringModule {
     this.tenantId = config.tenantId;
     this.config = config;
     this.interviewBot = new InterviewBot(config);
-    this.cultureAssessor = new CultureFitAssessor(config);
+    this.cultureAssessor = new CultureFitAssessor();
   }
 
   async initializeHiringProcess(): Promise<void> {
@@ -50,16 +49,23 @@ export class HiringModule {
   async createRequisition(hiringNeed: any): Promise<string> {
     const requisition = await db.insert(hiringRequisitions).values({
       tenantId: this.tenantId,
+      positionTitle: hiringNeed.role,
       department: hiringNeed.department,
-      role: hiringNeed.role,
-      priority: hiringNeed.priority,
-      justification: hiringNeed.justification,
-      status: "pending_approval",
-      requiredSkills: [], // Will be enriched
-      cultureFitCriteria: this.config.values || [],
-      targetStartDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      createdAt: new Date(),
-      createdBy: "system"
+      level: 'mid' as const,
+      type: 'full_time' as const,
+      location: 'Remote',
+      remote: true,
+      description: hiringNeed.justification || 'Position description',
+      responsibilities: [],
+      qualifications: [],
+      requiredSkills: [],
+      compensationRange: { min: 0, max: 0, currency: 'USD' },
+      urgency: (hiringNeed.priority === 'high' ? 'high' : 'medium') as 'high' | 'medium',
+      status: 'draft' as const,
+      cultureValues: this.config.values || [],
+      targetStartDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      requestedBy: 'system',
+      hiringManagerId: 'system'
     }).returning();
 
     return requisition[0].id;
@@ -68,10 +74,9 @@ export class HiringModule {
   async approveRequisition(requisitionId: string, approverId: string): Promise<void> {
     // Update requisition status
     await db.update(hiringRequisitions)
-      .set({ 
-        status: "approved",
-        approvedBy: approverId,
-        approvedAt: new Date()
+      .set({
+        status: 'posted' as const,
+        approvedBy: approverId
       })
       .where(eq(hiringRequisitions.id, requisitionId));
 
@@ -99,51 +104,54 @@ export class HiringModule {
       culture: this.config.culture
     });
 
-    // Save job posting
-    const savedPosting = await db.insert(jobPostings).values({
-      requisitionId: requisition.id,
-      tenantId: this.tenantId,
-      title: jobPosting.title,
-      description: jobPosting.description,
-      requirements: jobPosting.requirements,
-      benefits: jobPosting.benefits,
-      linkedInOptimized: jobPosting.linkedInVersion,
-      status: "draft",
-      createdAt: new Date()
-    }).returning();
-
-    // Auto-publish for Enterprise clients
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, this.tenantId)
-    });
-
-    if (tenant?.plan === "enterprise") {
-      await this.publishJobPosting(savedPosting[0].id);
-    }
+    // TODO: Implement jobPostings table
+    // const savedPosting = await db.insert(jobPostings).values({
+    //   requisitionId: requisition.id,
+    //   tenantId: this.tenantId,
+    //   title: jobPosting.title,
+    //   description: jobPosting.description,
+    //   requirements: jobPosting.requirements,
+    //   benefits: jobPosting.benefits,
+    //   linkedInOptimized: jobPosting.linkedInVersion,
+    //   status: "draft",
+    //   createdAt: new Date()
+    // }).returning();
+    //
+    // // Auto-publish for Enterprise clients
+    // const { tenants } = await import('../../../../db/schema/core.js');
+    // const tenant = await db.query.tenants.findFirst({
+    //   where: eq(tenants.id, this.tenantId)
+    // });
+    //
+    // if (tenant?.plan === "enterprise") {
+    //   await this.publishJobPosting(savedPosting[0].id);
+    // }
   }
 
   async publishJobPosting(jobPostingId: string): Promise<void> {
-    const posting = await db.query.jobPostings.findFirst({
-      where: eq(jobPostings.id, jobPostingId)
-    });
-
-    if (!posting) return;
-
-    // Publish to various platforms
-    const publishResults = await Promise.allSettled([
-      publishToLinkedIn(posting),
-      publishToJobBoards(posting),
-      this.publishToCompanyWebsite(posting)
-    ]);
-
-    // Update posting status
-    await db.update(jobPostings)
-      .set({ 
-        status: "published",
-        publishedAt: new Date(),
-        publishedPlatforms: ["linkedin", "indeed", "company_website"]
-      })
-      .where(eq(jobPostings.id, jobPostingId));
+    // TODO: Implement jobPostings table
+    // const posting = await db.query.jobPostings.findFirst({
+    //   where: eq(jobPostings.id, jobPostingId)
+    // });
+    //
+    // if (!posting) return;
+    //
+    // // Publish to various platforms
+    // const publishResults = await Promise.allSettled([
+    //   publishToLinkedIn(posting),
+    //   publishToJobBoards(posting),
+    //   this.publishToCompanyWebsite(posting)
+    // ]);
+    //
+    // // Update posting status
+    // await db.update(jobPostings)
+    //   .set({
+    //     status: "published",
+    //     publishedAt: new Date(),
+    //     publishedPlatforms: ["linkedin", "indeed", "company_website"]
+    //   })
+    //   .where(eq(jobPostings.id, jobPostingId));
+    console.log('TODO: publishJobPosting not implemented');
   }
 
   async processCandidate(candidateData: {
@@ -154,16 +162,20 @@ export class HiringModule {
     linkedIn?: string;
   }): Promise<string> {
     // Create candidate record
+    const [firstName, ...lastNameParts] = candidateData.name.split(' ');
+    const lastName = lastNameParts.join(' ') || firstName;
+
     const candidate = await db.insert(candidates).values({
-      jobPostingId: candidateData.jobPostingId,
+      requisitionId: candidateData.jobPostingId,
       tenantId: this.tenantId,
-      name: candidateData.name,
+      firstName,
+      lastName,
       email: candidateData.email,
-      resume: candidateData.resume,
-      linkedIn: candidateData.linkedIn,
-      status: "new",
-      stage: "screening",
-      createdAt: new Date()
+      resumeUrl: candidateData.resume,
+      linkedinUrl: candidateData.linkedIn,
+      status: 'applied',
+      stage: 'application',
+      source: 'other'
     }).returning();
 
     // Trigger initial screening
@@ -185,10 +197,10 @@ export class HiringModule {
     // Update candidate with screening results
     await db.update(candidates)
       .set({
-        screeningScore: screening.score,
-        screeningNotes: screening.notes,
-        status: screening.score > 0.7 ? "shortlisted" : "rejected",
-        stage: screening.score > 0.7 ? "culture_fit" : "screening"
+        overallScore: String(screening.score),
+        notes: screening.notes,
+        status: screening.score > 0.7 ? "screening" : "rejected",
+        stage: screening.score > 0.7 ? "resume_review" : "application"
       })
       .where(eq(candidates.id, candidateId));
 
@@ -199,8 +211,9 @@ export class HiringModule {
   }
 
   async triggerCultureFitAssessment(candidateId: string): Promise<void> {
+    const { tenants } = await import('../../../../db/schema/core.js');
     const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, this.tenantId)
+      where: eq((await import('../../../../db/schema/core.js')).tenants.id, this.tenantId)
     });
 
     if (tenant?.plan === "enterprise") {
@@ -226,20 +239,24 @@ export class HiringModule {
       where: eq(hiringRequisitions.id, candidate.requisitionId)
     });
 
+    if (!requisition) return;
+
     // Create interview record
     const interview = await db.insert(interviews).values({
       candidateId,
+      requisitionId: candidate.requisitionId,
       tenantId: this.tenantId,
-      type: interviewType,
+      interviewType: interviewType as any,
+      title: `${interviewType} Interview`,
       status: "scheduled",
-      interviewers: [requisition.hiringManagerId],
-      scheduledAt: new Date(), // Bot will handle actual scheduling
-      createdAt: new Date()
+      interviewers: [],
+      scheduledDate: new Date() // Bot will handle actual scheduling
     }).returning();
 
     // For Enterprise, bot handles scheduling
+    const { tenants } = await import('../../../../db/schema/core.js');
     const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, this.tenantId)
+      where: eq((await import('../../../../db/schema/core.js')).tenants.id, this.tenantId)
     });
 
     if (tenant?.plan === "enterprise") {
@@ -254,9 +271,9 @@ export class HiringModule {
   }> {
     const interview = await db.query.interviews.findFirst({
       where: eq(interviews.id, interviewId),
-      with: { 
+      with: {
         candidate: {
-          with: { jobPosting: true }
+          with: { requisition: true }
         }
       }
     });
@@ -267,7 +284,7 @@ export class HiringModule {
 
     // Generate technical questions based on role
     const technicalQuestions = await this.generateTechnicalQuestions(
-      interview.candidate.jobPosting.requirements
+      (interview.candidate?.requisition?.requiredSkills as string[]) || []
     );
 
     // Generate cultural fit questions
@@ -278,7 +295,7 @@ export class HiringModule {
 
     // Generate behavioral questions
     const behavioralQuestions = await this.generateBehavioralQuestions(
-      interview.candidate.jobPosting.title
+      interview.candidate?.requisition?.positionTitle || 'Position'
     );
 
     return {
@@ -307,14 +324,19 @@ export class HiringModule {
       .where(eq(interviews.id, interviewId));
 
     // Bot assists with feedback writing for Enterprise
+    const { tenants } = await import('../../../../db/schema/core.js');
     const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, this.tenantId)
+      where: eq((await import('../../../../db/schema/core.js')).tenants.id, this.tenantId)
     });
 
     if (tenant?.plan === "enterprise") {
       const enhancedFeedback = await this.interviewBot.enhanceFeedback(feedback);
+
+      // Store enhanced feedback in notes or metadata field
       await db.update(interviews)
-        .set({ enhancedFeedback })
+        .set({
+          notes: JSON.stringify(enhancedFeedback)
+        })
         .where(eq(interviews.id, interviewId));
     }
   }
@@ -325,8 +347,8 @@ export class HiringModule {
       where: eq(interviews.candidateId, candidateId)
     });
 
-    const cultureFit = await db.query.cultureFitAssessments.findFirst({
-      where: eq(cultureFitAssessments.candidateId, candidateId)
+    const cultureFit = await db.query.candidateAssessments.findFirst({
+      where: eq((await import('../../../../db/schema/hiring.js')).candidateAssessments.candidateId, candidateId)
     });
 
     // AI-assisted decision making
@@ -335,9 +357,9 @@ export class HiringModule {
     // Update candidate status
     await db.update(candidates)
       .set({
-        status: decision.hire ? "offer_extended" : "rejected",
-        stage: decision.hire ? "offer" : "rejected",
-        decisionNotes: decision.rationale
+        status: decision.hire ? "offer" : "rejected",
+        stage: decision.hire ? "offer" : "final_interview",
+        notes: decision.rationale
       })
       .where(eq(candidates.id, candidateId));
 
@@ -351,8 +373,7 @@ export class HiringModule {
     await db.update(candidates)
       .set({
         status: "hired",
-        stage: "onboarding",
-        hiredAt: new Date()
+        stage: "hired"
       })
       .where(eq(candidates.id, candidateId));
 
@@ -363,25 +384,15 @@ export class HiringModule {
   async triggerOnboarding(candidateId: string): Promise<void> {
     const candidate = await db.query.candidates.findFirst({
       where: eq(candidates.id, candidateId),
-      with: { jobPosting: true }
+      with: { requisition: true }
     });
 
     if (!candidate) return;
 
-    // Create employee record
-    const employee = await db.insert(employees).values({
-      tenantId: this.tenantId,
-      name: candidate.name,
-      email: candidate.email,
-      department: candidate.jobPosting.department,
-      title: candidate.jobPosting.title,
-      startDate: new Date(),
-      onboardingStatus: "pending",
-      createdAt: new Date()
-    }).returning();
-
-    // Trigger onboarding module
-    await this.startOnboarding(employee[0].id);
+    // Create employee record (employees table not yet implemented in core schema)
+    // For now, just log that onboarding would be triggered
+    console.log(`Onboarding triggered for candidate ${candidateId}`);
+    // TODO: Implement employee record creation when employees table is added to core schema
   }
 
   // Helper methods
@@ -439,7 +450,7 @@ Focus on practical scenarios and problem-solving.`;
     });
 
     // Parse questions from response
-    return response.narrative.split("\n").filter(q => q.trim().length > 0).slice(0, 5);
+    return response.narrative.split("\n").filter((q: string) => q.trim().length > 0).slice(0, 5);
   }
 
   private async generateBehavioralQuestions(role: string): Promise<string[]> {

@@ -126,7 +126,7 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       }
     }
 
-    next();
+    return next();
   } catch (error) {
     console.error('Tenant middleware error:', error);
     return res.status(500).json({
@@ -148,7 +148,7 @@ export const requireTenant = (req: Request, res: Response, next: NextFunction) =
       hint: 'Ensure request includes tenant information via subdomain, custom domain, header, or authenticated user'
     });
   }
-  next();
+  return next();
 };
 
 /**
@@ -183,7 +183,7 @@ export const checkTierAccess = (requiredTier: string, feature?: string) => {
       });
     }
 
-    next();
+    return next();
   };
 };
 
@@ -209,7 +209,7 @@ export const enforceDataIsolation = (req: Request, res: Response, next: NextFunc
     req.body.tenantId = req.tenant.id;
   }
 
-  next();
+  return next();
 };
 
 /**
@@ -235,7 +235,7 @@ export const checkResourceOwnership = (resourceIdParam: string = 'id') => {
 
       // This is a generic check - specific implementations should override
       // with actual resource ownership validation
-      next();
+      return next();
     } catch (error) {
       console.error('Resource ownership check error:', error);
       return res.status(500).json({

@@ -150,10 +150,12 @@ export class BillingService {
       }
 
       let customerId = tenant.stripeCustomerId;
-      
+
       // Create customer if doesn't exist
       if (!customerId) {
-        customerId = await this.createCustomer(tenantId, tenant.primaryContact, tenant.name);
+        const email = tenant.primaryContact || 'noreply@example.com';
+        const name = tenant.name || 'Unknown';
+        customerId = await this.createCustomer(tenantId, email, name);
       }
 
       // Get plan details
@@ -299,7 +301,9 @@ export class BillingService {
 
       let customerId = tenant.stripeCustomerId;
       if (!customerId) {
-        customerId = await this.createCustomer(tenantId, tenant.primaryContact, tenant.name);
+        const email = tenant.primaryContact || 'noreply@example.com';
+        const name = tenant.name || 'Unknown';
+        customerId = await this.createCustomer(tenantId, email, name);
       }
 
       const paymentIntent = await stripe.paymentIntents.create({
@@ -316,7 +320,7 @@ export class BillingService {
         id: randomUUID(),
         tenantId,
         stripePaymentIntentId: paymentIntent.id,
-        amount: amount.toString(),
+        amount: Math.round(amount * 100), // Convert to cents
         currency,
         status: 'pending',
         description: 'Payment intent created',
@@ -380,8 +384,7 @@ export class BillingService {
           interval: plan.interval
         },
         product_data: {
-          name: plan.name,
-          description: plan.features.join(', ')
+          name: plan.name
         }
       });
 
@@ -432,8 +435,12 @@ export class BillingService {
 
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
     const customer = await stripe.customers.retrieve(subscription.customer as string);
+
+    // Check if customer was deleted
+    if (customer.deleted) return;
+
     const tenantId = customer.metadata?.tenantId;
-    
+
     if (!tenantId) return;
 
     // Update tenant subscription info
@@ -449,8 +456,12 @@ export class BillingService {
 
   private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
     const customer = await stripe.customers.retrieve(subscription.customer as string);
+
+    // Check if customer was deleted
+    if (customer.deleted) return;
+
     const tenantId = customer.metadata?.tenantId;
-    
+
     if (!tenantId) return;
 
     // Update tenant status

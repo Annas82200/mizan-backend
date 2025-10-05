@@ -4,9 +4,11 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { db } from '../db/index.js';
-import { 
-  users, 
-  analyses, 
+import {
+  users,
+  tenants,
+  companies,
+  analyses,
   cultureAssessments,
   employeeProfiles,
   departments,
@@ -39,10 +41,10 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     ] = await Promise.all([
       db.query.users.findMany({ where: eq(users.tenantId, tenantId) }),
       db.query.analyses.findMany({ where: eq(analyses.tenantId, tenantId) }),
-      db.query.triggers.findMany({ 
+      db.query.triggers.findMany({
         where: and(
           eq(triggers.tenantId, tenantId),
-          eq(triggers.status, 'active')
+          eq(triggers.isActive, true)
         )
       })
     ]);
@@ -92,17 +94,14 @@ router.get('/dashboard', async (req: Request, res: Response) => {
 router.get('/companies', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
-    const companiesList = await db.query.companies.findMany({
-      where: eq(companies.tenantId, req.user.tenantId),
+    // Get the current tenant (company) with its departments
+    const companiesList = await db.query.tenants.findMany({
+      where: eq(tenants.id, req.user.tenantId),
       with: {
-        departments: {
-          with: {
-            employees: true
-          }
-        }
+        departments: true,
+        users: true
       }
     });
     
@@ -118,9 +117,8 @@ router.get('/companies', async (req: Request, res: Response) => {
 router.post('/companies', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const schema = z.object({
       name: z.string().min(2),
       industry: z.string(),
@@ -133,10 +131,7 @@ router.post('/companies', async (req: Request, res: Response) => {
     const [company] = await db.insert(companies)
       .values({
         id: randomUUID(),
-        tenantId: req.user.tenantId,
-        ...validatedData,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        ...validatedData
       })
       .returning();
     
@@ -153,13 +148,11 @@ router.post('/companies', async (req: Request, res: Response) => {
 router.get('/users', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const usersList = await db.query.users.findMany({
       where: eq(users.tenantId, req.user.tenantId),
       with: {
-        profile: true,
         department: true
       }
     });
@@ -188,9 +181,8 @@ router.get('/users', async (req: Request, res: Response) => {
 router.post('/users/invite', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const schema = z.object({
       email: z.string().email(),
       name: z.string(),
@@ -243,9 +235,8 @@ router.post('/users/invite', async (req: Request, res: Response) => {
 router.get('/analyses', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const analysesList = await db.query.analyses.findMany({
       where: eq(analyses.tenantId, req.user.tenantId),
       orderBy: [desc(analyses.createdAt)],
@@ -268,9 +259,8 @@ router.get('/analyses', async (req: Request, res: Response) => {
 router.get('/triggers', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const triggersList = await db.query.triggers.findMany({
       where: eq(triggers.tenantId, req.user.tenantId),
       orderBy: [desc(triggers.createdAt)],
@@ -294,15 +284,14 @@ router.get('/triggers', async (req: Request, res: Response) => {
 router.put('/triggers/:id', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
-    const { status, config } = req.body;
-    
+    const { isActive, actionConfig } = req.body;
+
     const [updated] = await db.update(triggers)
       .set({
-        status,
-        config,
+        isActive,
+        actionConfig,
         updatedAt: new Date()
       })
       .where(and(
@@ -329,18 +318,13 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
 router.get('/departments', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const departmentsList = await db.query.departments.findMany({
       where: eq(departments.tenantId, req.user.tenantId),
       with: {
         manager: true,
-        employees: {
-          with: {
-            profile: true
-          }
-        }
+        users: true
       }
     });
     
@@ -357,9 +341,8 @@ router.get('/departments', async (req: Request, res: Response) => {
 router.get('/reports/culture', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-      return;
     const { companyId } = req.query;
     
     const assessments = await db.query.cultureAssessments.findMany({
@@ -368,8 +351,8 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
         companyId ? eq(cultureAssessments.companyId, companyId as string) : undefined
       ),
       with: {
-        company: true,
-        employee: true
+        tenant: true,
+        user: true
       }
     });
     

@@ -26,11 +26,12 @@ export interface ProviderResponse {
   };
 }
 
-export interface TriadPayload extends ProviderCall {
-  knowledgeQuery?: string;
-  dataTask?: string;
-  analysisGoal?: string;
-}
+// Moved to bottom of file to avoid duplicate
+// export interface TriadPayload extends ProviderCall {
+//   knowledgeQuery?: string;
+//   dataTask?: string;
+//   analysisGoal?: string;
+// }
 
 class AIProviderRouter {
   private openai: OpenAI;
@@ -190,7 +191,7 @@ class AIProviderRouter {
         model: call.model || "mistral-large-latest",
         messages: [{ role: "user", content: call.prompt }],
         temperature: call.temperature || 0.1,
-        max_tokens: call.maxTokens || 4000
+        maxTokens: call.maxTokens || 4000
       });
 
       const content = response.choices[0].message.content;

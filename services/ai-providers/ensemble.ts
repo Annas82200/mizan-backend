@@ -1,4 +1,5 @@
-import { AIProviderKey } from "@mizan/shared/schema";
+// import { AIProviderKey } from "@mizan/shared/schema";
+type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral';
 import { EngineType, ProviderCall, ProviderResponse, EnsembleConfig } from "./types.js";
 import { invokeProvider } from "./router.js";
 
@@ -23,8 +24,8 @@ export class EnsembleAI {
 
   async call(call: ProviderCall): Promise<ProviderResponse> {
     // Call all configured providers in parallel
-    const providerCalls = this.config.providers.map(provider => 
-      this.callProviderSafely(provider, call)
+    const providerCalls = this.config.providers.map(provider =>
+      this.callProviderSafely(provider as AIProviderKey, call)
     );
     
     const responses = await Promise.all(providerCalls);
@@ -54,14 +55,30 @@ export class EnsembleAI {
 
   private async callProviderSafely(provider: AIProviderKey, call: ProviderCall): Promise<ProviderResponse | null> {
     try {
-      const response = await invokeProvider(provider, call);
-      
+      // Transform ProviderCall from types.ts format to router.ts format
+      const routerCall = {
+        prompt: call.prompt || call.context?.join('\n') || '',
+        temperature: call.temperature,
+        maxTokens: call.maxTokens,
+        requireJson: false
+      };
+      const routerResponse = await invokeProvider(provider, routerCall);
+
+      // Transform response back to types.ts format
+      const response: ProviderResponse = {
+        provider: routerResponse.provider,
+        engine: call.engine,
+        narrative: typeof routerResponse.response === 'string' ? routerResponse.response : JSON.stringify(routerResponse.response),
+        confidence: routerResponse.confidence,
+        usage: routerResponse.usage
+      };
+
       // Validate response quality
       if (response.confidence < this.config.minConfidence!) {
         console.warn(`Provider ${provider} confidence too low: ${response.confidence}`);
         return null;
       }
-      
+
       return response;
     } catch (error) {
       console.error(`Provider ${provider} failed:`, error);
@@ -71,11 +88,27 @@ export class EnsembleAI {
 
   private async callFallback(call: ProviderCall): Promise<ProviderResponse> {
     try {
-      return await invokeProvider(this.config.fallbackProvider!, call);
+      // Transform to router format
+      const routerCall = {
+        prompt: call.prompt || call.context?.join('\n') || '',
+        temperature: call.temperature,
+        maxTokens: call.maxTokens,
+        requireJson: false
+      };
+      const routerResponse = await invokeProvider(this.config.fallbackProvider! as AIProviderKey, routerCall);
+
+      // Transform back to types.ts format
+      return {
+        provider: routerResponse.provider,
+        engine: call.engine,
+        narrative: typeof routerResponse.response === 'string' ? routerResponse.response : JSON.stringify(routerResponse.response),
+        confidence: routerResponse.confidence,
+        usage: routerResponse.usage
+      };
     } catch (error) {
       // Last resort fallback
       return {
-        provider: this.config.fallbackProvider!,
+        provider: this.config.fallbackProvider! as string,
         engine: call.engine,
         narrative: "Analysis temporarily unavailable. Please try again.",
         confidence: 0.1
@@ -96,7 +129,7 @@ export class EnsembleAI {
     const avgConfidence = responses.reduce((sum, r) => sum + r.confidence, 0) / responses.length;
     
     return {
-      provider: "ensemble" as AIProviderKey,
+      provider: responses[0].provider, // Ensemble result
       engine: call.engine,
       narrative: synthesis,
       confidence: Number(avgConfidence.toFixed(2))
@@ -113,7 +146,7 @@ export class EnsembleAI {
     
     return {
       ...bestResponse,
-      provider: "ensemble" as AIProviderKey,
+      provider: responses[0].provider, // Ensemble result
       narrative: `${bestResponse.narrative} (${majorityCluster.length}/${responses.length} AI consensus)`,
       confidence: Number((bestResponse.confidence * (majorityCluster.length / responses.length)).toFixed(2))
     };
@@ -138,7 +171,7 @@ export class EnsembleAI {
     const confidence = totalWeight / responses.length;
     
     return {
-      provider: "ensemble" as AIProviderKey,
+      provider: responses[0].provider, // Ensemble result
       engine: call.engine,
       narrative: synthesis,
       confidence: Number(confidence.toFixed(2))
@@ -150,7 +183,7 @@ export class EnsembleAI {
     const best = responses.sort((a, b) => b.confidence - a.confidence)[0];
     return {
       ...best,
-      provider: "ensemble" as AIProviderKey,
+      provider: responses[0].provider, // Ensemble result
       narrative: `${best.narrative} (highest confidence: ${best.provider})`
     };
   }
