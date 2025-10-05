@@ -1,9 +1,4 @@
-// import bcrypt from "bcrypt";
-// TODO: Install bcrypt package
-const bcrypt = {
-  hash: async (password: string, rounds: number) => password,
-  compare: async (password: string, hash: string) => password === hash
-};
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db/client.js";

@@ -122,16 +122,25 @@ router.post('/companies', async (req: Request, res: Response) => {
     const schema = z.object({
       name: z.string().min(2),
       industry: z.string(),
-      size: z.string(),
-      strategy: z.string().optional()
+      size: z.string().optional(),
+      vision: z.string().optional(),
+      mission: z.string().optional(),
+      strategy: z.string().optional(),
+      values: z.array(z.string()).optional()
     });
-    
+
     const validatedData = schema.parse(req.body);
-    
+
     const [company] = await db.insert(companies)
       .values({
         id: randomUUID(),
-        ...validatedData
+        name: validatedData.name,
+        industry: validatedData.industry,
+        employeeCount: validatedData.size ? parseInt(validatedData.size.split('-')[0]) : undefined,
+        vision: validatedData.vision,
+        mission: validatedData.mission,
+        strategy: validatedData.strategy,
+        values: validatedData.values
       })
       .returning();
     

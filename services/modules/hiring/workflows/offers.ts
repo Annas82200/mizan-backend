@@ -234,9 +234,27 @@ export class OfferManagementWorkflow {
         targetModule: 'onboarding'
       };
 
-      this.logger.info('Offer accepted, onboarding triggered', {
+      // Step 5: Generate structure update trigger (org chart changed - new employee)
+      const structureUpdateTrigger = {
+        type: 'structure_analysis_update',
+        priority: 'high',
+        data: {
+          employeeId: updatedOffer.candidateId,
+          tenantId: updatedOffer.tenantId,
+          positionTitle: updatedOffer.positionTitle,
+          department: updatedOffer.department,
+          startDate: updatedOffer.startDate,
+          updateReason: 'new_hire',
+          impactedDepartment: updatedOffer.department,
+          requiresReanalysis: true
+        },
+        targetModule: 'structure'
+      };
+
+      this.logger.info('Offer accepted, onboarding and structure update triggered', {
         offerId,
-        candidateId: updatedOffer.candidateId
+        candidateId: updatedOffer.candidateId,
+        department: updatedOffer.department
       });
 
       return {
@@ -246,11 +264,12 @@ export class OfferManagementWorkflow {
         status: 'accepted',
         nextSteps: [
           'Trigger onboarding process',
+          'Update organizational structure',
           'Send welcome package',
           'Schedule first day',
           'Prepare workspace'
         ],
-        outputTriggers: [onboardingTrigger]
+        outputTriggers: [onboardingTrigger, structureUpdateTrigger]
       };
     } catch (error) {
       this.logger.error('Error accepting offer:', error);

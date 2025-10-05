@@ -13,6 +13,13 @@ export const tenants = pgTable('tenants', {
   status: text('status').notNull().default('active'), // active, suspended, cancelled
   industry: text('industry'),
   employeeCount: integer('employee_count'),
+
+  // Strategic Information
+  vision: text('vision'),           // Company vision statement
+  mission: text('mission'),         // Company mission statement
+  strategy: text('strategy'),       // Strategy statement
+  values: jsonb('values').$type<string[]>(), // Company values array
+
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),
   primaryContact: text('primary_contact'),

@@ -4,6 +4,8 @@ import reviewsRouter from './reviews.js';
 import feedbackRouter from './feedback.js';
 import analyticsRouter from './analytics.js';
 import coachingRouter from './coaching.js';
+import cyclesRouter from './cycles.js';
+import oneOnOneRouter from './one-on-one.js';
 import { performanceModule } from '../performance-module.js';
 
 const router = Router();
@@ -18,6 +20,8 @@ router.use('/', reviewsRouter);
 router.use('/', feedbackRouter);
 router.use('/', analyticsRouter);
 router.use('/', coachingRouter);
+router.use('/cycles', cyclesRouter);
+router.use('/one-on-one', oneOnOneRouter);
 
 // ============================================================================
 // MODULE STATUS & HEALTH ENDPOINTS
@@ -113,13 +117,29 @@ router.get('/docs', (req, res) => {
         'GET /api/performance/coaching/employees/:employeeId/plans': 'Get employee coaching plans',
         'GET /api/performance/coaching/effectiveness': 'Get coaching effectiveness metrics'
       },
+      cycles: {
+        'POST /api/performance/cycles': 'Create performance cycle (with multi-agent integration)',
+        'POST /api/performance/cycles/:id/activate': 'Activate cycle and create individual goals',
+        'POST /api/performance/cycles/:id/complete': 'Complete and archive cycle',
+        'GET /api/performance/cycles/:id/status': 'Get cycle status and analytics',
+        'POST /api/performance/cycles/:id/employees/:employeeId/goals': 'Create individual goals for employee'
+      },
+      oneOnOne: {
+        'POST /api/performance/one-on-one/schedule': 'Schedule 1:1 meeting with BOT assistance',
+        'POST /api/performance/one-on-one/:meetingId/prepare': 'Start preparation for meeting',
+        'POST /api/performance/one-on-one/prepare/:sessionId/chat': 'Chat with BOT during preparation',
+        'POST /api/performance/one-on-one/prepare/:sessionId/complete': 'Complete preparation',
+        'POST /api/performance/one-on-one/:meetingId/document': 'Document meeting outcomes',
+        'GET /api/performance/one-on-one/:meetingId/preparation-status': 'Get preparation status',
+        'GET /api/performance/one-on-one/upcoming': 'Get upcoming meetings'
+      },
       module: {
         'GET /api/performance/health': 'Module health check',
         'GET /api/performance/status': 'Module status and configuration',
         'GET /api/performance/docs': 'API documentation'
       }
     },
-    totalEndpoints: 32,
+    totalEndpoints: 44,
     documentation: 'See individual endpoint descriptions for request/response formats'
   });
 });

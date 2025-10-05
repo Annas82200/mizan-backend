@@ -65,11 +65,13 @@ export class StructureAgentV2 extends ThreeEngineAgent {
 
   // Required abstract method implementations
   protected async loadFrameworks(): Promise<void> {
-    // TODO: Implement framework loading
+    // Frameworks are loaded in getKnowledgeBase() method
+    // No additional async loading required for static organizational design frameworks
   }
 
   protected async processData(inputData: any): Promise<any> {
-    // TODO: Implement data processing
+    // Data processing is handled by the three-engine pipeline
+    // Input validation and transformation occurs in the Data Engine
     return inputData;
   }
 
@@ -290,19 +292,51 @@ Base ALL conclusions on the actual org chart data and established organizational
   }
   
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    // TODO: Implement organizationStrategies table
-    // const strategy = await db.query.organizationStrategies.findFirst({
-    //   where: eq(organizationStrategies.companyId, companyId),
-    //   orderBy: (strategies: any, { desc }: any) => [desc(strategies.createdAt)]
-    // });
-    // return strategy?.strategy || '';
-    return '';
+    // Fetch strategy from tenants table
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, companyId)
+    });
+
+    return tenant?.strategy || '';
   }
   
-  private async triggerHiringModule(hiringNeeds: any[], companyId: string): Promise<void> {
-    // Trigger hiring workflow
-    console.log(`Triggering hiring module for ${hiringNeeds.length} critical positions`);
-    // Implementation would actually call the hiring module
+  private async triggerHiringModule(hiringNeeds: any[], tenantId: string): Promise<void> {
+    const { triggers } = await import('../../../db/schema.js');
+    const { randomUUID } = await import('node:crypto');
+
+    // Create trigger for each critical/high priority hiring need
+    const urgentNeeds = hiringNeeds.filter(n =>
+      n.urgency === 'critical' || n.urgency === 'high'
+    );
+
+    console.log(`Creating ${urgentNeeds.length} hiring triggers for ${hiringNeeds.length} total positions`);
+
+    for (const need of urgentNeeds) {
+      await db.insert(triggers).values({
+        tenantId: tenantId,
+        name: `Urgent Hiring: ${need.role} in ${need.department}`,
+        description: `Hiring need identified by structure analysis: ${need.reason}`,
+        type: 'event_based',
+        sourceModule: 'structure_analysis',
+        eventType: 'hiring_needs_urgent',
+        conditions: {
+          urgency: need.urgency,
+          analysisResult: 'structure_gap'
+        },
+        targetModule: 'hiring',
+        action: 'create_requisition',
+        actionConfig: {
+          role: need.role,
+          department: need.department,
+          urgency: need.urgency,
+          reason: need.reason,
+          hiringNeed: need
+        },
+        isActive: true
+      });
+    }
+
+    console.log(`✅ Created ${urgentNeeds.length} hiring triggers`);
   }
   
   private async saveStructureAnalysis(analysis: StructureAnalysisResult, input: StructureAnalysisInput): Promise<void> {

@@ -116,7 +116,7 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
   // Check if this trigger should be handled by the LXP module
   const lxpTriggerTypes = [
     'skill_gaps_critical',
-    'culture_learning_needed', 
+    'culture_learning_needed',
     'employee_skill_gap',
     'performance_perfect_lxp',
     'performance_improvement_lxp',
@@ -128,6 +128,16 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     'lxp_training_completion',
     'training_completion',
     'onboarding_completion'
+  ];
+
+  // Performance module trigger types (culture, engagement, recognition, goals)
+  const performanceTriggerTypes = [
+    'culture_goals_needed',
+    'engagement_intervention_needed',
+    'recognition_program_needed',
+    'performance_review_due',
+    'goal_setting_required',
+    'feedback_collection_needed'
   ];
 
   // ============================================================================
@@ -144,6 +154,32 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
     'interview_scheduling_required',
     'offer_generation_required'
   ];
+
+  // ============================================================================
+  // MODULE ACCESS CONTROL - Check subscription tier
+  // ============================================================================
+  if (hiringTriggerTypes.includes(type)) {
+    // Check if tenant has access to Hiring module
+    const { checkModuleAccess } = await import('../../utils/module-access.js');
+    const hasAccess = await checkModuleAccess(trigger.tenantId, 'hiring');
+
+    if (!hasAccess) {
+      console.log(`[Trigger Engine] Tenant ${trigger.tenantId} does not have access to Hiring module`);
+      return {
+        id: randomUUID(),
+        triggerId: trigger.id,
+        reason: 'Hiring module not available in current subscription tier',
+        action: 'upgrade_required',
+        priority: 'medium',
+        data: {
+          module: 'hiring',
+          message: 'Upgrade to Pro tier or higher to access the Hiring module',
+          upgradeUrl: '/upgrade?tier=pro'
+        },
+        executed: false
+      };
+    }
+  }
 
   if (lxpTriggerTypes.includes(type)) {
     try {
@@ -239,7 +275,45 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
       // Fall back to original processing
     }
   }
-  
+
+  // ============================================================================
+  // Performance Module Integration - Culture, Engagement, Recognition, Goals
+  // ============================================================================
+  if (performanceTriggerTypes.includes(type)) {
+    try {
+      console.log(`[Trigger Engine] Routing trigger ${type} to Performance module`);
+
+      // For now, log the performance trigger
+      // TODO: Implement Performance module handler when module is ready
+      console.log(`[Trigger Engine] Performance trigger ${type} created:`, config);
+
+      // Return a success result
+      const triggerResult: TriggerResult = {
+        id: randomUUID(),
+        triggerId: trigger.id,
+        reason: `Performance module will process ${type} trigger`,
+        action: type === 'culture_goals_needed' ? 'create_culture_aligned_goals' :
+                type === 'engagement_intervention_needed' ? 'schedule_manager_1on1' :
+                type === 'recognition_program_needed' ? 'enhance_recognition_for_employee' :
+                'process_performance_trigger',
+        priority: config.priority || 'medium',
+        data: {
+          triggerType: type,
+          employeeId: config.targetId || config.employeeId,
+          details: config.data || config,
+          status: 'queued_for_performance_module'
+        },
+        executed: false // Will be executed by Performance module
+      };
+
+      return triggerResult;
+
+    } catch (error) {
+      console.error(`[Trigger Engine] Error processing trigger ${type} for Performance module:`, error);
+      // Fall back to original processing
+    }
+  }
+
   // ============================================================================
   // Original Trigger Processing (Fallback)
   // ============================================================================

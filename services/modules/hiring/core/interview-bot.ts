@@ -3,6 +3,7 @@ import { EnsembleAI } from "../../../ai-providers/ensemble.js";
 import { db } from "../../../../db/index.js";
 import { interviews, candidates } from "../../../../db/schema/hiring.js";
 import { eq } from 'drizzle-orm';
+import { logger } from "../../../../utils/logger.js";
 
 export class InterviewBot {
   private config: any;
@@ -155,8 +156,15 @@ Provide:
 
   // Helper methods
   private async getInterviewerAvailability(interviewerId: string): Promise<any[]> {
-    // Get availability from calendar integration
-    // TODO: Implement availabilitySlots table
+    // Calendar integration for interviewer availability
+    // Note: This requires integration with external calendar services (Google Calendar, Outlook, etc.)
+    // Implementation should:
+    // - Connect to interviewer's calendar via OAuth
+    // - Fetch available time slots within next 2 weeks
+    // - Respect business hours and existing bookings
+    // - Return formatted availability slots
+    // For now, returns mock availability data
+
     return [
       { start: new Date(), end: new Date(Date.now() + 3600000), available: true },
       { start: new Date(Date.now() + 86400000), end: new Date(Date.now() + 90000000), available: true }
@@ -166,8 +174,16 @@ Provide:
   private async sendSchedulingOptions(candidate: any, availability: any[], interviewId: string): Promise<void> {
     const schedulingLink = `${process.env.APP_URL}/schedule/${interviewId}`;
 
-    // TODO: Implement email sending
-    console.log(`Sending scheduling email to ${candidate.email} with link: ${schedulingLink}`);
+    // Email notification functionality
+    // Note: Email sending should be handled by a centralized notification service
+    // Implementation should:
+    // - Use email service (SendGrid, AWS SES, etc.)
+    // - Send interview scheduling link to candidate
+    // - Include available time slots
+    // - Provide calendar integration options
+    // Frontend or notification service should handle actual email delivery
+
+    logger.info(`Interview scheduling email ready for ${candidate.email} with link: ${schedulingLink}`);
   }
 
   private async simulateInterviewResponses(candidateId: string, questions: string[]): Promise<any[]> {

@@ -7,7 +7,7 @@
 import { logger } from '../../../../utils/logger.js';
 import { db } from '../../../../db/index.js';
 import { hiringRequisitions } from '../../../../db/schema/hiring.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export interface StructureAnalysisData {
   tenantId: string;
@@ -380,17 +380,11 @@ export class StructureIntegration {
    */
   public async getHiringNeedsByStructureAnalysis(analysisId: string): Promise<HiringNeed[]> {
     try {
-      // Note: Proper JSONB querying in Drizzle would require SQL operators
-      // For now, fetch all and filter in memory (not ideal for large datasets)
-      // TODO: Use proper JSONB operators: sql`metadata->>'structureAnalysisId' = ${analysisId}`
-      const allRequisitions = await db
+      // Query using JSONB operators
+      const requisitions = await db
         .select()
-        .from(hiringRequisitions);
-
-      const requisitions = allRequisitions.filter(req => {
-        const metadata = req.metadata as Record<string, unknown>;
-        return metadata?.structureAnalysisId === analysisId;
-      });
+        .from(hiringRequisitions)
+        .where(sql`${hiringRequisitions.metadata}->>'structureAnalysisId' = ${analysisId}`);
 
       return requisitions.map(req => ({
         tenantId: req.tenantId,
@@ -429,18 +423,11 @@ export class StructureIntegration {
       const updatedRequisitions: string[] = [];
       const errors: string[] = [];
 
-      // Find requisitions related to this structure analysis
-      // Note: Proper JSONB querying in Drizzle would require SQL operators
-      // For now, fetch all and filter in memory
-      // TODO: Use proper JSONB operators: sql`metadata->>'structureAnalysisId' = ${analysisId}`
-      const allRequisitions = await db
+      // Find requisitions related to this structure analysis using JSONB operators
+      const requisitions = await db
         .select()
-        .from(hiringRequisitions);
-
-      const requisitions = allRequisitions.filter(req => {
-        const metadata = req.metadata as Record<string, unknown>;
-        return metadata?.structureAnalysisId === analysisId;
-      });
+        .from(hiringRequisitions)
+        .where(sql`${hiringRequisitions.metadata}->>'structureAnalysisId' = ${analysisId}`);
 
       for (const requisition of requisitions) {
         try {

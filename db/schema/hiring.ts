@@ -107,6 +107,16 @@ export const offerStatusEnum = pgEnum('offer_status', [
   'withdrawn'
 ]);
 
+export const jobPostingStatusEnum = pgEnum('job_posting_status', [
+  'draft',
+  'pending_approval',
+  'approved',
+  'published',
+  'paused',
+  'closed',
+  'expired'
+]);
+
 // ============================================================================
 // TABLES
 // ============================================================================
@@ -183,6 +193,82 @@ export const hiringRequisitions = pgTable('hiring_requisitions', {
   
   // Metadata
   metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+/**
+ * Job Postings Table
+ * Stores published job postings with marketing content
+ */
+export const jobPostings = pgTable('job_postings', {
+  // Primary identification
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  requisitionId: uuid('requisition_id').notNull(),
+
+  // Job posting content
+  title: text('title').notNull(),
+  description: text('description').notNull(), // Full job description
+  responsibilities: text('responsibilities').notNull(), // Formatted list
+  requirements: text('requirements').notNull(), // Formatted list
+  qualifications: text('qualifications'), // Formatted list
+
+  // Company information
+  companyName: text('company_name').notNull(),
+  companyDescription: text('company_description'),
+  companyValues: jsonb('company_values').default([]),
+  companyBenefits: text('company_benefits'),
+
+  // Compensation display
+  salaryRange: text('salary_range'), // e.g., "$100k - $150k"
+  displaySalary: boolean('display_salary').default(true),
+  benefitsSummary: text('benefits_summary'),
+
+  // Location
+  location: text('location').notNull(),
+  remote: boolean('remote').default(false),
+  remoteDetails: text('remote_details'),
+
+  // Platform-specific versions
+  linkedInVersion: text('linkedin_version'), // LinkedIn-optimized version
+  indeedVersion: text('indeed_version'), // Indeed-optimized version
+  careerPageVersion: text('career_page_version'), // Company career page version
+
+  // SEO and marketing
+  seoTitle: text('seo_title'),
+  seoDescription: text('seo_description'),
+  keywords: jsonb('keywords').default([]), // array of SEO keywords
+
+  // Publishing
+  status: jobPostingStatusEnum('status').notNull().default('draft'),
+  publishedPlatforms: jsonb('published_platforms').default([]), // array of platform names
+  careerPageUrl: text('career_page_url'),
+  externalUrls: jsonb('external_urls').default({}), // { linkedin: url, indeed: url, etc. }
+
+  // Approval workflow
+  requiresApproval: boolean('requires_approval').default(true),
+  approvedBy: uuid('approved_by'),
+  approvalDate: timestamp('approval_date', { withTimezone: true }),
+  approvalNotes: text('approval_notes'),
+
+  // Dates
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+
+  // Analytics
+  views: integer('views').default(0),
+  applications: integer('applications').default(0),
+  clickThroughRate: decimal('click_through_rate', { precision: 5, scale: 2 }),
+
+  // AI generation
+  aiGenerated: boolean('ai_generated').default(false),
+  generatedBy: text('generated_by'), // 'hiring_agent', 'job_posting_generator'
+
+  // Metadata
+  metadata: jsonb('metadata').default({}),
+  createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
 });
@@ -524,7 +610,15 @@ export const hiringRequisitionsRelations = relations(hiringRequisitions, ({ many
   candidates: many(candidates),
   interviews: many(interviews),
   offers: many(offers),
-  assessments: many(candidateAssessments)
+  assessments: many(candidateAssessments),
+  jobPostings: many(jobPostings)
+}));
+
+export const jobPostingsRelations = relations(jobPostings, ({ one }) => ({
+  requisition: one(hiringRequisitions, {
+    fields: [jobPostings.requisitionId],
+    references: [hiringRequisitions.id]
+  })
 }));
 
 export const candidatesRelations = relations(candidates, ({ one, many }) => ({

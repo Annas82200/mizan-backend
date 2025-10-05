@@ -33,7 +33,7 @@ const upload = multer({
   },
 });
 
-// Parse CSV org structure
+// Parse CSV org structure - supports multiple formats
 function parseCSVOrgStructure(buffer: Buffer): string {
   try {
     const records = parse(buffer, {
@@ -42,21 +42,114 @@ function parseCSVOrgStructure(buffer: Buffer): string {
       trim: true,
     }) as Array<Record<string, string>>;
 
-    // Convert CSV rows to indented text format
-    // Expected columns: level, title, reports_to
-    let orgText = "";
+    // Check CSV format - support both formats:
+    // Format 1: employee_name, employee_email, department, supervisor_name, supervisor_email
+    // Format 2: level, title, reports_to (legacy)
 
-    for (const record of records) {
-      const level = parseInt(record.level || "0");
-      const title = record.title || record.role || record.position || "Unknown";
-      const indent = "  ".repeat(level);
-      orgText += `${indent}${title}\n`;
+    const firstRecord = records[0] || {};
+    const hasEmployeeFormat = 'employee_name' in firstRecord ||
+                              'name' in firstRecord ||
+                              'employee_email' in firstRecord;
+
+    if (hasEmployeeFormat) {
+      // New employee-based format
+      return parseEmployeeCSV(records);
+    } else {
+      // Legacy hierarchy format
+      return parseLegacyHierarchyCSV(records);
     }
-
-    return orgText.trim();
   } catch (error) {
     throw new Error("Failed to parse CSV file");
   }
+}
+
+// Parse employee-based CSV (employee, email, department, supervisor)
+function parseEmployeeCSV(records: Array<Record<string, string>>): string {
+  const employeeMap = new Map<string, any>();
+  const departments = new Set<string>();
+
+  // First pass: collect all employees
+  for (const record of records) {
+    const employeeName = record.employee_name || record.name || 'Unknown';
+    const employeeEmail = record.employee_email || record.email || '';
+    const department = record.department || 'Unassigned';
+    const supervisorName = record.supervisor_name || record.supervisor || '';
+    const supervisorEmail = record.supervisor_email || '';
+
+    employeeMap.set(employeeEmail || employeeName, {
+      name: employeeName,
+      email: employeeEmail,
+      department,
+      supervisorName,
+      supervisorEmail,
+      subordinates: []
+    });
+
+    if (department) {
+      departments.add(department);
+    }
+  }
+
+  // Second pass: build hierarchy
+  const roots: any[] = [];
+  for (const [key, employee] of employeeMap.entries()) {
+    if (employee.supervisorEmail || employee.supervisorName) {
+      const supervisor = employeeMap.get(employee.supervisorEmail) ||
+                        Array.from(employeeMap.values()).find(e =>
+                          e.name === employee.supervisorName
+                        );
+      if (supervisor) {
+        supervisor.subordinates.push(employee);
+      } else {
+        roots.push(employee);
+      }
+    } else {
+      roots.push(employee);
+    }
+  }
+
+  // Convert to hierarchical text
+  function buildHierarchyText(employee: any, level: number = 0): string {
+    const indent = "  ".repeat(level);
+    let text = `${indent}${employee.name} - ${employee.department}\n`;
+    for (const subordinate of employee.subordinates) {
+      text += buildHierarchyText(subordinate, level + 1);
+    }
+    return text;
+  }
+
+  let orgText = "";
+  for (const root of roots) {
+    orgText += buildHierarchyText(root);
+  }
+
+  // If no hierarchy found, create department-based structure
+  if (orgText.trim() === "") {
+    orgText = "Organization Structure\n";
+    for (const dept of Array.from(departments).sort()) {
+      orgText += `  ${dept}\n`;
+      const deptEmployees = Array.from(employeeMap.values()).filter(
+        e => e.department === dept
+      );
+      for (const emp of deptEmployees) {
+        orgText += `    ${emp.name}\n`;
+      }
+    }
+  }
+
+  return orgText.trim();
+}
+
+// Parse legacy hierarchy CSV (level, title, reports_to)
+function parseLegacyHierarchyCSV(records: Array<Record<string, string>>): string {
+  let orgText = "";
+  for (const record of records) {
+    const level = parseInt(record.level || "0");
+    const title = record.title || record.role || record.position || "Unknown";
+    const indent = "  ".repeat(level);
+    orgText += `${indent}${title}\n`;
+  }
+  return orgText.trim();
 }
 
 // Parse Excel org structure (simplified - in production use xlsx library)

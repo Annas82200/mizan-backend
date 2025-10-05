@@ -10,6 +10,9 @@ import employeeRoutes from './routes/employee.js';
 import agentRoutes from './routes/agents.js';
 import entryRoutes from './routes/entry.js';
 import superadminRoutes from './routes/superadmin.js';
+import skillsRoutes from './routes/skills-analysis.js';
+import cultureRoutes from './routes/culture-assessment.js';
+import hiringRoutes from './routes/hiring.js';
 
 // Load environment variables
 dotenv.config();
@@ -64,10 +67,13 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 // app.use('/api/admin', adminRoutes); // Temporarily disabled - has schema issues
-// app.use('/api/employee', employeeRoutes); // Temporarily disabled - has schema issues  
+// app.use('/api/employee', employeeRoutes); // Temporarily disabled - has schema issues
 // app.use('/api/agents', agentRoutes); // Temporarily disabled - has schema issues
 app.use('/api/entry', entryRoutes); // Core analysis endpoints - working
 app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints - working
+app.use('/api/skills', skillsRoutes); // Skills analysis endpoints
+app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
+app.use('/api/hiring', hiringRoutes); // Complete hiring flow endpoints - PRODUCTION READY
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

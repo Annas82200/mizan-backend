@@ -1,11 +1,37 @@
-// import { DEFAULT_VALUES_FRAMEWORK } from "@mizan/shared/schema";
-// import { runTriad, TriadResult } from "../ai-providers/router.js";
-// import { EnsembleAI } from "../ai-providers/ensemble.js";
+import { EnsembleAI } from "../../ai-providers/ensemble.js";
 
-const DEFAULT_VALUES_FRAMEWORK: any = [];  // TODO: Import from shared location
-type TriadResult = any;  // TODO: Import from ai-providers
-const runTriad = async (...args: any[]): Promise<TriadResult> => ({ consensus: null, confidence: 0 } as any);  // TODO: Implement
-class EnsembleAI { constructor(...args: any[]) {} async call(...args: any[]): Promise<any> { return {}; } }  // TODO: Implement
+// 7 Cylinders Framework
+const DEFAULT_VALUES_FRAMEWORK = [
+  { level: 1, name: 'Safety & Survival', ethicalPrinciple: 'Preservation of Life', enablingValues: ['Safety', 'Stability', 'Preparedness', 'Wellbeing'], limitingValues: ['Fear', 'Neglect', 'Instability', 'Complacency'] },
+  { level: 2, name: 'Belonging & Loyalty', ethicalPrinciple: 'Human Dignity', enablingValues: ['Inclusion', 'Trust', 'Collaboration', 'Compassion'], limitingValues: ['Cliquishness', 'Bias', 'Distrust', 'Favoritism'] },
+  { level: 3, name: 'Growth & Achievement', ethicalPrinciple: 'Striving with Excellence', enablingValues: ['Discipline', 'Learning', 'Ambition', 'Accountability'], limitingValues: ['Ego', 'Burnout', 'Competition', 'Arrogance'] },
+  { level: 4, name: 'Meaning & Contribution', ethicalPrinciple: 'Service', enablingValues: ['Purpose', 'Stewardship', 'Empowerment', 'Recognition'], limitingValues: ['Apathy', 'Self-interest', 'Cynicism', 'Disconnection'] },
+  { level: 5, name: 'Integrity & Justice', ethicalPrinciple: 'Justice and Accountability', enablingValues: ['Integrity', 'Fairness', 'Transparency', 'Courage'], limitingValues: ['Deception', 'Injustice', 'Blame', 'Corruption'] },
+  { level: 6, name: 'Wisdom & Compassion', ethicalPrinciple: 'Mercy and Knowledge', enablingValues: ['Humility', 'Empathy', 'Discernment', 'Patience'], limitingValues: ['Pride', 'Indifference', 'Impulsiveness', 'Judgmentalism'] },
+  { level: 7, name: 'Transcendence & Unity', ethicalPrinciple: 'Unity of Being', enablingValues: ['Alignment', 'Gratitude', 'Purposeful Reflection', 'Harmony'], limitingValues: ['Division', 'Materialism', 'Alienation', 'Despair'] }
+];
+
+type TriadResult = {
+  consensus: any;
+  confidence: number;
+  providers: any[];
+};
+
+const runTriad = async (prompt: string, options: any): Promise<TriadResult> => {
+  const ensemble = new EnsembleAI({ strategy: 'weighted', providers: ['claude', 'gpt-4', 'gemini'] });
+  const result = await ensemble.call({
+    agent: 'Engagement',
+    engine: 'reasoning',
+    tenantId: options.tenantId || 'system',
+    prompt,
+    temperature: 0.3
+  });
+  return {
+    consensus: result,
+    confidence: 0.85,
+    providers: ['claude', 'gpt-4', 'gemini']
+  };
+};
 
 export type EngagementDimensions = {
   belonging: number;

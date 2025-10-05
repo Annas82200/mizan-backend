@@ -398,9 +398,9 @@ Ensure recommendations are practical and aligned with business needs.`;
   private async storeAnalysis(input: SkillsAnalysisInput, result: any): Promise<void> {
     await db.insert(skillsReports).values({
       tenantId: input.tenantId,
+      reportType: input.targetType,
+      targetId: input.targetId || null,
       reportData: {
-        reportType: input.targetType,
-        targetId: input.targetId || null,
         skillCoverage: result.finalOutput.overall_coverage?.toString(),
         skillGaps: result.finalOutput.skill_gaps,
         recommendations: result.finalOutput.recommendations,
@@ -408,5 +408,318 @@ Ensure recommendations are practical and aligned with business needs.`;
         generatedBy: 'skills_agent'
       }
     });
+  }
+
+  /**
+   * Extract skills from resume text using AI
+   */
+  async extractSkillsFromResume(resumeText: string): Promise<{
+    technicalSkills: Array<{ skill: string; proficiency: string; yearsExperience?: number }>;
+    softSkills: string[];
+    domainKnowledge: string[];
+    tools: string[];
+    languages: string[];
+    experience: any[];
+    education: any[];
+    certifications: any[];
+  }> {
+    const prompt = `You are an expert HR analyst. Extract structured skills information from this resume.
+
+Resume Text:
+${resumeText}
+
+Extract and return JSON with the following structure:
+{
+  "technicalSkills": [{"skill": "Python", "proficiency": "expert", "yearsExperience": 5}],
+  "softSkills": ["Leadership", "Communication"],
+  "domainKnowledge": ["Machine Learning", "Cloud Computing"],
+  "tools": ["AWS", "Docker", "Git"],
+  "languages": ["English (Native)", "Spanish (Conversational)"],
+  "experience": [
+    {
+      "company": "Company Name",
+      "role": "Job Title",
+      "startDate": "2020-01",
+      "endDate": "2023-12",
+      "description": "Brief description",
+      "achievements": ["Achievement 1", "Achievement 2"]
+    }
+  ],
+  "education": [
+    {
+      "degree": "B.S. Computer Science",
+      "institution": "University",
+      "year": "2019",
+      "field": "Computer Science"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "AWS Certified",
+      "issuer": "Amazon",
+      "date": "2021-03"
+    }
+  ]
+}
+
+Guidelines:
+- Infer proficiency from context (beginner/intermediate/advanced/expert)
+- Extract years of experience when mentioned
+- Be comprehensive but accurate
+- Return only valid JSON`;
+
+    try {
+      const response = await this.runKnowledgeEngine({ prompt });
+      const extracted = typeof response === 'string' ? JSON.parse(response) : response;
+
+      return {
+        technicalSkills: extracted.technicalSkills || [],
+        softSkills: extracted.softSkills || [],
+        domainKnowledge: extracted.domainKnowledge || [],
+        tools: extracted.tools || [],
+        languages: extracted.languages || [],
+        experience: extracted.experience || [],
+        education: extracted.education || [],
+        certifications: extracted.certifications || []
+      };
+    } catch (error) {
+      console.error('Skills extraction error:', error);
+
+      // Fallback: basic keyword extraction
+      return this.fallbackSkillsExtraction(resumeText);
+    }
+  }
+
+  /**
+   * Fallback skills extraction using keyword matching
+   */
+  private fallbackSkillsExtraction(resumeText: string): any {
+    const text = resumeText.toLowerCase();
+
+    const commonTechnicalSkills = [
+      'javascript', 'python', 'java', 'c++', 'react', 'node.js', 'sql',
+      'aws', 'docker', 'kubernetes', 'git', 'agile', 'scrum', 'ci/cd'
+    ];
+
+    const commonSoftSkills = [
+      'leadership', 'communication', 'teamwork', 'problem solving',
+      'critical thinking', 'time management', 'adaptability'
+    ];
+
+    const extractedTechnical = commonTechnicalSkills
+      .filter(skill => text.includes(skill.toLowerCase()))
+      .map(skill => ({
+        skill: skill.charAt(0).toUpperCase() + skill.slice(1),
+        proficiency: 'intermediate',
+        yearsExperience: undefined
+      }));
+
+    const extractedSoft = commonSoftSkills
+      .filter(skill => text.includes(skill.toLowerCase()))
+      .map(skill => skill.charAt(0).toUpperCase() + skill.slice(1));
+
+    return {
+      technicalSkills: extractedTechnical,
+      softSkills: extractedSoft,
+      domainKnowledge: [],
+      tools: [],
+      languages: [],
+      experience: [],
+      education: [],
+      certifications: []
+    };
+  }
+
+  /**
+   * Map strategy to required skills
+   */
+  async mapStrategyToRequiredSkills(
+    tenantId: string,
+    strategy: any
+  ): Promise<{
+    organizationalSkills: any;
+    departmentalSkills: any;
+    roleSkills: any;
+    criticalSkills: string[];
+    importantSkills: string[];
+    niceToHaveSkills: string[];
+  }> {
+    const prompt = `You are a strategic HR analyst. Analyze this organizational strategy and determine required skills.
+
+Strategy:
+${JSON.stringify(strategy, null, 2)}
+
+Determine:
+1. What skills are needed organization-wide to achieve this strategy?
+2. What skills are needed by each department?
+3. What skills are needed for each role/position?
+4. Which skills are critical (must-have)?
+5. Which skills are important but not critical?
+6. Which skills are nice-to-have?
+
+Return JSON:
+{
+  "organizationalSkills": {
+    "technical": ["Skill 1", "Skill 2"],
+    "leadership": ["Skill 1"],
+    "domain": ["Knowledge area 1"]
+  },
+  "departmentalSkills": {
+    "Engineering": ["Python", "AWS"],
+    "Sales": ["CRM", "Negotiation"]
+  },
+  "roleSkills": {
+    "Software Engineer": ["Programming", "Testing"],
+    "Product Manager": ["Strategy", "Communication"]
+  },
+  "criticalSkills": ["Critical skill 1", "Critical skill 2"],
+  "importantSkills": ["Important skill 1"],
+  "niceToHaveSkills": ["Nice to have 1"]
+}`;
+
+    try {
+      const response = await this.runKnowledgeEngine({ prompt });
+      const skillRequirements = typeof response === 'string' ? JSON.parse(response) : response;
+
+      return {
+        organizationalSkills: skillRequirements.organizationalSkills || {},
+        departmentalSkills: skillRequirements.departmentalSkills || {},
+        roleSkills: skillRequirements.roleSkills || {},
+        criticalSkills: skillRequirements.criticalSkills || [],
+        importantSkills: skillRequirements.importantSkills || [],
+        niceToHaveSkills: skillRequirements.niceToHaveSkills || []
+      };
+    } catch (error) {
+      console.error('Strategy skill mapping error:', error);
+      return {
+        organizationalSkills: {},
+        departmentalSkills: {},
+        roleSkills: {},
+        criticalSkills: [],
+        importantSkills: [],
+        niceToHaveSkills: []
+      };
+    }
+  }
+
+  /**
+   * Perform detailed skill gap analysis for an employee
+   */
+  async performSkillGapAnalysis(
+    employeeProfile: any,
+    requiredSkills: any,
+    departmentSkills: string[],
+    roleSkills: string[]
+  ): Promise<{
+    criticalGaps: any[];
+    moderateGaps: any[];
+    strengthAreas: any[];
+    trainingRecommendations: any[];
+    overallScore: number;
+    strategicAlignmentScore: number;
+    readinessScore: number;
+  }> {
+    // Extract employee's current skills
+    const currentTechnical = (employeeProfile.technicalSkills || []).map((s: any) => s.skill.toLowerCase());
+    const currentSoft = (employeeProfile.softSkills || []).map((s: string) => s.toLowerCase());
+    const currentAll = [...currentTechnical, ...currentSoft];
+
+    // Identify gaps
+    const criticalGaps = [];
+    const moderateGaps = [];
+    const strengthAreas = [];
+
+    // Check critical skills
+    for (const skill of (requiredSkills.criticalSkills || [])) {
+      const hasSkill = currentAll.some(s => s.includes(skill.toLowerCase()) || skill.toLowerCase().includes(s));
+      if (!hasSkill) {
+        criticalGaps.push({
+          skill,
+          gap: 'missing',
+          priority: 'critical',
+          impact: 'Cannot perform key job functions without this skill'
+        });
+      }
+    }
+
+    // Check department skills
+    for (const skill of departmentSkills) {
+      const hasSkill = currentAll.some(s => s.includes(skill.toLowerCase()) || skill.toLowerCase().includes(s));
+      if (!hasSkill) {
+        moderateGaps.push({
+          skill,
+          gap: 'missing',
+          priority: 'high',
+          impact: 'Needed for department collaboration and effectiveness'
+        });
+      }
+    }
+
+    // Check role skills
+    for (const skill of roleSkills) {
+      const hasSkill = currentAll.some(s => s.includes(skill.toLowerCase()) || skill.toLowerCase().includes(s));
+      if (!hasSkill) {
+        moderateGaps.push({
+          skill,
+          gap: 'missing',
+          priority: 'medium',
+          impact: 'Beneficial for role performance'
+        });
+      }
+    }
+
+    // Identify strengths
+    for (const skill of employeeProfile.technicalSkills || []) {
+      if (skill.proficiency === 'expert' || skill.proficiency === 'advanced') {
+        strengthAreas.push({
+          skill: skill.skill,
+          proficiency: skill.proficiency,
+          yearsExperience: skill.yearsExperience,
+          opportunity: 'Can mentor others or lead projects in this area'
+        });
+      }
+    }
+
+    // Generate training recommendations
+    const trainingRecommendations = [
+      ...criticalGaps.map(gap => ({
+        skill: gap.skill,
+        priority: 'immediate',
+        type: 'formal_training',
+        estimatedDuration: '2-4 weeks',
+        reason: gap.impact
+      })),
+      ...moderateGaps.slice(0, 5).map(gap => ({
+        skill: gap.skill,
+        priority: 'short-term',
+        type: 'online_course',
+        estimatedDuration: '1-2 weeks',
+        reason: gap.impact
+      }))
+    ];
+
+    // Calculate scores
+    const totalRequired = (requiredSkills.criticalSkills || []).length +
+                         departmentSkills.length +
+                         roleSkills.length;
+    const totalHas = totalRequired - criticalGaps.length - moderateGaps.length;
+
+    const overallScore = totalRequired > 0 ? Math.round((totalHas / totalRequired) * 100) : 100;
+    const strategicAlignmentScore = requiredSkills.criticalSkills?.length > 0
+      ? Math.round(((requiredSkills.criticalSkills.length - criticalGaps.length) / requiredSkills.criticalSkills.length) * 100)
+      : 100;
+    const readinessScore = roleSkills.length > 0
+      ? Math.round(((roleSkills.length - moderateGaps.filter((g: any) => roleSkills.includes(g.skill)).length) / roleSkills.length) * 100)
+      : 100;
+
+    return {
+      criticalGaps,
+      moderateGaps,
+      strengthAreas,
+      trainingRecommendations,
+      overallScore,
+      strategicAlignmentScore,
+      readinessScore
+    };
   }
 }

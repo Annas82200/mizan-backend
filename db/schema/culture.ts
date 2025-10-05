@@ -14,10 +14,30 @@ export const cultureAssessments = pgTable('culture_assessments', {
   personalValues: jsonb('personal_values'), // Selected personal values
   currentExperience: jsonb('current_experience'), // Current company experience values
   desiredExperience: jsonb('desired_experience'), // Desired future experience values
-  recognition: integer('recognition'), // 1-10 scale
-  engagement: integer('engagement'), // 1-10 scale
+  recognition: integer('recognition'), // 1-5 scale
+  engagement: integer('engagement'), // 1-5 scale
   completedAt: timestamp('completed_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Survey invitations tracking
+export const cultureSurveyInvitations = pgTable('culture_survey_invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  campaignId: text('campaign_id').notNull(),
+  campaignName: text('campaign_name'),
+  employeeId: text('employee_id').notNull(),
+  employeeEmail: text('employee_email').notNull(),
+  surveyToken: text('survey_token').notNull().unique(),
+  surveyLink: text('survey_link').notNull(),
+  status: text('status').notNull().default('pending'),
+  sentAt: timestamp('sent_at'),
+  completedAt: timestamp('completed_at'),
+  remindersSent: integer('reminders_sent').default(0),
+  lastReminderAt: timestamp('last_reminder_at'),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const cultureReports = pgTable('culture_reports', {
@@ -86,6 +106,17 @@ export const cylinderScoresRelations = relations(cylinderScores, ({ one }) => ({
   tenant: one(tenants, {
     fields: [cylinderScores.tenantId],
     references: [tenants.id],
+  }),
+}));
+
+export const cultureSurveyInvitationsRelations = relations(cultureSurveyInvitations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [cultureSurveyInvitations.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [cultureSurveyInvitations.employeeId],
+    references: [users.id],
   }),
 }));
 

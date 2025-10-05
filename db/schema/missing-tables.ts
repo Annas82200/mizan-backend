@@ -112,12 +112,7 @@ export const employeeSkills = pgTable('employee_skills', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export const skillsReports = pgTable('skills_reports', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  reportData: jsonb('report_data'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+// skillsReports moved to db/schema/skills.ts
 
 // Benchmarking tables
 export const industryBenchmarks = pgTable('industry_benchmarks', {

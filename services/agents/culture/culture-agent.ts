@@ -61,27 +61,65 @@ export class CultureAgent {
   }
 
   async initialize(tenantId: string) {
-    // Load the Mizan framework configuration from database
-    // TODO: Implement cylinders table
-    const cylindersData: any[] = []; // await db.query.cylinders.findMany({
-    //   where: eq(cylinders.tenantId, tenantId),
-    //   with: {
-    //     values: true
-    //   }
-    // });
-
-    this.mizanFramework = cylindersData.map((cyl: any) => ({
-      level: cyl.level,
-      name: cyl.name,
-      definition: cyl.definition,
-      ethicalPrinciple: cyl.ethicalPrinciple,
-      enablingValues: cyl.values
-        .filter((v: any) => v.type === 'enabling')
-        .map((v: any) => v.value),
-      limitingValues: cyl.values
-        .filter((v: any) => v.type === 'limiting')
-        .map((v: any) => v.value)
-    }));
+    // Load the Mizan 7 Cylinders Framework (static framework)
+    this.mizanFramework = [
+      {
+        level: 1,
+        name: 'Safety & Survival',
+        definition: 'Protecting life and dignity by ensuring health, stability, and freedom from harm. Organizations grounded here safeguard people\'s wellbeing before all else.',
+        ethicalPrinciple: 'Preservation of Life',
+        enablingValues: ['Safety', 'Stability', 'Preparedness', 'Wellbeing'],
+        limitingValues: ['Fear', 'Neglect', 'Instability', 'Complacency']
+      },
+      {
+        level: 2,
+        name: 'Belonging & Loyalty',
+        definition: 'Fostering genuine connection, trust, and shared identity within teams and communities.',
+        ethicalPrinciple: 'Human Dignity',
+        enablingValues: ['Inclusion', 'Trust', 'Collaboration', 'Compassion'],
+        limitingValues: ['Cliquishness', 'Bias', 'Distrust', 'Favoritism']
+      },
+      {
+        level: 3,
+        name: 'Growth & Achievement',
+        definition: 'Encouraging learning, mastery, and performance that honor both excellence and humility.',
+        ethicalPrinciple: 'Striving with Excellence',
+        enablingValues: ['Discipline', 'Learning', 'Ambition', 'Accountability'],
+        limitingValues: ['Ego', 'Burnout', 'Competition', 'Arrogance']
+      },
+      {
+        level: 4,
+        name: 'Meaning & Contribution',
+        definition: 'Connecting personal and collective work to purpose and long-term impact.',
+        ethicalPrinciple: 'Service',
+        enablingValues: ['Purpose', 'Stewardship', 'Empowerment', 'Recognition'],
+        limitingValues: ['Apathy', 'Self-interest', 'Cynicism', 'Disconnection']
+      },
+      {
+        level: 5,
+        name: 'Integrity & Justice',
+        definition: 'Upholding truth, fairness, and ethical responsibility as the foundation of trust.',
+        ethicalPrinciple: 'Justice and Accountability',
+        enablingValues: ['Integrity', 'Fairness', 'Transparency', 'Courage'],
+        limitingValues: ['Deception', 'Injustice', 'Blame', 'Corruption']
+      },
+      {
+        level: 6,
+        name: 'Wisdom & Compassion',
+        definition: 'Integrating intellect and empathy to lead with understanding and balance.',
+        ethicalPrinciple: 'Mercy and Knowledge',
+        enablingValues: ['Humility', 'Empathy', 'Discernment', 'Patience'],
+        limitingValues: ['Pride', 'Indifference', 'Impulsiveness', 'Judgmentalism']
+      },
+      {
+        level: 7,
+        name: 'Transcendence & Unity',
+        definition: 'Achieving harmony between self, others, and the greater purpose of existence.',
+        ethicalPrinciple: 'Unity of Being',
+        enablingValues: ['Alignment', 'Gratitude', 'Purposeful Reflection', 'Harmony'],
+        limitingValues: ['Division', 'Materialism', 'Alienation', 'Despair']
+      }
+    ];
   }
 
   async analyzeCulture(input: CultureAnalysisInput): Promise<any> {
@@ -109,13 +147,13 @@ export class CultureAgent {
   }
 
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    // TODO: Implement organizationStrategies table
-    // const strategyData = await db.query.organizationStrategies.findFirst({
-    //   where: eq(organizationStrategies.companyId, companyId),
-    //   orderBy: (strategies: any, { desc }: any) => [desc(strategies.createdAt)]
-    // });
+    // Fetch strategy from tenants table
+    const { tenants } = await import('../../../db/schema.js');
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, companyId)
+    });
 
-    return ""; // strategyData?.strategy || "";
+    return tenant?.strategy || "";
   }
 
   private async mapValuesToMizanFramework(companyValues: string[]): Promise<any> {

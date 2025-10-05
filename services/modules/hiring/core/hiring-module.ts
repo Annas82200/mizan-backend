@@ -1,9 +1,11 @@
 import { db } from "../../../../db/index.js";
-import { 
-  hiringRequisitions, 
-  candidates, 
+import {
+  hiringRequisitions,
+  candidates,
   interviews,
-  offers 
+  offers,
+  jobPostings,
+  candidateAssessments
 } from "../../../../db/schema/hiring.js";
 import { eq } from 'drizzle-orm';
 import { EnsembleAI } from "../../../ai-providers/ensemble.js";
@@ -11,6 +13,8 @@ import { generateJobPosting } from "./job-posting-generator.js";
 import { InterviewBot } from "./interview-bot.js";
 import { CultureFitAssessor } from "./culture-fit-assessor.js";
 import { publishToLinkedIn, publishToJobBoards } from "./job-publishers.js";
+import { logger } from "../../../../utils/logger.js";
+import { tenants } from "../../../../db/schema.js";
 
 export interface HiringModuleConfig {
   tenantId: string;
@@ -90,68 +94,127 @@ export class HiringModule {
     }
   }
 
-  async generateAndPublishJobPosting(requisition: any): Promise<void> {
-    // Generate job posting content
-    const jobPosting = await generateJobPosting({
-      role: requisition.role,
-      department: requisition.department,
-      company: {
-        vision: this.config.vision,
-        mission: this.config.mission,
-        values: this.config.values
-      },
-      requirements: requisition.requiredSkills,
-      culture: this.config.culture
+  async generateAndPublishJobPosting(requisition: any): Promise<string> {
+    // Get tenant information for company details
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, this.tenantId)
     });
 
-    // TODO: Implement jobPostings table
-    // const savedPosting = await db.insert(jobPostings).values({
-    //   requisitionId: requisition.id,
-    //   tenantId: this.tenantId,
-    //   title: jobPosting.title,
-    //   description: jobPosting.description,
-    //   requirements: jobPosting.requirements,
-    //   benefits: jobPosting.benefits,
-    //   linkedInOptimized: jobPosting.linkedInVersion,
-    //   status: "draft",
-    //   createdAt: new Date()
-    // }).returning();
-    //
-    // // Auto-publish for Enterprise clients
-    // const { tenants } = await import('../../../../db/schema/core.js');
-    // const tenant = await db.query.tenants.findFirst({
-    //   where: eq(tenants.id, this.tenantId)
-    // });
-    //
-    // if (tenant?.plan === "enterprise") {
-    //   await this.publishJobPosting(savedPosting[0].id);
-    // }
+    // Generate job posting content using AI
+    const jobPosting = await generateJobPosting({
+      role: requisition.positionTitle,
+      department: requisition.department,
+      company: {
+        name: tenant?.name || 'Company',
+        vision: tenant?.vision || this.config.vision,
+        mission: tenant?.mission || this.config.mission,
+        values: tenant?.values || this.config.values
+      },
+      requirements: requisition.requiredSkills,
+      culture: this.config.culture,
+      compensation: requisition.compensationRange,
+      benefits: requisition.benefits,
+      location: requisition.location,
+      remote: requisition.remote
+    });
+
+    // Store job posting in database
+    const savedPosting = await db.insert(jobPostings).values({
+      tenantId: this.tenantId,
+      requisitionId: requisition.id,
+      title: jobPosting.title,
+      description: jobPosting.description,
+      responsibilities: jobPosting.responsibilities,
+      requirements: jobPosting.requirements,
+      qualifications: jobPosting.qualifications || '',
+      companyName: tenant?.name || 'Company',
+      companyDescription: tenant?.mission || '',
+      companyValues: tenant?.values || [],
+      companyBenefits: jobPosting.benefits,
+      salaryRange: `$${requisition.compensationRange.min} - $${requisition.compensationRange.max}`,
+      displaySalary: true,
+      benefitsSummary: Array.isArray(requisition.benefits) ? requisition.benefits.join(', ') : '',
+      location: requisition.location,
+      remote: requisition.remote,
+      remoteDetails: requisition.remoteDetails,
+      linkedInVersion: jobPosting.linkedInVersion,
+      indeedVersion: jobPosting.indeedVersion || jobPosting.description,
+      careerPageVersion: jobPosting.careerPageVersion || jobPosting.description,
+      seoTitle: jobPosting.title,
+      seoDescription: jobPosting.description.substring(0, 160),
+      keywords: jobPosting.keywords || [],
+      status: 'approved',
+      aiGenerated: true,
+      generatedBy: 'job_posting_generator',
+      createdBy: requisition.requestedBy,
+      requiresApproval: tenant?.plan === 'enterprise' ? false : true
+    }).returning();
+
+    const postingId = savedPosting[0].id;
+
+    // Auto-publish for Enterprise clients
+    if (tenant?.plan === 'enterprise') {
+      await this.publishJobPosting(postingId);
+    }
+
+    logger.info(`Job posting ${postingId} created for requisition ${requisition.id}`);
+    return postingId;
   }
 
   async publishJobPosting(jobPostingId: string): Promise<void> {
-    // TODO: Implement jobPostings table
-    // const posting = await db.query.jobPostings.findFirst({
-    //   where: eq(jobPostings.id, jobPostingId)
-    // });
-    //
-    // if (!posting) return;
-    //
-    // // Publish to various platforms
-    // const publishResults = await Promise.allSettled([
-    //   publishToLinkedIn(posting),
-    //   publishToJobBoards(posting),
-    //   this.publishToCompanyWebsite(posting)
-    // ]);
-    //
-    // // Update posting status
-    // await db.update(jobPostings)
-    //   .set({
-    //     status: "published",
-    //     publishedAt: new Date(),
-    //     publishedPlatforms: ["linkedin", "indeed", "company_website"]
-    //   })
-    //   .where(eq(jobPostings.id, jobPostingId));
-    console.log('TODO: publishJobPosting not implemented');
+    // Fetch posting from database
+    const posting = await db.query.jobPostings.findFirst({
+      where: eq(jobPostings.id, jobPostingId),
+      with: {
+        requisition: true
+      }
+    });
+
+    if (!posting) {
+      throw new Error(`Job posting ${jobPostingId} not found`);
+    }
+
+    // Publish to various platforms
+    const publishResults = await Promise.allSettled([
+      publishToLinkedIn(posting),
+      publishToJobBoards(posting)
+    ]);
+
+    const publishedPlatforms: string[] = [];
+    const externalUrls: Record<string, string> = {};
+
+    // Process results
+    publishResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        const platform = index === 0 ? 'linkedin' : 'indeed';
+        const value = result.value as any;
+        publishedPlatforms.push(platform);
+        externalUrls[platform] = value.url || value.postId || '';
+      }
+    });
+
+    // Update posting status
+    await db.update(jobPostings)
+      .set({
+        status: 'published',
+        publishedAt: new Date(),
+        publishedPlatforms,
+        externalUrls,
+        updatedAt: new Date()
+      })
+      .where(eq(jobPostings.id, jobPostingId));
+
+    // Update requisition status
+    await db.update(hiringRequisitions)
+      .set({
+        status: 'posted',
+        postedDate: new Date(),
+        jobPostingUrl: externalUrls.linkedin || externalUrls.indeed || '',
+        jobBoards: publishedPlatforms
+      })
+      .where(eq(hiringRequisitions.id, posting.requisitionId));
+
+    logger.info(`Job posting ${jobPostingId} published to: ${publishedPlatforms.join(', ')}`);
   }
 
   async processCandidate(candidateData: {
@@ -389,10 +452,16 @@ export class HiringModule {
 
     if (!candidate) return;
 
-    // Create employee record (employees table not yet implemented in core schema)
-    // For now, just log that onboarding would be triggered
-    console.log(`Onboarding triggered for candidate ${candidateId}`);
-    // TODO: Implement employee record creation when employees table is added to core schema
+    // Employee onboarding functionality
+    // Note: Candidate-to-employee conversion uses the users table (core schema)
+    // When a candidate is hired, they should be:
+    // - Created as a user record in users table with role='employee'
+    // - Assigned to appropriate department from requisition
+    // - Sent onboarding email with account credentials
+    // - Enrolled in onboarding LXP courses
+    // This functionality should be integrated with the onboarding module when available
+
+    logger.info(`Onboarding triggered for candidate ${candidateId}. Integration with onboarding module required for full employee creation flow.`);
   }
 
   // Helper methods

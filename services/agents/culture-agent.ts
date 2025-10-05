@@ -342,6 +342,122 @@ Ensure all recommendations are grounded in both theory and data.`;
     return distribution;
   }
 
+  /**
+   * Map tenant/company values to Mizan's 7 Cylinders Framework
+   * Uses AI to semantically match values to cylinders
+   */
+  async mapTenantValuesToCylinders(
+    tenantId: string,
+    tenantValues: string[]
+  ): Promise<{
+    mappings: Array<{
+      tenantValue: string;
+      cylinder: number;
+      cylinderName: string;
+      matchScore: number;
+      reasoning: string;
+      enablingValues: string[];
+    }>;
+    unmappedValues: string[];
+    summary: string;
+  }> {
+    const frameworks = await this.loadFrameworks();
+    const cylinders = frameworks.cylinders;
+
+    // Build prompt for AI to analyze each tenant value
+    const prompt = `You are analyzing a company's values to map them to the Mizan 7 Cylinders Framework.
+
+Company Values: ${tenantValues.join(', ')}
+
+Mizan 7 Cylinders Framework:
+${Object.entries(cylinders).map(([num, cyl]: [string, any]) => `
+${num}. ${cyl.name} (${cyl.ethicalPrinciple})
+   Definition: ${cyl.definition}
+   Enabling Values: ${cyl.enablingValues.join(', ')}
+`).join('\n')}
+
+For each company value, determine:
+1. Which cylinder it best aligns with (1-7)
+2. Match confidence score (0-100)
+3. Brief reasoning for the match
+4. Related enabling values from that cylinder
+
+Return JSON:
+{
+  "mappings": [
+    {
+      "tenantValue": "Innovation",
+      "cylinder": 3,
+      "cylinderName": "Growth & Achievement",
+      "matchScore": 85,
+      "reasoning": "Innovation aligns with continuous learning and progress",
+      "enablingValues": ["Learning", "Achievement"]
+    }
+  ],
+  "unmappedValues": [], // values that don't clearly map (score < 50)
+  "summary": "Brief summary of company's cultural orientation based on mappings"
+}`;
+
+    try {
+      // Use Knowledge Engine for semantic analysis
+      const response = await this.runKnowledgeEngine({ prompt });
+      const result = typeof response === 'string' ? JSON.parse(response) : response;
+
+      // Store mappings for future reference
+      await db.insert(cultureReports).values({
+        tenantId,
+        reportType: 'values_mapping',
+        reportData: {
+          tenantValues,
+          mappings: result.mappings,
+          unmappedValues: result.unmappedValues,
+          summary: result.summary,
+          mappedAt: new Date()
+        }
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Error mapping tenant values:', error);
+
+      // Fallback: simple keyword matching
+      const fallbackMappings = tenantValues.map(value => {
+        const valueLower = value.toLowerCase();
+        let bestMatch = { cylinder: 1, score: 0, name: '' };
+
+        Object.entries(cylinders).forEach(([num, cyl]: [string, any]) => {
+          const enablingLower = cyl.enablingValues.map((v: string) => v.toLowerCase());
+          const match = enablingLower.some((ev: string) =>
+            valueLower.includes(ev) || ev.includes(valueLower)
+          );
+
+          if (match && parseInt(num) > bestMatch.score) {
+            bestMatch = {
+              cylinder: parseInt(num),
+              score: 70,
+              name: cyl.name
+            };
+          }
+        });
+
+        return {
+          tenantValue: value,
+          cylinder: bestMatch.cylinder,
+          cylinderName: bestMatch.name || cylinders[bestMatch.cylinder].name,
+          matchScore: bestMatch.score,
+          reasoning: bestMatch.score > 0 ? 'Keyword match with enabling values' : 'No clear match found',
+          enablingValues: cylinders[bestMatch.cylinder].enablingValues.slice(0, 2)
+        };
+      });
+
+      return {
+        mappings: fallbackMappings.filter(m => m.matchScore >= 50),
+        unmappedValues: fallbackMappings.filter(m => m.matchScore < 50).map(m => m.tenantValue),
+        summary: 'Mapping completed using keyword matching (AI analysis unavailable)'
+      };
+    }
+  }
+
   private async storeAnalysis(input: CultureAnalysisInput, result: AnalysisResult): Promise<void> {
     await db.insert(cultureReports).values({
       tenantId: input.tenantId,
