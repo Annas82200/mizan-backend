@@ -126,6 +126,62 @@ app.post('/api/create-superadmin-temp', async (req, res) => {
   }
 });
 
+// DIRECT LOGIN ENDPOINT (temporary fix for Railway routing issue)
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    // Find user
+    const user = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.email, email)
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate token
+    const jwt = await import('jsonwebtoken');
+    const token = jwt.default.sign(
+      {
+        id: user.id,
+        email: user.email,
+        tenantId: user.tenantId,
+        role: user.role
+      },
+      process.env.SESSION_SECRET || process.env.JWT_SECRET || 'default-secret',
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Login error:', error);
+    return res.status(500).json({ error: 'Login failed' });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 // app.use('/api/admin', adminRoutes); // Temporarily disabled - has schema issues
