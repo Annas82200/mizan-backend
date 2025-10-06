@@ -34,7 +34,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://mizan.work',
   'https://www.mizan.work',
-  'https://mizan-platform-final.vercel.app'
+  'https://mizan-platform-final.vercel.app',
+  'https://mizan-frontend-ten.vercel.app'
 ];
 
 // Add CLIENT_URL if it's set and not already in the list

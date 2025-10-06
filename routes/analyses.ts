@@ -352,6 +352,13 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
     });
   }
 
+  // Calculate departments for detailed recommendations
+  const departments = new Map<string, number>();
+  roles.forEach(role => {
+    const dept = role.name.split(' - ')[1] || 'Unknown';
+    departments.set(dept, (departments.get(dept) || 0) + 1);
+  });
+
   // Calculate strategy alignment if strategy provided
   let strategyAlignment;
   let finalOverallScore = overallScore;
@@ -372,20 +379,73 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
     // If you can't achieve strategy, overall score should be much lower
     finalOverallScore = Math.round((alignment.score * 0.7) + (operationalScore * 0.3));
 
-    // Add strategy gaps to recommendations at HIGH priority
+    // Add strategy gaps to recommendations at HIGH priority with specific action items
     if (alignment.misalignments && alignment.misalignments.length > 0) {
       alignment.misalignments.forEach(gap => {
+        let specificActions: string[] = [];
+
+        console.log('📊 Processing gap:', gap.area);
+        console.log('📊 Available departments:', Array.from(departments.keys()));
+        console.log('📊 Department counts:', Array.from(departments.entries()));
+
+        // Generate specific, actionable recommendations based on the gap
+        if (gap.area === 'Engineering Capacity') {
+          const engineeringCount = departments.get('Engineering') || 0;
+          const totalEmployees = roles.length;
+          const currentPercent = ((engineeringCount / totalEmployees) * 100).toFixed(1);
+          const targetPercent = 30; // Innovation strategies typically need 30-40% technical
+          const neededHires = Math.ceil((totalEmployees * targetPercent / 100) - engineeringCount);
+
+          specificActions = [
+            `Hire ${neededHires} additional engineers to reach ${targetPercent}% technical capacity (currently ${currentPercent}%)`,
+            `Focus on senior roles: 1 Principal Engineer, 1 Engineering Manager, ${neededHires - 2} Senior Engineers`,
+            `Timeline: Begin hiring immediately - aim to fill ${Math.ceil(neededHires / 2)} roles in Q1, remaining in Q2`,
+            `Budget allocation: Expect $${(neededHires * 150000).toLocaleString()} annual cost for competitive engineering talent`,
+            `Alternative: Partner with development agencies for 3-6 months while building internal team`
+          ];
+        } else if (gap.area === 'Sales & GTM') {
+          const salesCount = departments.get('Sales') || 0;
+          const totalEmployees = roles.length;
+          const currentPercent = ((salesCount / totalEmployees) * 100).toFixed(1);
+          const targetPercent = 20;
+          const neededHires = Math.ceil((totalEmployees * targetPercent / 100) - salesCount);
+
+          specificActions = [
+            `Expand sales team by ${neededHires} people to reach ${targetPercent}% GTM capacity (currently ${currentPercent}%)`,
+            `Hire: 1 VP Sales, 2 Account Executives, ${neededHires - 3} SDRs`,
+            `Invest in sales enablement tools and CRM infrastructure`,
+            `Establish clear sales territories and quotas aligned with growth targets`,
+            `Timeline: Fill leadership role (VP Sales) in Q1, ramp team throughout year`
+          ];
+        } else if (gap.area === 'Customer-Facing Teams') {
+          const supportCount = (departments.get('Support') || 0) + (departments.get('Sales') || 0);
+          const totalEmployees = roles.length;
+          const neededHires = Math.ceil((totalEmployees * 0.25) - supportCount);
+
+          specificActions = [
+            `Build dedicated Customer Success team: hire ${neededHires} CSMs to support growth`,
+            `Implement customer health scoring and proactive outreach programs`,
+            `Create escalation paths from Sales → CS → Support with clear handoff processes`,
+            `Invest in customer feedback tools (NPS, in-app surveys) to measure experience`,
+            `Target: Reduce churn by 25% and increase expansion revenue by 40% within 12 months`
+          ];
+        } else {
+          // Generic but still specific
+          specificActions = [
+            `Conduct gap analysis: Compare current ${gap.area.toLowerCase()} capabilities to strategic requirements`,
+            `Identify critical roles needed to execute strategy in this area`,
+            `Develop 6-month hiring plan with specific role descriptions and timelines`,
+            `Consider interim solutions: contractors, consultants, or agency partners`,
+            `Set quarterly milestones to measure progress toward closing this gap`
+          ];
+        }
+
         recommendations.unshift({
           category: 'alignment',
           priority: gap.impact === 'high' ? 'high' : 'medium',
           title: `Address Strategy Gap: ${gap.area}`,
           description: gap.issue,
-          actionItems: [
-            'Review strategic objectives and required capabilities',
-            'Assess current team capacity vs strategic needs',
-            'Develop hiring or reorganization plan to close gap',
-            'Set timeline for structural changes aligned with strategy milestones'
-          ]
+          actionItems: specificActions
         });
       });
     }
