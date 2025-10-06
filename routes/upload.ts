@@ -5,6 +5,7 @@ import { authenticate } from "../middleware/auth.js";
 import { StructureAgentV2 } from "../services/agents/structure/structure-agent.js";
 import { db } from "../db/index.js";
 import { orgStructures } from "../db/schema/core.js";
+import { organizationStructure } from "../db/schema/strategy.js";
 import { eq, desc } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared.js";
 
@@ -260,7 +261,11 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     // TODO: Replace with actual AI agent when APIs are configured
     const result = generateMockStructureAnalysis(orgText);
 
-    // Save to database
+    // Parse the org text into structured data for organization_structure table
+    const parsedData = parseOrgTextToStructure(orgText);
+
+    // Save to BOTH tables:
+    // 1. org_structures (for historical records)
     const [saved] = await db.insert(orgStructures).values({
       submittedBy: req.user!.id,
       tenantId: req.user!.tenantId,
@@ -269,6 +274,16 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       analysisResult: result,
       isPublic: false,
     }).returning();
+
+    // 2. organization_structure (for analysis engine to read)
+    // Delete old structure for this tenant first
+    await db.delete(organizationStructure).where(eq(organizationStructure.tenantId, req.user!.tenantId));
+
+    await db.insert(organizationStructure).values({
+      tenantId: req.user!.tenantId,
+      structureData: parsedData,
+      uploadedBy: req.user!.id,
+    });
 
     return res.json({
       id: saved.id,
@@ -282,6 +297,46 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+}
+
+// Parse org text into structured data for organization_structure table
+function parseOrgTextToStructure(orgText: string): any {
+  const lines = orgText.split('\n').filter(l => l.trim());
+  const roles: any[] = [];
+
+  lines.forEach((line, index) => {
+    const indent = line.search(/\S/);
+    const level = Math.floor(indent / 2);
+    const name = line.trim();
+
+    roles.push({
+      id: `role-${index}`,
+      name,
+      level,
+      reports: level > 0 ? lines.slice(0, index).reverse().find(l => Math.floor(l.search(/\S/) / 2) === level - 1)?.trim() : null
+    });
+  });
+
+  return {
+    roles,
+    hierarchy: buildHierarchy(roles),
+    uploadedAt: new Date().toISOString()
+  };
+}
+
+function buildHierarchy(roles: any[]): any {
+  const root = roles.find(r => r.level === 0);
+  if (!root) return {};
+
+  const buildTree = (role: any): any => {
+    const children = roles.filter(r => r.reports === role.name);
+    return {
+      ...role,
+      children: children.map(buildTree)
+    };
+  };
+
+  return buildTree(root);
 }
 
 // Mock analysis generator
