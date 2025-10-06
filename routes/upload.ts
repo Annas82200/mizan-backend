@@ -288,8 +288,9 @@ async function handleOrgChartUpload(req: Request, res: Response) {
 function generateMockStructureAnalysis(orgText: string): any {
   // Count approximate employees and layers
   const lines = orgText.split('\n').filter(l => l.trim());
-  const employeeCount = lines.length;
-  const maxIndent = Math.max(...lines.map(l => l.search(/\S/)));
+  const employeeCount = lines.length || 1; // Ensure at least 1
+  const indents = lines.length > 0 ? lines.map(l => l.search(/\S/)) : [0];
+  const maxIndent = Math.max(0, ...indents); // Ensure non-negative, default 0
   const layers = Math.floor(maxIndent / 2) + 1;
 
   return {
