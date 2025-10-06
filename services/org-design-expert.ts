@@ -528,33 +528,39 @@ function generateExpertRecommendations(
     const targetRatio = (recommendedEngMin + recommendedEngMax) / 2;
     const neededHires = Math.ceil((totalEmployees * targetRatio) - engineeringCount);
 
-    // Build client-specific context
+    // Build client-specific context with executive-friendly language
     const industryContext = clientIndustry
-      ? `As a ${clientIndustry} company operating as a ${archetype.archetype.toUpperCase()} strategy`
-      : `As a ${archetype.archetype.toUpperCase()} strategy in ${industry.industry}`;
+      ? `${clientName} is a ${clientIndustry} company`
+      : `${clientName} operates in ${industry.industry}`;
+
+    const strategyStyle = archetype.archetype === 'prospector'
+      ? 'innovation-focused strategy'
+      : archetype.archetype === 'defender'
+      ? 'efficiency-focused strategy'
+      : 'balanced growth strategy';
 
     const positioning = archetype.archetype === 'prospector'
-      ? 'innovation-driven competitor'
+      ? 'competitive in innovation'
       : archetype.archetype === 'defender'
-      ? 'efficiency-focused market leader'
-      : 'balanced player';
+      ? 'efficient and stable'
+      : 'strategically balanced';
 
     recommendations.push({
       priority: 'critical',
       category: 'Strategic Capability Gap',
-      title: `${clientName}: Engineering Capacity Below Strategic Requirements`,
-      rationale: `${industryContext}, ${clientName} needs stronger technical capacity to compete as an ${positioning}. Industry benchmarks for ${archetype.archetype} organizations in ${industry.industry} indicate ${(industryEngMin * 100).toFixed(0)}-${(industryEngMax * 100).toFixed(0)}% engineering capacity. At ${totalEmployees} employees with only ${engineeringCount} engineers (${(engineeringRatio * 100).toFixed(1)}%), ${clientName} is underinvested in technical capability relative to strategic ambitions.`,
+      title: `${clientName} Needs Stronger Engineering Team`,
+      rationale: `${industryContext} pursuing a ${strategyStyle}. To stay ${positioning}, ${clientName} needs more technical talent. With ${totalEmployees} total employees and only ${engineeringCount} engineers (${(engineeringRatio * 100).toFixed(0)}%), your engineering team is smaller than what's typical for companies with similar strategies. Most successful ${archetype.archetype === 'prospector' ? 'innovation-focused' : archetype.archetype === 'defender' ? 'efficiency-focused' : 'balanced'} companies in ${industry.industry} maintain ${(industryEngMin * 100).toFixed(0)}-${(industryEngMax * 100).toFixed(0)}% engineering capacity.`,
       actionItems: [
-        `Immediate priority: Hire ${neededHires} engineers over next 9-12 months to reach ${(targetRatio * 100).toFixed(0)}% technical capacity (currently ${(engineeringRatio * 100).toFixed(1)}%)`,
-        `Q1 focus (first 3 months): ${Math.ceil(neededHires * 0.4)} senior/principal engineers to establish technical leadership and architecture`,
-        `Q2-Q3 execution (months 4-9): ${Math.ceil(neededHires * 0.3)} mid-level engineers to build execution capacity`,
-        `Q4 scaling (months 10-12): ${Math.floor(neededHires * 0.3)} junior engineers mentored by senior hires`,
-        `Role prioritization for ${clientName}: ${neededHires >= 5 ? '1 Engineering Manager (team leadership), 1 Principal Engineer (technical direction), ' : '1 Senior Technical Lead, '}${Math.max(1, neededHires - 2)} Senior Engineers`,
-        `Budget allocation for ${clientName}: $${(neededHires * 145000).toLocaleString()}/year total comp (${industry.industry} market rates)`,
-        `Risk mitigation: If hiring velocity is challenging, engage ${Math.ceil(neededHires * 0.6)} contractors/development agencies for 6-9 months while building permanent team`
+        `Grow your engineering team to ${engineeringCount + neededHires} people (adding ${neededHires} ${neededHires === 1 ? 'engineer' : 'engineers'}) to reach ${(targetRatio * 100).toFixed(0)}% technical capacity`,
+        `Start with experienced talent: Hire ${Math.ceil(neededHires * 0.4)} senior engineers in the first quarter to set technical direction`,
+        `Build the core team: Add ${Math.ceil(neededHires * 0.3)} mid-level engineers in quarters 2-3 to execute on roadmap`,
+        `Scale sustainably: Bring in ${Math.floor(neededHires * 0.3)} junior engineers in quarter 4, mentored by your senior hires`,
+        `Key roles to prioritize: ${neededHires >= 5 ? '1 Engineering Manager to lead the team, 1 Principal Engineer for technical strategy, and ' : '1 Senior Technical Lead, plus '}${Math.max(1, neededHires - 2)} Senior Engineers`,
+        `Budget for ${clientName}: Approximately $${(neededHires * 145000).toLocaleString()} per year in total compensation (competitive ${industry.industry} rates)`,
+        `Alternative approach: Partner with ${Math.ceil(neededHires * 0.6)} contractors or a development agency for 6-9 months while you build your permanent team`
       ],
-      expectedImpact: `${clientName} will achieve velocity improvements of 30-40%, reduce technical debt by ~50%, and gain competitive parity with ${archetype.archetype} peers in ${industry.industry}`,
-      timeframe: '9-12 months to full capacity, with first productivity gains visible in Q2'
+      expectedImpact: `${clientName} will ship features 30-40% faster, reduce time spent fixing issues by half, and match the technical capacity of similar ${archetype.archetype === 'prospector' ? 'innovation-focused' : archetype.archetype === 'defender' ? 'efficiency-driven' : 'balanced'} companies in your industry.`,
+      timeframe: '9-12 months to reach full strength, with noticeable improvements starting in quarter 2'
     });
   }
 
