@@ -21,6 +21,7 @@ import analysesRoutes from './routes/analyses.js';
 import billingRoutes from './routes/billing.js';
 import modulesRoutes from './routes/modules.js';
 import frameworkRoutes from './routes/framework.js';
+import exportRoutes from './routes/export.js';
 
 // Load environment variables
 dotenv.config();
@@ -203,6 +204,7 @@ app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, cult
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
+app.use('/api/export', exportRoutes); // Export formatted reports
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
