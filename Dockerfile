@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 3001
 
 # Start the application
-CMD ["npx", "tsx", "index-simple.ts"]
+CMD ["npx", "tsx", "index.ts"]
