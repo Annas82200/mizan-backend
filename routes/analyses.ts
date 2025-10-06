@@ -6,6 +6,7 @@ import { buildUnifiedResults } from "../services/results/unified-results.js";
 import { runTriggers } from "../services/results/trigger-engine.js";
 import { db } from "../db/index.js";
 import { organizationStructure } from "../db/schema/strategy.js";
+import { tenants } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -24,7 +25,150 @@ interface StructureData {
   uploadedAt: string;
 }
 
-function calculateRealStructureAnalysis(structureData: StructureData) {
+interface TenantStrategy {
+  vision: string | null;
+  mission: string | null;
+  strategy: string | null;
+  values: string[] | null;
+}
+
+function analyzeStrategyAlignment(structureData: StructureData, strategy: TenantStrategy) {
+  const { roles } = structureData;
+
+  // Extract departments from roles
+  const departments = new Map<string, number>();
+  roles.forEach(role => {
+    const dept = role.name.split(' - ')[1] || 'Unknown';
+    departments.set(dept, (departments.get(dept) || 0) + 1);
+  });
+
+  const hasStrategy = !!(strategy.vision || strategy.mission || strategy.strategy);
+
+  if (!hasStrategy) {
+    return {
+      score: 50,
+      hasStrategy: false,
+      alignmentReport: "No strategy statement found for this organization. To provide strategy alignment analysis, please add your organization's vision, mission, and strategic objectives in the tenant settings.",
+      misalignments: [],
+      strengths: []
+    };
+  }
+
+  // Analyze structure against strategy
+  const report: string[] = [];
+  const misalignments: Array<{ area: string; issue: string; impact: 'high' | 'medium' | 'low' }> = [];
+  const strengths: string[] = [];
+
+  report.push("## Strategy-Structure Alignment Analysis\n");
+
+  if (strategy.vision) {
+    report.push(`**Vision**: ${strategy.vision}\n`);
+  }
+
+  if (strategy.mission) {
+    report.push(`**Mission**: ${strategy.mission}\n`);
+  }
+
+  if (strategy.strategy) {
+    report.push(`**Strategic Objectives**: ${strategy.strategy}\n`);
+  }
+
+  report.push("\n### Structural Assessment\n");
+
+  // Analyze if structure supports strategy
+  const totalEmployees = roles.length;
+  const deptArray = Array.from(departments.entries()).sort((a, b) => b[1] - a[1]);
+
+  report.push(`The organization has ${totalEmployees} employees distributed across ${departments.size} functional areas:\n`);
+  deptArray.forEach(([dept, count]) => {
+    const percentage = ((count / totalEmployees) * 100).toFixed(1);
+    report.push(`- **${dept}**: ${count} employees (${percentage}%)`);
+  });
+
+  report.push("\n### Strategy Alignment\n");
+
+  // Check for strategic alignment based on department distribution
+  const engineeringCount = departments.get('Engineering') || 0;
+  const salesCount = departments.get('Sales') || 0;
+  const productCount = departments.get('Product') || 0;
+  const operationsCount = departments.get('Operations') || 0;
+
+  const engineeringPercent = (engineeringCount / totalEmployees) * 100;
+  const salesPercent = (salesCount / totalEmployees) * 100;
+
+  // Analyze based on strategy keywords
+  const strategyText = `${strategy.vision} ${strategy.mission} ${strategy.strategy}`.toLowerCase();
+
+  if (strategyText.includes('innovation') || strategyText.includes('technology') || strategyText.includes('product')) {
+    if (engineeringPercent < 30) {
+      misalignments.push({
+        area: 'Engineering Capacity',
+        issue: `Strategy emphasizes innovation/technology but only ${engineeringPercent.toFixed(1)}% of workforce is in Engineering`,
+        impact: 'high'
+      });
+      report.push(`\n⚠️ **Gap Identified**: Your strategy emphasizes innovation and technology, but Engineering represents only ${engineeringPercent.toFixed(1)}% of your workforce. Consider increasing technical capacity to support strategic objectives.`);
+    } else {
+      strengths.push(`Engineering team size (${engineeringPercent.toFixed(1)}%) aligns well with technology-focused strategy`);
+      report.push(`\n✅ **Strength**: Engineering capacity (${engineeringPercent.toFixed(1)}%) is well-aligned with your technology-focused strategy.`);
+    }
+  }
+
+  if (strategyText.includes('growth') || strategyText.includes('market') || strategyText.includes('revenue')) {
+    if (salesPercent < 15) {
+      misalignments.push({
+        area: 'Sales & GTM',
+        issue: `Strategy focuses on growth/market expansion but Sales is only ${salesPercent.toFixed(1)}% of workforce`,
+        impact: 'high'
+      });
+      report.push(`\n⚠️ **Gap Identified**: Your strategy emphasizes growth and market expansion, but Sales represents only ${salesPercent.toFixed(1)}% of your workforce. Consider strengthening go-to-market capabilities.`);
+    } else {
+      strengths.push(`Sales team size (${salesPercent.toFixed(1)}%) supports growth-oriented strategy`);
+      report.push(`\n✅ **Strength**: Sales capacity (${salesPercent.toFixed(1)}%) is appropriate for your growth-focused strategy.`);
+    }
+  }
+
+  if (strategyText.includes('customer') || strategyText.includes('service') || strategyText.includes('experience')) {
+    const customerFacingPercent = salesPercent + (departments.get('Support') || 0) / totalEmployees * 100;
+    if (customerFacingPercent < 20) {
+      misalignments.push({
+        area: 'Customer-Facing Teams',
+        issue: `Strategy emphasizes customer focus but only ${customerFacingPercent.toFixed(1)}% in customer-facing roles`,
+        impact: 'medium'
+      });
+      report.push(`\n⚠️ **Gap Identified**: Your strategy emphasizes customer experience, but only ${customerFacingPercent.toFixed(1)}% of workforce is in customer-facing roles.`);
+    } else {
+      strengths.push(`Customer-facing capacity (${customerFacingPercent.toFixed(1)}%) aligns with customer-centric strategy`);
+    }
+  }
+
+  // Calculate alignment score
+  let score = 75; // Base score
+  score -= misalignments.filter(m => m.impact === 'high').length * 15;
+  score -= misalignments.filter(m => m.impact === 'medium').length * 10;
+  score -= misalignments.filter(m => m.impact === 'low').length * 5;
+  score += strengths.length * 5;
+  score = Math.max(0, Math.min(100, score));
+
+  if (misalignments.length === 0) {
+    report.push("\n✅ **Overall Assessment**: Your organizational structure is well-aligned with your strategic objectives. The distribution of resources across functions supports your stated vision and mission.");
+  } else {
+    report.push(`\n### Recommendations\n`);
+    report.push(`To better align your structure with strategy:\n`);
+    misalignments.forEach((m, i) => {
+      report.push(`${i + 1}. **${m.area}**: ${m.issue}`);
+    });
+  }
+
+  return {
+    score,
+    hasStrategy: true,
+    alignmentReport: report.join('\n'),
+    misalignments,
+    strengths
+  };
+}
+
+function calculateRealStructureAnalysis(structureData: StructureData, strategy?: TenantStrategy) {
   const { roles } = structureData;
 
   // Calculate span of control for each manager
@@ -175,6 +319,27 @@ function calculateRealStructureAnalysis(structureData: StructureData) {
     });
   }
 
+  // Calculate strategy alignment if strategy provided
+  let strategyAlignment;
+  if (strategy) {
+    const alignment = analyzeStrategyAlignment(structureData, strategy);
+    strategyAlignment = {
+      score: alignment.score,
+      hasStrategy: alignment.hasStrategy,
+      alignmentReport: alignment.alignmentReport,
+      misalignments: alignment.misalignments,
+      strengths: alignment.strengths
+    };
+  } else {
+    strategyAlignment = {
+      score: 50,
+      hasStrategy: false,
+      alignmentReport: "No strategy data available for alignment analysis.",
+      misalignments: [],
+      strengths: []
+    };
+  }
+
   return {
     overallScore,
     spanAnalysis: {
@@ -187,10 +352,7 @@ function calculateRealStructureAnalysis(structureData: StructureData) {
       averageLayersToBottom: parseFloat(((maxLevel + 1) / 2).toFixed(1)),
       bottlenecks
     },
-    strategyAlignment: {
-      score: 75, // Placeholder - would need strategy data to calculate
-      misalignments: []
-    },
+    strategyAlignment,
     recommendations
   };
 }
@@ -217,8 +379,24 @@ router.post("/structure", async (req, res) => {
 
     const structureData = structures[0].structureData as StructureData;
 
-    // Calculate real analysis from actual data
-    const result = calculateRealStructureAnalysis(structureData);
+    // Get tenant strategy data
+    const tenantData = await db
+      .select({
+        vision: tenants.vision,
+        mission: tenants.mission,
+        strategy: tenants.strategy,
+        values: tenants.values
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    const strategyData: TenantStrategy = tenantData.length > 0
+      ? tenantData[0] as TenantStrategy
+      : { vision: null, mission: null, strategy: null, values: null };
+
+    // Calculate real analysis from actual data with strategy alignment
+    const result = calculateRealStructureAnalysis(structureData, strategyData);
 
     return res.json(result);
   } catch (e: any) {
