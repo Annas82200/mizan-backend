@@ -40,12 +40,20 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     }
 
     const decoded = jwt.verify(token, jwtSecret) as any;
-    
+
     // Get user from database to ensure they still exist and are active
+    // Support both 'id' and 'userId' for backwards compatibility
+    const userId = decoded.id || decoded.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Invalid token format' });
+      return;
+    }
+
     const user = await db
       .select()
       .from(users)
-      .where(eq(users.id, decoded.userId))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (user.length === 0 || !user[0].isActive) {
