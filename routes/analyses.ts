@@ -8,6 +8,7 @@ import { db } from "../db/index.js";
 import { organizationStructure } from "../db/schema/strategy.js";
 import { tenants } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert.js";
 
 const router = Router();
 
@@ -520,7 +521,52 @@ router.post("/structure", async (req, res) => {
     // Calculate real analysis from actual data with strategy alignment
     const result = calculateRealStructureAnalysis(structureData, strategyData);
 
-    return res.json(result);
+    // Run expert organizational design analysis
+    let expertAnalysis: ExpertOrgDesignAnalysis | null = null;
+    if (strategyData.vision || strategyData.mission || strategyData.strategy) {
+      expertAnalysis = performExpertAnalysis(structureData, strategyData);
+
+      // Replace generic recommendations with expert recommendations
+      result.recommendations = expertAnalysis.expertRecommendations.map(rec => ({
+        category: rec.category === 'Strategic Capability Gap' ? 'alignment' :
+                  rec.category === 'Organizational Structure Evolution' ? 'alignment' :
+                  rec.category === 'Organizational Agility' ? 'efficiency' : 'efficiency',
+        priority: rec.priority === 'critical' ? 'high' : rec.priority,
+        title: rec.title,
+        description: `${rec.rationale}\n\n**Expected Impact:** ${rec.expectedImpact}\n**Timeframe:** ${rec.timeframe}`,
+        actionItems: rec.actionItems
+      }));
+    }
+
+    return res.json({
+      ...result,
+      expertInsights: expertAnalysis ? {
+        companyStage: {
+          stage: expertAnalysis.companyStage.stage,
+          sizeRange: expertAnalysis.companyStage.sizeRange,
+          description: expertAnalysis.companyStage.description,
+          keyFocus: expertAnalysis.companyStage.keyFocus
+        },
+        strategicArchetype: {
+          type: expertAnalysis.strategicArchetype.archetype,
+          description: expertAnalysis.strategicArchetype.description,
+          confidence: expertAnalysis.strategicArchetype.confidence
+        },
+        organizationalConfig: {
+          type: expertAnalysis.mintzbergConfig.configuration,
+          characteristics: expertAnalysis.mintzbergConfig.characteristics
+        },
+        industryContext: {
+          industry: expertAnalysis.industryBenchmark.industry,
+          context: expertAnalysis.industryBenchmark.context
+        },
+        structureAssessment: {
+          currentType: expertAnalysis.galbraithStructure.structureType,
+          appropriateness: expertAnalysis.galbraithStructure.appropriateness,
+          reasoning: expertAnalysis.galbraithStructure.reasoning
+        }
+      } : null
+    });
   } catch (e: any) {
     console.error('Structure analysis error:', e);
     return res.status(500).json({ error: e?.message || "structure failure" });
