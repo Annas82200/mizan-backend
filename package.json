@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "tsx index.ts",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "db:seed": "tsx scripts/seed.ts",
