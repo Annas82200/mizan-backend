@@ -20,6 +20,7 @@ import uploadRoutes from './routes/upload.js';
 import analysesRoutes from './routes/analyses.js';
 import billingRoutes from './routes/billing.js';
 import modulesRoutes from './routes/modules.js';
+import frameworkRoutes from './routes/framework.js';
 
 // Load environment variables
 dotenv.config();
@@ -201,6 +202,7 @@ app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
 app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture, skills)
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
+app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

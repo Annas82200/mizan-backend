@@ -115,6 +115,17 @@ export const orgStructures = pgTable('org_structures', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// 7-Cylinder Framework Configuration
+export const frameworkConfig = pgTable('framework_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  version: integer('version').notNull().default(1),
+  cylinders: jsonb('cylinders').notNull(), // Array of 7 cylinders with values
+  isActive: boolean('is_active').default(true),
+  updatedBy: text('updated_by'), // User ID who made the change
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relations
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
