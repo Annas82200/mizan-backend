@@ -16,6 +16,7 @@ import superadminRoutes from './routes/superadmin.js';
 import skillsRoutes from './routes/skills-analysis.js';
 import cultureRoutes from './routes/culture-assessment.js';
 import hiringRoutes from './routes/hiring.js';
+import uploadRoutes from './routes/upload.js';
 
 // Load environment variables
 dotenv.config();
@@ -193,6 +194,7 @@ app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints
 app.use('/api/skills', skillsRoutes); // Skills analysis endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
 app.use('/api/hiring', hiringRoutes); // Complete hiring flow endpoints
+app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -231,14 +231,23 @@ router.post("/analyze", upload.single("file"), async (req: Request, res: Respons
 });
 
 // Authenticated upload for saving org structures
+// Supports both /save and /org-chart endpoints
 router.post("/save", authenticate, upload.single("file"), async (req: Request, res: Response) => {
+  return handleOrgChartUpload(req, res);
+});
+
+router.post("/org-chart", authenticate, upload.single("file"), async (req: Request, res: Response) => {
+  return handleOrgChartUpload(req, res);
+});
+
+async function handleOrgChartUpload(req: Request, res: Response) {
   try {
     if (!req.file && !req.body.orgText) {
       return res.status(400).json({ error: "No file or text provided" });
     }
-    
+
     let orgText = req.body.orgText || "";
-    
+
     if (req.file) {
       if (req.file.mimetype === "text/csv") {
         orgText = parseCSVOrgStructure(req.file.buffer);
@@ -246,7 +255,7 @@ router.post("/save", authenticate, upload.single("file"), async (req: Request, r
         orgText = req.file.buffer.toString("utf-8");
       }
     }
-    
+
     // Analyze the structure using StructureAgentV2
     const agentConfig = {
       knowledge: {
@@ -285,7 +294,7 @@ router.post("/save", authenticate, upload.single("file"), async (req: Request, r
       analysisResult: result,
       isPublic: false,
     }).returning();
-    
+
     return res.json({
       id: saved.id,
       ...result,
@@ -294,7 +303,7 @@ router.post("/save", authenticate, upload.single("file"), async (req: Request, r
     console.error("Save org structure failed:", error);
     return res.status(500).json({ error: "Failed to save organization structure" });
   }
-});
+}
 
 // Get saved org structures
 router.get("/structures", authenticate, async (req: Request, res: Response) => {
