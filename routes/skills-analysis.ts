@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { pdf as pdfParse } from 'pdf-parse';
+// import { pdf as pdfParse } from 'pdf-parse'; // TODO: Fix PDF parsing - causes DOMMatrix error in Node
 import mammoth from 'mammoth';
 
 const router = Router();
@@ -940,11 +940,13 @@ async function extractTextFromFile(filePath: string, mimeType: string): Promise<
       return await fs.readFile(filePath, 'utf-8');
     }
 
-    // PDF files
+    // PDF files - TEMPORARILY DISABLED due to DOMMatrix error
     if (mimeType === 'application/pdf' || filePath.toLowerCase().endsWith('.pdf')) {
-      const dataBuffer = await fs.readFile(filePath);
-      const data = await pdfParse(dataBuffer);
-      return data.text;
+      // TODO: Fix PDF parsing - use alternative library or canvas polyfill
+      throw new Error('PDF parsing temporarily unavailable. Please upload DOCX or TXT instead.');
+      // const dataBuffer = await fs.readFile(filePath);
+      // const data = await pdfParse(dataBuffer);
+      // return data.text;
     }
 
     // DOCX files
