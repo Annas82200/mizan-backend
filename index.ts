@@ -17,6 +17,9 @@ import skillsRoutes from './routes/skills-analysis.js';
 import cultureRoutes from './routes/culture-assessment.js';
 import hiringRoutes from './routes/hiring.js';
 import uploadRoutes from './routes/upload.js';
+import analysesRoutes from './routes/analyses.js';
+import billingRoutes from './routes/billing.js';
+import modulesRoutes from './routes/modules.js';
 
 // Load environment variables
 dotenv.config();
@@ -195,6 +198,9 @@ app.use('/api/skills', skillsRoutes); // Skills analysis endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
 app.use('/api/hiring', hiringRoutes); // Complete hiring flow endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
+app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture, skills)
+app.use('/api/billing', billingRoutes); // Billing and payment endpoints
+app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
