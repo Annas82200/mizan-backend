@@ -149,19 +149,49 @@ function analyzeStrategyAlignment(structureData: StructureData, strategy: Tenant
   score += strengths.length * 5;
   score = Math.max(0, Math.min(100, score));
 
-  if (misalignments.length === 0) {
-    report.push("\n✅ **Overall Assessment**: Your organizational structure is well-aligned with your strategic objectives. The distribution of resources across functions supports your stated vision and mission.");
+  // Determine if strategy is achievable with current structure
+  const highImpactGaps = misalignments.filter(m => m.impact === 'high').length;
+  const mediumImpactGaps = misalignments.filter(m => m.impact === 'medium').length;
+
+  let canAchieveStrategy: 'yes' | 'no' | 'partial';
+  let achievabilityExplanation: string;
+
+  if (highImpactGaps > 0) {
+    canAchieveStrategy = 'no';
+    achievabilityExplanation = `**No, the current structure will likely prevent achieving your strategic objectives.** You have ${highImpactGaps} critical gap(s) that directly conflict with your strategy. Without addressing these structural misalignments, execution will be significantly hampered.`;
+  } else if (mediumImpactGaps > 1) {
+    canAchieveStrategy = 'partial';
+    achievabilityExplanation = `**Partially - the structure has significant limitations.** While there are no critical gaps, ${mediumImpactGaps} medium-impact issues may slow progress toward strategic goals. Success is possible but will require workarounds and extra effort.`;
+  } else if (mediumImpactGaps === 1) {
+    canAchieveStrategy = 'partial';
+    achievabilityExplanation = `**Mostly yes, with one caveat.** The structure generally supports your strategy, but one medium-impact gap may create friction. Addressing it would accelerate execution.`;
   } else {
-    report.push(`\n### Recommendations\n`);
-    report.push(`To better align your structure with strategy:\n`);
+    canAchieveStrategy = 'yes';
+    achievabilityExplanation = `**Yes, your structure is well-positioned to achieve your strategic objectives.** The distribution of resources aligns with your strategic priorities, enabling effective execution.`;
+  }
+
+  report.push(`\n### Can You Achieve Your Strategy?\n`);
+  report.push(achievabilityExplanation);
+
+  if (misalignments.length > 0) {
+    report.push(`\n### Critical Gaps to Address\n`);
     misalignments.forEach((m, i) => {
-      report.push(`${i + 1}. **${m.area}**: ${m.issue}`);
+      report.push(`${i + 1}. **${m.area}** (${m.impact.toUpperCase()} IMPACT): ${m.issue}`);
+    });
+  }
+
+  if (strengths.length > 0) {
+    report.push(`\n### Structural Strengths\n`);
+    strengths.forEach((s, i) => {
+      report.push(`${i + 1}. ${s}`);
     });
   }
 
   return {
     score,
     hasStrategy: true,
+    canAchieveStrategy,
+    achievabilityExplanation,
     alignmentReport: report.join('\n'),
     misalignments,
     strengths
@@ -238,10 +268,13 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
     }
   });
 
-  // Calculate overall score
+  // Calculate operational efficiency scores
   const spanScore = averageSpan >= 4 && averageSpan <= 8 ? 100 : Math.max(0, 100 - Math.abs(averageSpan - 6) * 10);
   const layerScore = totalLayers <= 5 ? 100 : Math.max(0, 100 - (totalLayers - 5) * 15);
-  const overallScore = Math.round((spanScore + layerScore) / 2);
+  const operationalScore = Math.round((spanScore + layerScore) / 2);
+
+  // Overall score will incorporate strategy alignment later (weighted heavily)
+  let overallScore = operationalScore; // Will be recalculated after strategy analysis
 
   // Generate recommendations
   const recommendations: Array<{
@@ -321,19 +354,47 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
 
   // Calculate strategy alignment if strategy provided
   let strategyAlignment;
+  let finalOverallScore = overallScore;
+
   if (strategy) {
     const alignment = analyzeStrategyAlignment(structureData, strategy);
     strategyAlignment = {
       score: alignment.score,
       hasStrategy: alignment.hasStrategy,
+      canAchieveStrategy: alignment.canAchieveStrategy,
+      achievabilityExplanation: alignment.achievabilityExplanation,
       alignmentReport: alignment.alignmentReport,
       misalignments: alignment.misalignments,
       strengths: alignment.strengths
     };
+
+    // Recalculate overall score: Strategy alignment is 70%, operational efficiency is 30%
+    // If you can't achieve strategy, overall score should be much lower
+    finalOverallScore = Math.round((alignment.score * 0.7) + (operationalScore * 0.3));
+
+    // Add strategy gaps to recommendations at HIGH priority
+    if (alignment.misalignments && alignment.misalignments.length > 0) {
+      alignment.misalignments.forEach(gap => {
+        recommendations.unshift({
+          category: 'alignment',
+          priority: gap.impact === 'high' ? 'high' : 'medium',
+          title: `Address Strategy Gap: ${gap.area}`,
+          description: gap.issue,
+          actionItems: [
+            'Review strategic objectives and required capabilities',
+            'Assess current team capacity vs strategic needs',
+            'Develop hiring or reorganization plan to close gap',
+            'Set timeline for structural changes aligned with strategy milestones'
+          ]
+        });
+      });
+    }
   } else {
     strategyAlignment = {
       score: 50,
       hasStrategy: false,
+      canAchieveStrategy: 'partial' as const,
+      achievabilityExplanation: "Cannot assess strategy achievability without strategy data.",
       alignmentReport: "No strategy data available for alignment analysis.",
       misalignments: [],
       strengths: []
@@ -341,7 +402,8 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
   }
 
   return {
-    overallScore,
+    overallScore: finalOverallScore,
+    operationalScore, // Keep operational score separate for reference
     spanAnalysis: {
       average: parseFloat(averageSpan.toFixed(1)),
       distribution,
