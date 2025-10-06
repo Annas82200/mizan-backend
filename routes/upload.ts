@@ -247,6 +247,10 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       return res.status(400).json({ error: "No file or text provided" });
     }
 
+    // Get tenantId from request (for superadmin selecting different tenant)
+    // Fall back to logged-in user's tenant if not provided
+    const targetTenantId = req.body.tenantId || req.user!.tenantId;
+
     let orgText = req.body.orgText || "";
 
     if (req.file) {
@@ -268,7 +272,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     // 1. org_structures (for historical records)
     const [saved] = await db.insert(orgStructures).values({
       submittedBy: req.user!.id,
-      tenantId: req.user!.tenantId,
+      tenantId: targetTenantId,
       rawText: orgText,
       parsedData: result.roles || [],
       analysisResult: result,
@@ -277,10 +281,10 @@ async function handleOrgChartUpload(req: Request, res: Response) {
 
     // 2. organization_structure (for analysis engine to read)
     // Delete old structure for this tenant first
-    await db.delete(organizationStructure).where(eq(organizationStructure.tenantId, req.user!.tenantId));
+    await db.delete(organizationStructure).where(eq(organizationStructure.tenantId, targetTenantId));
 
     await db.insert(organizationStructure).values({
-      tenantId: req.user!.tenantId,
+      tenantId: targetTenantId,
       structureData: parsedData,
       uploadedBy: req.user!.id,
     });
