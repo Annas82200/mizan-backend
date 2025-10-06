@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { db } from './db/index.js';
 import { users, tenants } from './db/schema.js';
+import { eq } from 'drizzle-orm';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -104,7 +105,7 @@ app.post('/api/create-superadmin-temp', async (req, res) => {
           role: 'superadmin',
           isActive: true
         })
-        .where((u, { eq }) => eq(u.email, email));
+        .where(eq(users.email, email));
 
       return res.json({ success: true, message: 'Superadmin updated!' });
     } else {

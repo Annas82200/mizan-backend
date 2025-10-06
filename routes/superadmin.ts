@@ -76,7 +76,7 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
         // Create users from CSV
         // Expected columns: Name, Email, Title, Department, Manager Email
         for (const record of records) {
-          const { Name, Email, Title, Department } = record;
+          const { Name, Email, Title, Department } = record as any;
 
           if (!Name || !Email) continue;
 
