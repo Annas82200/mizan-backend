@@ -29,6 +29,17 @@ interface AnalysisExport {
   recommendations: any[];
 }
 
+// Helper function to format text with visual enhancement for subtitles
+function formatRichText(text: string): string {
+  // Convert **Bold Text** to styled subtitle elements
+  let formatted = text.replace(/\*\*([^*]+)\*\*/g, '<span class="subtitle">$1</span>');
+
+  // Convert line breaks to <br> tags
+  formatted = formatted.replace(/\n/g, '<br>');
+
+  return formatted;
+}
+
 function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
   const { overallScore, operationalScore, spanAnalysis, layerAnalysis, strategyAlignment, recommendations } = data;
 
@@ -458,8 +469,20 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
     .rec-description {
       font-size: 15px;
       color: #545454;
-      line-height: 1.7;
+      line-height: 1.8;
       margin-bottom: 20px;
+    }
+
+    .subtitle {
+      display: block;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #CCA404;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 16px;
+      margin-bottom: 8px;
     }
 
     .action-items {
@@ -711,7 +734,7 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
                 <div class="rec-priority ${rec.priority}">${rec.priority} Priority</div>
               </div>
               <div class="rec-title">${rec.title}</div>
-              <div class="rec-description">${rec.description}</div>
+              <div class="rec-description">${formatRichText(rec.description)}</div>
               <div class="action-items">
                 ${rec.actionItems.map((item: string) => `
                   <div class="action-item">${item}</div>

@@ -502,9 +502,12 @@ router.post("/structure", async (req, res) => {
 
     const structureData = structures[0].structureData as StructureData;
 
-    // Get tenant strategy data
+    // Get tenant strategy data including name, industry, positioning
     const tenantData = await db
       .select({
+        name: tenants.name,
+        industry: tenants.industry,
+        employeeCount: tenants.employeeCount,
         vision: tenants.vision,
         mission: tenants.mission,
         strategy: tenants.strategy,
@@ -514,6 +517,7 @@ router.post("/structure", async (req, res) => {
       .where(eq(tenants.id, tenantId))
       .limit(1);
 
+    const tenantInfo = tenantData.length > 0 ? tenantData[0] : null;
     const strategyData: TenantStrategy = tenantData.length > 0
       ? tenantData[0] as TenantStrategy
       : { vision: null, mission: null, strategy: null, values: null };
@@ -524,7 +528,12 @@ router.post("/structure", async (req, res) => {
     // Run expert organizational design analysis
     let expertAnalysis: ExpertOrgDesignAnalysis | null = null;
     if (strategyData.vision || strategyData.mission || strategyData.strategy) {
-      expertAnalysis = performExpertAnalysis(structureData, strategyData);
+      expertAnalysis = performExpertAnalysis(
+        structureData,
+        strategyData,
+        tenantInfo?.name,
+        tenantInfo?.industry
+      );
 
       // Replace generic recommendations with expert recommendations
       result.recommendations = expertAnalysis.expertRecommendations.map(rec => ({

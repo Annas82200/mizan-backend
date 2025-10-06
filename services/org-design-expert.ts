@@ -452,7 +452,9 @@ export interface ExpertOrgDesignAnalysis {
 
 export function performExpertAnalysis(
   structureData: StructureData,
-  strategy: TenantStrategy
+  strategy: TenantStrategy,
+  tenantName?: string,
+  tenantIndustry?: string | null
 ): ExpertOrgDesignAnalysis {
   const employeeCount = structureData.roles.length;
 
@@ -463,14 +465,16 @@ export function performExpertAnalysis(
   const industryBenchmark = detectIndustry(strategy);
   const galbraithStructure = assessGalbraithStructure(structureData, companyStage, strategicArchetype);
 
-  // Generate expert recommendations
+  // Generate expert recommendations with client-specific context
   const expertRecommendations = generateExpertRecommendations(
     structureData,
     companyStage,
     strategicArchetype,
     mintzbergConfig,
     industryBenchmark,
-    galbraithStructure
+    galbraithStructure,
+    tenantName || 'Your organization',
+    tenantIndustry
   );
 
   return {
@@ -489,7 +493,9 @@ function generateExpertRecommendations(
   archetype: StrategicArchetypeAnalysis,
   mintzberg: MintzbergAnalysis,
   industry: IndustryBenchmark,
-  galbraith: GalbraithStructureAssessment
+  galbraith: GalbraithStructureAssessment,
+  clientName: string,
+  clientIndustry?: string | null
 ) {
   const recommendations: ExpertOrgDesignAnalysis['expertRecommendations'] = [];
   const { roles } = structureData;
@@ -522,20 +528,33 @@ function generateExpertRecommendations(
     const targetRatio = (recommendedEngMin + recommendedEngMax) / 2;
     const neededHires = Math.ceil((totalEmployees * targetRatio) - engineeringCount);
 
+    // Build client-specific context
+    const industryContext = clientIndustry
+      ? `As a ${clientIndustry} company operating as a ${archetype.archetype.toUpperCase()} strategy`
+      : `As a ${archetype.archetype.toUpperCase()} strategy in ${industry.industry}`;
+
+    const positioning = archetype.archetype === 'prospector'
+      ? 'innovation-driven competitor'
+      : archetype.archetype === 'defender'
+      ? 'efficiency-focused market leader'
+      : 'balanced player';
+
     recommendations.push({
       priority: 'critical',
       category: 'Strategic Capability Gap',
-      title: 'Engineering Capacity Below Strategic Requirements',
-      rationale: `As a ${archetype.archetype.toUpperCase()} strategy in ${industry.industry}, industry benchmarks indicate ${(industryEngMin * 100).toFixed(0)}-${(industryEngMax * 100).toFixed(0)}% engineering capacity. Your current ${(engineeringRatio * 100).toFixed(1)}% falls short of strategic needs. ${archetype.description}`,
+      title: `${clientName}: Engineering Capacity Below Strategic Requirements`,
+      rationale: `${industryContext}, ${clientName} needs stronger technical capacity to compete as an ${positioning}. Industry benchmarks for ${archetype.archetype} organizations in ${industry.industry} indicate ${(industryEngMin * 100).toFixed(0)}-${(industryEngMax * 100).toFixed(0)}% engineering capacity. At ${totalEmployees} employees with only ${engineeringCount} engineers (${(engineeringRatio * 100).toFixed(1)}%), ${clientName} is underinvested in technical capability relative to strategic ambitions.`,
       actionItems: [
-        `Hire ${neededHires} engineers to reach ${(targetRatio * 100).toFixed(0)}% technical capacity (current: ${(engineeringRatio * 100).toFixed(1)}%)`,
-        `Phase approach: ${Math.ceil(neededHires * 0.4)} senior/principal engineers (Q1), ${Math.ceil(neededHires * 0.3)} mid-level (Q2), ${Math.floor(neededHires * 0.3)} junior (Q3-Q4)`,
-        `Prioritize roles: ${neededHires >= 5 ? '1 Engineering Manager, 1 Principal Engineer, ' : ''}${neededHires - 2} Senior Engineers`,
-        `Estimated budget: $${(neededHires * 145000).toLocaleString()}/year (industry-standard compensation for ${industry.industry})`,
-        `Alternative: Engage ${Math.ceil(neededHires * 0.6)} contractors/agencies for 6-9 months while building permanent team`
+        `Immediate priority: Hire ${neededHires} engineers over next 9-12 months to reach ${(targetRatio * 100).toFixed(0)}% technical capacity (currently ${(engineeringRatio * 100).toFixed(1)}%)`,
+        `Q1 focus (first 3 months): ${Math.ceil(neededHires * 0.4)} senior/principal engineers to establish technical leadership and architecture`,
+        `Q2-Q3 execution (months 4-9): ${Math.ceil(neededHires * 0.3)} mid-level engineers to build execution capacity`,
+        `Q4 scaling (months 10-12): ${Math.floor(neededHires * 0.3)} junior engineers mentored by senior hires`,
+        `Role prioritization for ${clientName}: ${neededHires >= 5 ? '1 Engineering Manager (team leadership), 1 Principal Engineer (technical direction), ' : '1 Senior Technical Lead, '}${Math.max(1, neededHires - 2)} Senior Engineers`,
+        `Budget allocation for ${clientName}: $${(neededHires * 145000).toLocaleString()}/year total comp (${industry.industry} market rates)`,
+        `Risk mitigation: If hiring velocity is challenging, engage ${Math.ceil(neededHires * 0.6)} contractors/development agencies for 6-9 months while building permanent team`
       ],
-      expectedImpact: 'Enables execution of innovation strategy, reduces technical debt, improves velocity by 30-40%',
-      timeframe: '9-12 months to full capacity'
+      expectedImpact: `${clientName} will achieve velocity improvements of 30-40%, reduce technical debt by ~50%, and gain competitive parity with ${archetype.archetype} peers in ${industry.industry}`,
+      timeframe: '9-12 months to full capacity, with first productivity gains visible in Q2'
     });
   }
 
