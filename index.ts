@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import { db } from './db/index.js';
+import { users, tenants } from './db/schema.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -62,6 +64,66 @@ app.get('/health', (req, res) => {
       'Role-Based Access Control'
     ]
   });
+});
+
+// TEMPORARY: Create superadmin endpoint - REMOVE AFTER USE
+app.post('/api/create-superadmin-temp', async (req, res) => {
+  try {
+    const email = 'anna@mizan.com';
+    const password = 'MizanAdmin2024!';
+    const name = 'Anna Dahrouj';
+
+    console.log('🔐 Creating superadmin user...');
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Find or create tenant
+    let tenant = await db.query.tenants.findFirst({
+      where: (t, { eq }) => eq(t.name, 'Mizan Superadmin')
+    });
+
+    if (!tenant) {
+      [tenant] = await db.insert(tenants).values({
+        name: 'Mizan Superadmin',
+        plan: 'enterprise',
+        status: 'active'
+      }).returning();
+    }
+
+    // Check if user exists
+    const existing = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.email, email)
+    });
+
+    if (existing) {
+      // Update
+      await db.update(users)
+        .set({
+          passwordHash,
+          role: 'superadmin',
+          isActive: true
+        })
+        .where((u, { eq }) => eq(u.email, email));
+
+      return res.json({ success: true, message: 'Superadmin updated!' });
+    } else {
+      // Create
+      await db.insert(users).values({
+        tenantId: tenant.id,
+        email,
+        passwordHash,
+        name,
+        role: 'superadmin',
+        isActive: true
+      });
+
+      return res.json({ success: true, message: 'Superadmin created!' });
+    }
+  } catch (error: any) {
+    console.error('Error:', error);
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 // API Routes
