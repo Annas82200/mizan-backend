@@ -380,6 +380,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
 }`;
 
     // Call reasoning AI directly for rich text generation
+    console.log('🚀 ORG CULTURE - Calling AI, prompt length:', prompt.length);
     const response = await this.reasoningAI.call({
       engine: 'reasoning',
       prompt,
@@ -387,8 +388,15 @@ Return ONLY a valid JSON object with NO markdown formatting:
       maxTokens: 5000
     });
 
+    console.log('🎉 ORG CULTURE - AI returned, response keys:', Object.keys(response || {}));
+    console.log('🎉 ORG CULTURE - narrative exists?', !!response?.narrative, 'type:', typeof response?.narrative);
+
     // Parse JSON with fallback handling
     try {
+      if (!response || !response.narrative) {
+        throw new Error(`AI response missing: response=${!!response}, narrative=${!!response?.narrative}`);
+      }
+
       let jsonText = response.narrative;
       console.log('🔍 ORG CULTURE - Raw response length:', jsonText?.length);
       console.log('🔍 ORG CULTURE - First 500 chars:', jsonText?.substring(0, 500));
