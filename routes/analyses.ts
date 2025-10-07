@@ -9,6 +9,7 @@ import { organizationStructure } from "../db/schema/strategy.js";
 import { tenants } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert.js";
+import { performCultureExpertAnalysis, type CultureExpertAnalysis } from "../services/culture-design-expert.js";
 
 const router = Router();
 
@@ -585,10 +586,75 @@ router.post("/structure", async (req, res) => {
 // POST /api/analyses/culture
 router.post("/culture", async (req, res) => {
   try {
+    const { tenantId, personalValues, currentExperienceValues, desiredFutureValues, engagementLevel, recognitionLevel } = req.body;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+
+    // Get tenant info
+    const tenantData = await db
+      .select({
+        name: tenants.name,
+        industry: tenants.industry
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    const tenantInfo = tenantData.length > 0 ? tenantData[0] : { name: 'Your organization', industry: null };
+
+    // Run original analysis
     const result = await analyzeCulture(req.body || {});
-    res.json(result);
+
+    // Run expert culture analysis
+    let expertAnalysis: CultureExpertAnalysis | null = null;
+    if (personalValues && currentExperienceValues && desiredFutureValues) {
+      expertAnalysis = performCultureExpertAnalysis(
+        {
+          personalValues,
+          currentExperienceValues,
+          desiredFutureValues,
+          engagementLevel: engagementLevel || 3,
+          recognitionLevel: recognitionLevel || 3
+        },
+        tenantInfo
+      );
+
+      // Replace recommendations with expert recommendations
+      result.recommendations = expertAnalysis.recommendations.map(rec => ({
+        category: rec.category,
+        priority: rec.priority === 'critical' ? 'high' : rec.priority,
+        title: rec.title,
+        description: `${rec.rationale}\n\n**Expected Impact:**\n${rec.expectedImpact}\n\n**Timeframe:**\n${rec.timeframe}`,
+        actionItems: rec.actionItems,
+        expectedImpact: rec.expectedImpact
+      }));
+    }
+
+    return res.json({
+      ...result,
+      expertInsights: expertAnalysis ? {
+        cultureType: {
+          current: expertAnalysis.cultureArchetype.current.name,
+          currentDescription: expertAnalysis.cultureArchetype.current.description,
+          desired: expertAnalysis.cultureArchetype.desired.name,
+          desiredDescription: expertAnalysis.cultureArchetype.desired.description,
+          alignment: expertAnalysis.cultureArchetype.alignment
+        },
+        effectiveness: {
+          mission: expertAnalysis.denison.mission,
+          adaptability: expertAnalysis.denison.adaptability,
+          involvement: expertAnalysis.denison.involvement,
+          consistency: expertAnalysis.denison.consistency,
+          overall: expertAnalysis.denison.overallEffectiveness,
+          gaps: expertAnalysis.denison.gaps
+        }
+      } : null
+    });
   } catch (e: any) {
-    res.status(500).json({ error: e?.message || "culture failure" });
+    console.error('Culture analysis error:', e);
+    return res.status(500).json({ error: e?.message || "culture failure" });
   }
 });
 
