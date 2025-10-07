@@ -274,7 +274,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     const avgEngagement = input.assessments.reduce((sum, a) => sum + a.engagement, 0) / input.assessments.length;
     const avgRecognition = input.assessments.reduce((sum, a) => sum + a.recognition, 0) / input.assessments.length;
 
-    const prompt = `You are a culture analysis expert using the Mizan 7-Cylinder Framework. Analyze this organization's culture with deep empathy and strategic insight. This analysis is for LEADERSHIP to understand their organization's cultural reality.
+    const prompt = `You are a trusted culture advisor speaking directly to leadership about their organization. Write like you're having a honest, empathetic conversation - not like you're writing a research paper. Use simple, clear language that feels human and accessible. Avoid jargon, academic terms, or overly formal phrasing.
 
 COMPANY: ${input.companyName}
 EMPLOYEES SURVEYED: ${input.assessments.length}
@@ -296,7 +296,7 @@ Top 10: ${topDesiredExperience.join(', ')}
 4. ENGAGEMENT SCORE: ${avgEngagement.toFixed(1)}/5.0
 5. RECOGNITION SCORE: ${avgRecognition.toFixed(1)}/5.0
 
-Provide a comprehensive analysis following this structure. IMPORTANT: Keep interpretations concise - 4-6 sentences per section maximum. Be warm and insightful but BRIEF:
+Write like a human advisor having a candid conversation. Use "you" and "your team" when talking to leadership. Keep it conversational, warm, and direct. IMPORTANT: 4-6 sentences per section maximum.
 
 1. INTENDED CULTURE INTERPRETATION (4-6 sentences)
 What do the company's stated values reveal about leadership's vision? What kind of culture are they trying to build?
@@ -316,7 +316,9 @@ What kind of culture are employees hoping for? What are they seeking that they d
 What do the engagement and recognition scores tell us? Connect to cultural gaps.
 
 6. CULTURAL HEALTH ASSESSMENT (4-6 sentences)
-Overall verdict: Is this culture healthy? What's working? What's broken? Entropy score (0-100)?
+Overall verdict: Is this culture healthy? What's working? What's broken?
+
+IMPORTANT: Provide a Cultural Health Score (0-100 where 0=completely broken, 100=thriving and healthy).
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
@@ -324,7 +326,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
   "responseRate": 100,
   "healthySurveyQuestion": "Is your culture healthy?",
   "overallVerdict": "2-3 paragraph overall assessment",
-  "entropyScore": number (0-100),
+  "entropyScore": number (0-100, where 0=healthy/low chaos, 100=toxic/high chaos),
+  "healthScore": number (0-100, where 0=broken, 100=thriving),
   "intendedCulture": {
     "values": ${JSON.stringify(input.tenantValues)},
     "interpretation": "2-3 paragraph interpretation of company values",
