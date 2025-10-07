@@ -50,19 +50,19 @@ export class StructureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
       knowledge: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.2,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.4,
         maxTokens: 4000

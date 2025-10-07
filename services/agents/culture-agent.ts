@@ -58,19 +58,19 @@ export class CultureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
       knowledge: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.3,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        providers: ['openai', 'anthropic', 'mistral'],
         model: 'gpt-4',
         temperature: 0.5,
         maxTokens: 4000
@@ -157,18 +157,25 @@ Generate 2 personalized reflection questions:
 - Question 1: How can they use their core strengths (from personal values) to create positive impact and promote a healthy, productive culture?
 - Question 2: What small, actionable step could they take this week to bring more of their desired values into their daily work experience?
 
-Return ONLY a valid JSON object with NO markdown formatting:
+CRITICAL: Return ONLY valid JSON. NO markdown. NO newlines inside string values. All text must be on ONE line per field.
+
 {
-  "personalValuesInterpretation": "4-6 sentence interpretation focused on self-awareness",
-  "strengths": ["3-5 core strengths based on their values"],
-  "limitingFactors": ["any limiting values if present"],
-  "visionForGrowth": "4-6 sentence inspiring description of their aspirations",
-  "growthOpportunities": ["3-5 specific opportunities for development"],
+  "personalValuesInterpretation": "4-6 sentence interpretation - ALL ON ONE LINE",
+  "strengths": ["3-5 core strengths"],
+  "limitingFactors": ["any limiting values"],
+  "visionForGrowth": "4-6 sentence description - ALL ON ONE LINE",
+  "growthOpportunities": ["3-5 opportunities"],
   "reflectionQuestions": [
-    {"question": "How can you use your strengths in [X, Y, Z] to create positive cultural impact?", "purpose": "Leverage strengths for team benefit"},
-    {"question": "What small step could you take this week to bring more [desired value] into your work?", "purpose": "Actionable values alignment"}
+    {"question": "question text", "purpose": "purpose text"}
   ]
-}`;
+}
+
+Do NOT format like this (WRONG - newline after opening quote):
+"field": "
+text here"
+
+Format like this (CORRECT - text immediately after quote):
+"field": "text here all on one line"`;
 
     // Call reasoning AI with 4-provider consensus for rich text generation
     const response = await this.reasoningAI.call({
