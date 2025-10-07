@@ -878,15 +878,17 @@ Focus on what YOU control: How you share your achievements, how you communicate 
 3. ACTIONABLE STEPS (2-3 items you control)
 Specific ways YOU can increase the visibility of your contributions and receive more meaningful recognition. Focus on personal actions.
 
-Return ONLY a valid JSON object with NO markdown formatting:
+Return ONLY a valid JSON object with NO markdown formatting. Do NOT nest "interpretation" as an object - it must be a STRING at root level:
 {
-  "interpretation": "4-6 sentence self-awareness focused interpretation",
-  "meaning": "what this score means about your visibility and acknowledgment",
-  "impact": "how recognition affects your motivation and growth",
+  "interpretation": "STRING: 4-6 sentence self-awareness focused interpretation of what the score reveals",
+  "meaning": "STRING: what this score means about your visibility and acknowledgment",
+  "impact": "STRING: how recognition affects your motivation and growth",
   "recommendations": [
     {"title": "string", "description": "action YOU can take", "actionItems": ["specific steps"]}
   ]
-}`;
+}
+
+CRITICAL: interpretation, meaning, and impact must be STRINGS, not objects!`;
 
     // Call reasoning AI with 4-provider consensus
     const response = await this.reasoningAI.call({
