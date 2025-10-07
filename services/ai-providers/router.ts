@@ -160,8 +160,8 @@ class AIProviderRouter {
 
   private async invokeGemini(call: ProviderCall): Promise<ProviderResponse> {
     try {
-      const model = this.gemini.getGenerativeModel({ 
-        model: call.model || "gemini-pro" 
+      const model = this.gemini.getGenerativeModel({
+        model: call.model || process.env.GOOGLE_MODEL || "gemini-1.5-pro"
       });
       
       const result = await model.generateContent({
