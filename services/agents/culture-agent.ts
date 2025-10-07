@@ -216,6 +216,250 @@ Return ONLY a valid JSON object with NO markdown formatting:
     }
   }
 
+  /**
+   * Analyze organization-wide culture with rich, human-contextual insights
+   * This is for company/department level analysis - tells the leadership story
+   */
+  async analyzeOrganizationCulture(input: {
+    tenantId: string;
+    companyName: string;
+    tenantValues: string[];
+    assessments: Array<{
+      personalValues: string[];
+      currentExperience: string[];
+      desiredExperience: string[];
+      engagement: number;
+      recognition: number;
+    }>;
+  }): Promise<any> {
+    // Aggregate the data
+    const allPersonalValues = input.assessments.flatMap(a => a.personalValues);
+    const allCurrentExperience = input.assessments.flatMap(a => a.currentExperience);
+    const allDesiredExperience = input.assessments.flatMap(a => a.desiredExperience);
+
+    // Count value frequencies
+    const personalValuesCounts = this.countValues(allPersonalValues);
+    const currentExperienceCounts = this.countValues(allCurrentExperience);
+    const desiredExperienceCounts = this.countValues(allDesiredExperience);
+
+    // Get top 10 values for each
+    const topPersonalValues = Object.entries(personalValuesCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([value]) => value);
+
+    const topCurrentExperience = Object.entries(currentExperienceCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([value]) => value);
+
+    const topDesiredExperience = Object.entries(desiredExperienceCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([value]) => value);
+
+    // Calculate average engagement and recognition
+    const avgEngagement = input.assessments.reduce((sum, a) => sum + a.engagement, 0) / input.assessments.length;
+    const avgRecognition = input.assessments.reduce((sum, a) => sum + a.recognition, 0) / input.assessments.length;
+
+    const prompt = `You are a culture analysis expert using the Mizan 7-Cylinder Framework. Analyze this organization's culture with deep empathy and strategic insight. This analysis is for LEADERSHIP to understand their organization's cultural reality.
+
+COMPANY: ${input.companyName}
+EMPLOYEES SURVEYED: ${input.assessments.length}
+
+COMPANY'S STATED VALUES:
+${input.tenantValues.length > 0 ? input.tenantValues.join(', ') : 'Not yet defined'}
+
+EMPLOYEE DATA (aggregated from ${input.assessments.length} assessments):
+
+1. PERSONAL VALUES (what employees value most):
+Top 10: ${topPersonalValues.join(', ')}
+
+2. CURRENT EXPERIENCE (how employees experience the company today):
+Top 10: ${topCurrentExperience.join(', ')}
+
+3. DESIRED EXPERIENCE (how employees want to experience the company):
+Top 10: ${topDesiredExperience.join(', ')}
+
+4. ENGAGEMENT SCORE: ${avgEngagement.toFixed(1)}/5.0
+5. RECOGNITION SCORE: ${avgRecognition.toFixed(1)}/5.0
+
+Provide a comprehensive analysis following this structure. Write 2-3 paragraphs for each section - be warm, insightful, and tell a STORY about what this culture means:
+
+1. INTENDED CULTURE INTERPRETATION (2-3 paragraphs)
+What do the company's stated values reveal about leadership's vision? What kind of culture are they trying to build? If no values are defined, what does that absence mean?
+
+2. CURRENT REALITY MEANING (2-3 paragraphs)
+Describe HOW employees experience the company today based on the Current Experience values. Don't list values - paint a picture of their daily reality. What does it feel like to work here? What's emphasized? What's missing?
+
+3. DESIRED CULTURE MEANING (2-3 paragraphs)
+What kind of culture are employees hoping for? What are they seeking that they don't have now? What does this reveal about unmet needs?
+
+4. GAP ANALYSIS (2-3 paragraphs for EACH gap):
+   - Intended vs Current: The "say-do gap" - are leaders walking the talk?
+   - Intended vs Desired: Do employees even want what leadership is trying to build?
+   - Current vs Desired: What's the delta between today's reality and employee aspirations?
+
+5. ENGAGEMENT & RECOGNITION INTERPRETATION (2-3 paragraphs)
+What do the engagement and recognition scores tell us about how people feel? Connect this to the cultural gaps identified above.
+
+6. CULTURAL HEALTH ASSESSMENT (2-3 paragraphs)
+Overall verdict: Is this culture healthy? What's working? What's broken? What's the entropy score (0-100)?
+
+Return ONLY a valid JSON object with NO markdown formatting:
+{
+  "totalEmployees": ${input.assessments.length},
+  "responseRate": 100,
+  "healthySurveyQuestion": "Is your culture healthy?",
+  "overallVerdict": "2-3 paragraph overall assessment",
+  "entropyScore": number (0-100),
+  "intendedCulture": {
+    "values": ${JSON.stringify(input.tenantValues)},
+    "interpretation": "2-3 paragraph interpretation of company values",
+    "cylinders": [array of cylinder IDs 1-7 that the intended values emphasize]
+  },
+  "currentReality": {
+    "values": ${JSON.stringify(topCurrentExperience)},
+    "interpretation": "2-3 paragraph story of how employees experience the company today",
+    "healthyCylinders": [array of cylinder IDs that are healthy],
+    "unhealthyCylinders": [array of cylinder IDs that are missing or unhealthy]
+  },
+  "desiredCulture": {
+    "values": ${JSON.stringify(topDesiredExperience)},
+    "interpretation": "2-3 paragraph story of what employees are hoping for",
+    "cylinders": [array of cylinder IDs 1-7 that desired values emphasize]
+  },
+  "gaps": {
+    "intendedVsCurrent": {
+      "score": number (0-100, higher is better alignment),
+      "analysis": "2-3 paragraph story of say-do gap",
+      "affectedCylinders": [array of cylinder IDs],
+      "issues": ["specific issues"]
+    },
+    "intendedVsDesired": {
+      "score": number (0-100),
+      "analysis": "2-3 paragraph story of vision-aspiration gap",
+      "misalignment": boolean,
+      "issues": ["specific issues"]
+    },
+    "currentVsDesired": {
+      "score": number (0-100),
+      "analysis": "2-3 paragraph story of reality-aspiration gap",
+      "urgentChanges": ["specific changes needed"]
+    }
+  },
+  "engagement": {
+    "average": ${avgEngagement},
+    "interpretation": "2-3 paragraph interpretation of engagement score",
+    "byDepartment": []
+  },
+  "recognition": {
+    "average": ${avgRecognition},
+    "interpretation": "2-3 paragraph interpretation of recognition score",
+    "byDepartment": []
+  },
+  "threats": [
+    {
+      "type": "string",
+      "severity": "critical|high|medium",
+      "description": "string"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "critical|high|medium",
+      "category": "string",
+      "title": "string",
+      "description": "2-3 paragraph contextual explanation",
+      "actionItems": ["string"],
+      "expectedImpact": "string",
+      "timeframe": "string"
+    }
+  ]
+}`;
+
+    // Call reasoning AI directly for rich text generation
+    const response = await this.reasoningAI.generateResponse(prompt, {
+      temperature: 0.7,
+      maxTokens: 5000,
+      responseFormat: 'json'
+    });
+
+    // Parse JSON with fallback handling
+    try {
+      let jsonText = response.content;
+      // Remove markdown code blocks if present
+      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const analysis = JSON.parse(jsonText);
+      return analysis;
+    } catch (error) {
+      console.error('Failed to parse organization culture analysis:', error);
+      // Return structured fallback
+      return {
+        totalEmployees: input.assessments.length,
+        responseRate: 100,
+        healthySurveyQuestion: 'Is your culture healthy?',
+        overallVerdict: 'Analysis in progress. We are evaluating your organizational culture to provide comprehensive insights.',
+        entropyScore: 50,
+        intendedCulture: {
+          values: input.tenantValues,
+          interpretation: 'Intended culture analysis is being processed.',
+          cylinders: []
+        },
+        currentReality: {
+          values: topCurrentExperience,
+          interpretation: 'Current reality analysis is being processed.',
+          healthyCylinders: [],
+          unhealthyCylinders: []
+        },
+        desiredCulture: {
+          values: topDesiredExperience,
+          interpretation: 'Desired culture analysis is being processed.',
+          cylinders: []
+        },
+        gaps: {
+          intendedVsCurrent: {
+            score: 0,
+            analysis: 'Gap analysis is being processed.',
+            affectedCylinders: [],
+            issues: []
+          },
+          intendedVsDesired: {
+            score: 0,
+            analysis: 'Gap analysis is being processed.',
+            misalignment: false,
+            issues: []
+          },
+          currentVsDesired: {
+            score: 0,
+            analysis: 'Gap analysis is being processed.',
+            urgentChanges: []
+          }
+        },
+        engagement: {
+          average: avgEngagement,
+          interpretation: 'Engagement analysis is being processed.',
+          byDepartment: []
+        },
+        recognition: {
+          average: avgRecognition,
+          interpretation: 'Recognition analysis is being processed.',
+          byDepartment: []
+        },
+        threats: [],
+        recommendations: []
+      };
+    }
+  }
+
+  private countValues(values: string[]): Record<string, number> {
+    const counts: Record<string, number> = {};
+    values.forEach(value => {
+      counts[value] = (counts[value] || 0) + 1;
+    });
+    return counts;
+  }
+
   protected async loadFrameworks(): Promise<any> {
     const frameworks = await db
       .select()

@@ -652,7 +652,7 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
       });
     }
 
-    // Generate new company report
+    // Generate new company report using Culture Agent's rich AI analysis
     const assessments = await db.query.cultureAssessments.findMany({
       where: eq(cultureAssessments.tenantId, tenantId),
       with: {
@@ -667,7 +667,38 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
       });
     }
 
-    const report = await generateTenantReport(tenantId, assessments, 'company', tenantId);
+    // Get tenant info for company name and values
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId)
+    });
+
+    const companyName = tenant?.name || 'Your Organization';
+    const tenantValues = (tenant?.values as string[]) || [];
+
+    // Use Culture Agent's rich AI analysis method
+    const cultureAgent = new CultureAgent();
+    const report = await cultureAgent.analyzeOrganizationCulture({
+      tenantId,
+      companyName,
+      tenantValues,
+      assessments: assessments.map(a => ({
+        personalValues: a.personalValues as string[],
+        currentExperience: a.currentExperience as string[],
+        desiredExperience: a.desiredExperience as string[],
+        engagement: a.engagement || 0,
+        recognition: a.recognition || 0
+      }))
+    });
+
+    // Store the report in database for caching
+    await db.insert(cultureReports).values({
+      id: randomUUID(),
+      tenantId,
+      analysisId: tenantId,
+      reportType: 'company',
+      reportData: report,
+      createdAt: new Date()
+    });
 
     return res.json({
       success: true,
