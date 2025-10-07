@@ -124,6 +124,98 @@ export class CultureAgent extends ThreeEngineAgent {
     return cultureOutput;
   }
 
+  /**
+   * Analyze individual employee's culture assessment with rich, human-contextual insights
+   */
+  async analyzeIndividualEmployee(input: {
+    tenantId: string;
+    employeeId: string;
+    employeeName: string;
+    personalValues: string[];
+    currentExperienceValues: string[];
+    desiredExperienceValues: string[];
+  }): Promise<any> {
+    // Build a comprehensive prompt for AI analysis
+    const prompt = `You are a culture analysis expert using the Mizan 7-Cylinder Framework. Analyze this employee's survey responses with deep empathy and contextual understanding.
+
+EMPLOYEE: ${input.employeeName}
+
+SURVEY RESPONSES:
+1. Personal Values (what matters most to them): ${input.personalValues.join(', ')}
+2. Current Experience (how they experience the company today): ${input.currentExperienceValues.join(', ')}
+3. Desired Future Experience (how they want to experience the company): ${input.desiredExperienceValues.join(', ')}
+
+Provide a comprehensive analysis following this structure:
+
+1. PERSONAL VALUES INTERPRETATION (2-3 paragraphs)
+Write a warm, insightful interpretation of what these values reveal about this person. What drives them? What are their core strengths? If any limiting values were selected, what might be holding them back? This is FOR THE EMPLOYEE to read - be personal, encouraging, and accurate.
+
+2. CURRENT EXPERIENCE MEANING (2-3 paragraphs)
+Describe HOW this employee experiences the company today. Don't list values - paint a picture of their daily reality. What does their work environment feel like? What do they encounter? Be empathetic and capture their lived experience.
+
+3. DESIRED FUTURE MEANING (2-3 paragraphs)
+Describe what kind of experience this employee is seeking. What are they hoping for? What would make work more fulfilling? What gaps exist? What growth opportunities does this reveal? Be encouraging and forward-looking.
+
+4. ALIGNMENT ANALYSIS
+- Calculate alignment score (0-100) between personal values and current experience
+- Provide detailed interpretation
+- Assess retention risk (low/medium/high)
+- Give specific, actionable recommendations
+
+Return ONLY a valid JSON object with NO markdown formatting:
+{
+  "personalValuesInterpretation": "string",
+  "strengths": ["string"],
+  "limitingFactors": ["string"],
+  "currentExperienceMeaning": "string",
+  "desiredExperienceMeaning": "string",
+  "experienceGaps": ["string"],
+  "growthOpportunities": ["string"],
+  "alignmentScore": number,
+  "alignmentInterpretation": "string",
+  "retentionRisk": "low|medium|high",
+  "recommendations": [{"title": "string", "description": "string", "actionItems": ["string"]}],
+  "nextSteps": ["string"]
+}`;
+
+    // Call reasoning AI directly for rich text generation
+    const response = await this.reasoningAI.generateResponse(prompt, {
+      temperature: 0.7,
+      maxTokens: 3000,
+      responseFormat: 'json'
+    });
+
+    try {
+      // Parse JSON response
+      let jsonText = response.content;
+
+      // Remove markdown code blocks if present
+      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+      const analysis = JSON.parse(jsonText);
+      return analysis;
+    } catch (error) {
+      console.error('Failed to parse AI response:', error);
+      console.error('Raw response:', response.content);
+
+      // Return a structured fallback
+      return {
+        personalValuesInterpretation: `Based on the values selected (${input.personalValues.join(', ')}), this employee demonstrates a thoughtful approach to their work and relationships. Further analysis is being refined.`,
+        strengths: input.personalValues.filter(v => !['Fear', 'Neglect', 'Instability', 'Complacency'].includes(v)).slice(0, 3),
+        limitingFactors: input.personalValues.filter(v => ['Fear', 'Neglect', 'Instability', 'Complacency'].includes(v)),
+        currentExperienceMeaning: `The employee's current experience is characterized by ${input.currentExperienceValues.join(', ').toLowerCase()}. Further analysis is being refined.`,
+        desiredExperienceMeaning: `They aspire to experience ${input.desiredExperienceValues.join(', ').toLowerCase()} in their work environment. Further analysis is being refined.`,
+        experienceGaps: [],
+        growthOpportunities: [],
+        alignmentScore: 50,
+        alignmentInterpretation: 'Analysis in progress...',
+        retentionRisk: 'medium',
+        recommendations: [],
+        nextSteps: ['Review your personalized insights', 'Discuss with your manager']
+      };
+    }
+  }
+
   protected async loadFrameworks(): Promise<any> {
     const frameworks = await db
       .select()

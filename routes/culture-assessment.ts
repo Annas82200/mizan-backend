@@ -689,7 +689,9 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
 async function generateEmployeeReport(assessmentId: string, userId: string, tenantId: string) {
   setTimeout(async () => {
     try {
-      const agent = new CultureAgent();
+      const cultureAgent = new CultureAgent();
+      const engagementAgent = new EngagementAgent();
+      const recognitionAgent = new RecognitionAgent();
 
       // Get the assessment with user data
       const assessment = await db.query.cultureAssessments.findFirst({
@@ -701,97 +703,104 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
 
       if (!assessment) return;
 
-      // Load frameworks for value interpretation
-      const frameworks = await agent['loadFrameworks']();
-      const cylinders = frameworks.cylinders;
-
-      // Get tenant values mapping (if exists)
-      const tenantMapping = await db.query.cultureReports.findFirst({
-        where: and(
-          eq(cultureReports.tenantId, tenantId),
-          eq(cultureReports.reportType, 'values_mapping')
-        ),
-        orderBy: (reports: any, { desc }: any) => [desc(reports.createdAt)]
+      // Call Culture Agent to analyze individual employee
+      const cultureAnalysis = await cultureAgent.analyzeIndividualEmployee({
+        tenantId,
+        employeeId: userId,
+        employeeName: assessment.user?.name || 'Employee',
+        personalValues: assessment.personalValues as string[],
+        currentExperienceValues: assessment.currentExperience as string[],
+        desiredExperienceValues: assessment.desiredExperience as string[]
       });
 
-      // Analyze personal values meaning
-      const personalValuesAnalysis = await analyzeValuesMeaning(
-        assessment.personalValues as string[],
-        cylinders,
-        'personal'
-      );
-
-      // Analyze current vs desired experience gap
-      const experienceGapAnalysis = await analyzeExperienceGap(
-        assessment.currentExperience as string[],
-        assessment.desiredExperience as string[],
-        cylinders
-      );
-
-      // Analyze personal values vs current experience alignment
-      const alignmentAnalysis = await analyzeValueAlignment(
-        assessment.personalValues as string[],
-        assessment.currentExperience as string[],
-        cylinders
-      );
-
       // Get engagement insights from Engagement Agent
-      const engagementScore = assessment.engagement || 0;
-      const engagementInsights = await analyzeEngagementScore(
-        userId,
+      const engagementAnalysis = await engagementAgent.analyzeIndividual({
         tenantId,
-        engagementScore,
-        alignmentAnalysis.alignmentScore
-      );
+        employeeId: userId,
+        engagementScore: assessment.engagement || 0,
+        context: {
+          valuesAlignment: cultureAnalysis.alignmentScore || 0,
+          currentExperience: assessment.currentExperience as string[]
+        }
+      });
 
       // Get recognition insights from Recognition Agent
-      const recognitionScore = assessment.recognition || 0;
-      const recognitionInsights = await analyzeRecognitionScore(
-        userId,
+      const recognitionAnalysis = await recognitionAgent.analyzeIndividual({
         tenantId,
-        recognitionScore,
-        alignmentAnalysis.alignmentScore
-      );
+        employeeId: userId,
+        recognitionScore: assessment.recognition || 0,
+        context: {
+          valuesAlignment: cultureAnalysis.alignmentScore || 0,
+          engagement: assessment.engagement || 0
+        }
+      });
 
-      // Build comprehensive employee report
+      // Build comprehensive employee report with rich AI insights
       const report = {
         employeeId: userId,
         employeeName: assessment.user?.name || 'Employee',
         assessmentDate: assessment.completedAt,
 
+        // Personal values interpretation - what they mean personally
         personalValues: {
           selected: assessment.personalValues,
-          analysis: personalValuesAnalysis.analysis,
-          dominantCylinders: personalValuesAnalysis.dominantCylinders,
-          interpretation: personalValuesAnalysis.interpretation
+          interpretation: cultureAnalysis.personalValuesInterpretation || 'Analysis in progress...',
+          dominantCylinders: cultureAnalysis.dominantCylinders || [],
+          strengths: cultureAnalysis.strengths || [],
+          limitingFactors: cultureAnalysis.limitingFactors || []
         },
 
-        experienceGap: {
-          current: assessment.currentExperience,
-          desired: assessment.desiredExperience,
-          gaps: experienceGapAnalysis.gaps,
-          analysis: experienceGapAnalysis.analysis,
-          priorities: experienceGapAnalysis.priorities
+        // Current experience - how they experience the company TODAY
+        currentExperience: {
+          selected: assessment.currentExperience,
+          meaning: cultureAnalysis.currentExperienceMeaning || 'Analysis in progress...',
+          cylinders: cultureAnalysis.currentExperienceCylinders || []
         },
 
+        // Desired experience - how they WANT to experience the company
+        desiredExperience: {
+          selected: assessment.desiredExperience,
+          meaning: cultureAnalysis.desiredExperienceMeaning || 'Analysis in progress...',
+          gaps: cultureAnalysis.experienceGaps || [],
+          opportunities: cultureAnalysis.growthOpportunities || []
+        },
+
+        // Alignment analysis
         alignment: {
-          personalVsCurrent: alignmentAnalysis.alignmentScore,
-          gaps: alignmentAnalysis.gaps,
-          strengths: alignmentAnalysis.strengths,
-          recommendations: alignmentAnalysis.recommendations
+          personalVsCurrent: cultureAnalysis.alignmentScore || 0,
+          interpretation: cultureAnalysis.alignmentInterpretation || '',
+          retentionRisk: cultureAnalysis.retentionRisk || 'medium',
+          recommendations: cultureAnalysis.recommendations || []
         },
 
-        engagement: engagementInsights,
-        recognition: recognitionInsights,
+        // Engagement with score interpretation
+        engagement: {
+          score: assessment.engagement || 0,
+          interpretation: engagementAnalysis.interpretation || '',
+          meaning: engagementAnalysis.meaning || '',
+          factors: engagementAnalysis.factors || [],
+          recommendations: engagementAnalysis.recommendations || []
+        },
 
+        // Recognition with score interpretation
+        recognition: {
+          score: assessment.recognition || 0,
+          interpretation: recognitionAnalysis.interpretation || '',
+          meaning: recognitionAnalysis.meaning || '',
+          impact: recognitionAnalysis.impact || '',
+          recommendations: recognitionAnalysis.recommendations || []
+        },
+
+        // Overall summary
         overallSummary: {
-          culturalFit: alignmentAnalysis.alignmentScore >= 70 ? 'Strong' : alignmentAnalysis.alignmentScore >= 50 ? 'Moderate' : 'Needs Attention',
-          keyStrengths: alignmentAnalysis.strengths.slice(0, 3),
-          developmentAreas: alignmentAnalysis.recommendations.slice(0, 3),
-          nextSteps: [
-            'Review your values alignment analysis',
-            'Discuss gaps with your manager',
-            'Complete recommended learning experiences'
+          culturalFit: cultureAnalysis.alignmentScore >= 70 ? 'Strong' :
+                       cultureAnalysis.alignmentScore >= 50 ? 'Moderate' : 'Needs Attention',
+          keyStrengths: cultureAnalysis.strengths?.slice(0, 3) || [],
+          developmentAreas: cultureAnalysis.recommendations?.slice(0, 3) || [],
+          nextSteps: cultureAnalysis.nextSteps || [
+            'Review your personalized insights',
+            'Discuss development opportunities with your manager',
+            'Explore recommended learning paths'
           ]
         }
       };
