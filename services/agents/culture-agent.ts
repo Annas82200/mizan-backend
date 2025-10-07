@@ -390,27 +390,25 @@ Return ONLY a valid JSON object with NO markdown formatting:
   ]
 }`;
 
-    // Call OpenAI directly to avoid EnsembleAI text wrapping that corrupts JSON
-    console.log('🚀 ORG CULTURE - Calling OpenAI directly, prompt length:', prompt.length);
-    const { invokeProvider } = await import('../ai-providers/router.js');
-    const rawResponse = await invokeProvider('openai', {
+    // Call reasoning AI using Three-Engine system with multi-provider consensus
+    console.log('🚀 ORG CULTURE - Calling Three-Engine AI (OpenAI + Anthropic), prompt length:', prompt.length);
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
       prompt,
       temperature: 0.7,
-      maxTokens: 4000,
-      requireJson: true
+      maxTokens: 4000
     });
 
-    console.log('🎉 ORG CULTURE - OpenAI returned, response type:', typeof rawResponse.response);
+    console.log('🎉 ORG CULTURE - Multi-AI returned, providers used:', response.provider);
+    console.log('🎉 ORG CULTURE - Confidence:', response.confidence);
 
     // Parse JSON with fallback handling
     try {
-      let jsonText: string;
-      if (typeof rawResponse.response === 'string') {
-        jsonText = rawResponse.response;
-      } else {
-        jsonText = JSON.stringify(rawResponse.response);
+      if (!response || !response.narrative) {
+        throw new Error(`AI response missing: response=${!!response}, narrative=${!!response?.narrative}`);
       }
 
+      let jsonText = response.narrative;
       console.log('🔍 ORG CULTURE - Raw response length:', jsonText?.length);
       console.log('🔍 ORG CULTURE - First 500 chars:', jsonText?.substring(0, 500));
 
@@ -435,7 +433,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       return analysis;
     } catch (error) {
       console.error('❌ ORG CULTURE - Parse error:', error);
-      console.error('❌ ORG CULTURE - Full response:', rawResponse.response);
+      console.error('❌ ORG CULTURE - Full response:', response.narrative);
       // Return structured fallback
       return {
         totalEmployees: input.assessments.length,

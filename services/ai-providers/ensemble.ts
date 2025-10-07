@@ -256,17 +256,28 @@ export class EnsembleAI {
   }
 
   private synthesizeNarratives(narratives: string[], call: ProviderCall): string {
-    // Combine insights intelligently
+    // Check if this is a JSON response - if so, return the best one unwrapped
+    const primaryInsight = narratives[0];
+
+    // Detect JSON responses (starts with { or [ after trimming, or contains ```json)
+    const trimmed = primaryInsight.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('```json')) {
+      // Return JSON unwrapped - pick the longest/most complete response
+      const bestJson = narratives.reduce((best, current) =>
+        current.length > best.length ? current : best
+      , primaryInsight);
+      return bestJson;
+    }
+
+    // For non-JSON responses, combine insights intelligently
     const engine = call.engine;
     const agent = call.agent;
-    
-    const primaryInsight = narratives[0];
     const secondaryInsight = narratives[1] || "";
-    
+
     // Extract key points from both
     const primaryPoint = primaryInsight.split(/[.!?]/)[0].trim();
     const secondaryPoint = secondaryInsight.split(/[.!?]/)[0].trim();
-    
+
     return `Multi-AI ${engine} analysis for ${agent}: ${primaryPoint}. ${
       secondaryPoint ? `Additionally, ${secondaryPoint.toLowerCase()}.` : ''
     } Confidence strengthened through ensemble validation.`;
