@@ -636,6 +636,9 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     // Allow superadmin to query any tenant, otherwise use user's tenant
     const tenantId = (req.query.tenantId as string) || req.user!.tenantId;
 
+    console.log('🎯 COMPANY REPORT - Endpoint hit for tenant:', tenantId);
+    console.log('🎯 COMPANY REPORT - Code version: 2025-10-07-v5');
+
     // Check if report already exists
     const existingReport = await db.query.cultureReports.findFirst({
       where: and(
@@ -646,11 +649,14 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     });
 
     if (existingReport) {
+      console.log('🎯 COMPANY REPORT - Returning cached report from:', existingReport.createdAt);
       return res.json({
         success: true,
         report: existingReport.reportData
       });
     }
+
+    console.log('🎯 COMPANY REPORT - No cache, generating new report...');
 
     // Generate new company report using Culture Agent's rich AI analysis
     const assessments = await db.query.cultureAssessments.findMany({
@@ -675,8 +681,11 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     const companyName = tenant?.name || 'Your Organization';
     const tenantValues = (tenant?.values as string[]) || [];
 
+    console.log('🎯 COMPANY REPORT - Tenant:', companyName, 'Values:', tenantValues.length, 'Assessments:', assessments.length);
+
     // Use Culture Agent's rich AI analysis method
     const cultureAgent = new CultureAgent();
+    console.log('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
     const report = await cultureAgent.analyzeOrganizationCulture({
       tenantId,
       companyName,
@@ -689,6 +698,10 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
         recognition: a.recognition || 0
       }))
     });
+
+    console.log('🎯 COMPANY REPORT - Culture Agent returned report');
+    console.log('🎯 COMPANY REPORT - Report keys:', Object.keys(report));
+    console.log('🎯 COMPANY REPORT - Entropy score:', report.entropyScore);
 
     // Store the report in database for caching
     await db.insert(cultureReports).values({
