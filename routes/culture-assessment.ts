@@ -633,7 +633,8 @@ router.get('/report/department/:departmentId', authenticate, async (req: Request
 router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmin']),
   async (req: Request, res: Response) => {
   try {
-    const tenantId = req.user!.tenantId;
+    // Allow superadmin to query any tenant, otherwise use user's tenant
+    const tenantId = (req.query.tenantId as string) || req.user!.tenantId;
 
     // Check if report already exists
     const existingReport = await db.query.cultureReports.findFirst({
