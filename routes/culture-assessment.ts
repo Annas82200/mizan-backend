@@ -834,9 +834,10 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         employeeName: assessment.user?.name || 'Employee',
         assessmentDate: assessment.completedAt,
 
-        // Personal values interpretation - what drives them, their strengths
+        // Personal values interpretation with cylinder mapping
         personalValues: {
           selected: assessment.personalValues,
+          cylinderMapping: cultureAnalysis.valuesCylinderMapping || null,
           interpretation: cultureAnalysis.personalValuesInterpretation || 'Analysis in progress...',
           strengths: cultureAnalysis.strengths || [],
           limitingFactors: cultureAnalysis.limitingFactors || []
@@ -848,6 +849,17 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           meaning: cultureAnalysis.visionForGrowth || 'Analysis in progress...',
           opportunities: cultureAnalysis.growthOpportunities || []
         },
+
+        // Personal vs Company Culture Alignment (NEW)
+        cultureAlignment: {
+          interpretation: cultureAnalysis.cultureAlignment?.interpretation || 'Analyzing alignment with company culture...',
+          alignedAreas: cultureAnalysis.cultureAlignment?.alignedAreas || [],
+          gapAreas: cultureAnalysis.cultureAlignment?.gapAreas || [],
+          whatThisMeans: cultureAnalysis.cultureAlignment?.whatThisMeans || ''
+        },
+
+        // Personalized Recommendations (referencing specific values)
+        recommendations: cultureAnalysis.recommendations || [],
 
         // Engagement - what they can control to improve it
         engagement: {
@@ -867,7 +879,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           recommendations: recognitionAnalysis.recommendations || []
         },
 
-        // Reflection questions - personalized for growth
+        // Reflection questions - personalized for growth (open-ended like Barrett)
         reflectionQuestions: cultureAnalysis.reflectionQuestions || [],
 
         // Summary - growth-focused

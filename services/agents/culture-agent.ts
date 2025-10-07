@@ -1,9 +1,11 @@
 import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from './base/three-engine-agent.js';
 import { db } from '../../db/index.js';
-import { cultureFrameworks, cultureAssessments, cultureReports } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { cultureFrameworks, cultureAssessments, cultureReports, tenants } from '../../db/schema.js';
+import { eq, desc } from 'drizzle-orm';
 import { EngagementAgent } from './engagement-agent.js';
 import { RecognitionAgent } from './recognition-agent.js';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 export interface CultureAnalysisInput {
   tenantId: string;
@@ -126,6 +128,7 @@ export class CultureAgent extends ThreeEngineAgent {
 
   /**
    * Analyze individual employee's culture assessment with rich, human-contextual insights
+   * Maps values to Mizan's 7-Cylinder Framework and compares against company culture
    */
   async analyzeIndividualEmployee(input: {
     tenantId: string;
@@ -135,38 +138,85 @@ export class CultureAgent extends ThreeEngineAgent {
     currentExperienceValues: string[];
     desiredExperienceValues: string[];
   }): Promise<any> {
+    // Load Mizan framework from JSON
+    const framework = await this.loadMizanFramework();
+
+    // Map personal values to cylinders
+    const personalValuesMapping = this.mapValuesToCylinders(input.personalValues, framework);
+
+    // Get company's intended culture for gap analysis
+    const companyCulture = await this.getCompanyCulture(input.tenantId);
+
+    // Calculate Personal vs Company gap
+    const cultureGap = this.calculateCultureGap(personalValuesMapping, companyCulture, framework);
+
     // Build a comprehensive prompt for AI analysis
     const prompt = `You are an expert culture analyst using the Mizan 7-Cylinder Framework. This analysis is FOR THE EMPLOYEE to read about themselves - focus on GROWTH, STRENGTHS, and EMPOWERMENT. Write in a professional yet warm tone that inspires self-reflection and positive action. Do NOT mention workplace problems or cultural issues.
 
 EMPLOYEE: ${input.employeeName}
 
-SURVEY RESPONSES:
-1. Personal Values (what matters most to them): ${input.personalValues.join(', ')}
-2. Desired Future Experience (what they're seeking): ${input.desiredExperienceValues.join(', ')}
+MIZAN 7-CYLINDER FRAMEWORK (Bottom to Top):
+${framework.map((cyl: any, idx: number) => `Cylinder ${idx + 1}: ${cyl.name} - ${cyl.ethicalPrinciple}`).join('\n')}
+
+PERSONAL VALUES & CYLINDER MAPPING:
+${this.formatValuesCylinderMapping(personalValuesMapping, framework)}
+
+COMPANY'S INTENDED CULTURE:
+${companyCulture ? `The company values: ${companyCulture.values?.join(', ')}. These map to: ${this.formatCompanyCylinderMapping(companyCulture, framework)}` : 'Company culture data not available yet.'}
+
+${cultureGap.hasGap ? `
+PERSONAL vs COMPANY CULTURE GAP:
+${cultureGap.interpretation}
+Your cylinders: ${cultureGap.personalCylinders.join(', ')}
+Company cylinders: ${cultureGap.companyCylinders.join(', ')}
+Gap areas: ${cultureGap.gapAreas.join(', ')}
+` : ''}
+
+DESIRED FUTURE EXPERIENCE: ${input.desiredExperienceValues.join(', ')}
 
 IMPORTANT: Keep each section to 4-6 sentences maximum. Be empowering, growth-focused, and forward-looking.
 
 1. PERSONAL VALUES INTERPRETATION (4-6 sentences)
-What do these values reveal about what drives this person? What are their core strengths based on these values? If any limiting values (Fear, Neglect, Instability, Complacency) were selected, gently explore what might be holding them back. Focus on self-awareness and personal growth, not workplace critique.
+Based on their cylinder mapping, what does this reveal about what drives them? Reference their SPECIFIC values by name (e.g., "Your Courage and Integrity values show..."). What are their core strengths? If limiting values were selected, gently explore what might be holding them back.
 
 2. YOUR VISION FOR GROWTH (4-6 sentences)
-Based on their desired future values (${input.desiredExperienceValues.join(', ')}), what kind of experience are they seeking? What opportunities for growth and development would help them thrive? Paint an inspiring picture of their aspirations. Be encouraging and forward-looking.
+Based on their desired values, what kind of experience are they seeking? What opportunities align with their value cylinders? Reference specific desired values by name. Be encouraging and forward-looking.
 
-3. REFLECTION QUESTIONS (2 customized questions)
-Generate 2 personalized reflection questions:
-- Question 1: How can they use their core strengths (from personal values) to create positive impact and promote a healthy, productive culture?
-- Question 2: What small, actionable step could they take this week to bring more of their desired values into their daily work experience?
+3. PERSONAL vs COMPANY CULTURE ALIGNMENT (4-6 sentences)
+${cultureGap.hasGap ? `Explain the gap between their personal values and company's intended culture. Where do they align? Where do they differ? What does this mean for their experience and growth? Be balanced - gaps aren't bad, they're opportunities for dialogue.` : `Explain how their personal values align with the company's intended culture. What strengths does this alignment create?`}
+
+4. PERSONALIZED RECOMMENDATIONS (3-4 recommendations)
+Generate recommendations that reference SPECIFIC values by name. Format: "Given your [Value1] and [Value2] values, you could [actionable step]..."
+
+5. REFLECTION QUESTIONS (3 open-ended questions like Barrett's Exercise 1)
+Generate deep, personalized reflection questions that reference their SPECIFIC values and cylinder focus:
+- Question 1: About using their specific core values (name them!) to promote healthy culture
+- Question 2: About bridging any gap between personal and company values
+- Question 3: About bringing their desired values into daily work
 
 CRITICAL: Return ONLY valid JSON. NO markdown. NO newlines inside string values. All text must be on ONE line per field.
 
 {
-  "personalValuesInterpretation": "4-6 sentence interpretation - ALL ON ONE LINE",
-  "strengths": ["3-5 core strengths"],
+  "personalValuesInterpretation": "4-6 sentence interpretation referencing specific values by name - ALL ON ONE LINE",
+  "valuesCylinderMapping": ${JSON.stringify(personalValuesMapping)},
+  "strengths": ["3-5 core strengths based on their values"],
   "limitingFactors": ["any limiting values"],
-  "visionForGrowth": "4-6 sentence description - ALL ON ONE LINE",
-  "growthOpportunities": ["3-5 opportunities"],
+  "visionForGrowth": "4-6 sentence description referencing specific desired values - ALL ON ONE LINE",
+  "growthOpportunities": ["3-5 opportunities aligned with their cylinders"],
+  "cultureAlignment": {
+    "interpretation": "4-6 sentence gap or alignment analysis - ALL ON ONE LINE",
+    "alignedAreas": ["areas where personal and company align"],
+    "gapAreas": ["areas where they differ"],
+    "whatThisMeans": "brief explanation - ALL ON ONE LINE"
+  },
+  "recommendations": [
+    "Given your [Value1] and [Value2] values, [specific actionable recommendation]",
+    "Given your [Value3] focus, [specific actionable recommendation]"
+  ],
   "reflectionQuestions": [
-    {"question": "question text", "purpose": "purpose text"}
+    {"question": "How can you use your [specific values] to promote healthy culture?", "purpose": "purpose text"},
+    {"question": "What would bridging the gap between your [value] and company [value] look like?", "purpose": "purpose text"},
+    {"question": "What small step brings your [desired value] into daily work?", "purpose": "purpose text"}
   ]
 }
 
@@ -1166,6 +1216,176 @@ Return JSON:
         summary: 'Mapping completed using keyword matching (AI analysis unavailable)'
       };
     }
+  }
+
+  /**
+   * Load Mizan framework from JSON file
+   */
+  private async loadMizanFramework(): Promise<any[]> {
+    try {
+      const frameworkPath = join(process.cwd(), 'mizan-framework-updated.json');
+      const frameworkData = await readFile(frameworkPath, 'utf-8');
+      return JSON.parse(frameworkData);
+    } catch (error) {
+      console.error('Failed to load Mizan framework:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Map employee's personal values to Mizan framework cylinders
+   */
+  private mapValuesToCylinders(values: string[], framework: any[]): any {
+    const mapping: any = {
+      cylinders: {},
+      values: []
+    };
+
+    values.forEach(value => {
+      const valueLower = value.toLowerCase();
+
+      // Find which cylinder this value belongs to (Cylinder 1 = index 0 at bottom)
+      framework.forEach((cylinder, index) => {
+        const cylinderNumber = index + 1; // Cylinder 1-7
+        const enablingValues = cylinder.positiveValues || cylinder.enablingValues || [];
+        const limitingValues = cylinder.limitingValues || [];
+
+        const isEnabling = enablingValues.some((v: any) => v.name.toLowerCase() === valueLower);
+        const isLimiting = limitingValues.some((v: any) => v.name.toLowerCase() === valueLower);
+
+        if (isEnabling || isLimiting) {
+          if (!mapping.cylinders[cylinderNumber]) {
+            mapping.cylinders[cylinderNumber] = {
+              name: cylinder.name,
+              count: 0,
+              values: [],
+              type: []
+            };
+          }
+
+          mapping.cylinders[cylinderNumber].count++;
+          mapping.cylinders[cylinderNumber].values.push(value);
+          mapping.cylinders[cylinderNumber].type.push(isEnabling ? 'enabling' : 'limiting');
+
+          mapping.values.push({
+            value,
+            cylinder: cylinderNumber,
+            cylinderName: cylinder.name,
+            type: isEnabling ? 'enabling' : 'limiting'
+          });
+        }
+      });
+    });
+
+    return mapping;
+  }
+
+  /**
+   * Get company's intended culture (from company values explanation)
+   */
+  private async getCompanyCulture(tenantId: string): Promise<any> {
+    try {
+      // Get tenant data with company values
+      const tenant = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .limit(1);
+
+      if (tenant.length === 0 || !tenant[0].values) {
+        return null;
+      }
+
+      return {
+        values: tenant[0].values as string[],
+        vision: (tenant[0] as any).vision,
+        mission: (tenant[0] as any).mission
+      };
+    } catch (error) {
+      console.error('Failed to get company culture:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate gap between personal values and company culture
+   */
+  private calculateCultureGap(personalMapping: any, companyCulture: any, framework: any[]): any {
+    if (!companyCulture || !companyCulture.values) {
+      return {
+        hasGap: false,
+        interpretation: '',
+        personalCylinders: [],
+        companyCylinders: [],
+        gapAreas: []
+      };
+    }
+
+    // Map company values to cylinders
+    const companyMapping = this.mapValuesToCylinders(companyCulture.values, framework);
+
+    // Get cylinder numbers for personal and company
+    const personalCylinders = Object.keys(personalMapping.cylinders).map(Number).sort((a, b) => a - b);
+    const companyCylinders = Object.keys(companyMapping.cylinders).map(Number).sort((a, b) => a - b);
+
+    // Find gaps (cylinders in personal but not in company, and vice versa)
+    const personalOnly = personalCylinders.filter(c => !companyCylinders.includes(c));
+    const companyOnly = companyCylinders.filter(c => !personalCylinders.includes(c));
+
+    const hasGap = personalOnly.length > 0 || companyOnly.length > 0;
+
+    let interpretation = '';
+    if (hasGap) {
+      const gapCylinders = [...personalOnly, ...companyOnly];
+      const gapNames = gapCylinders.map(c => framework[c - 1]?.name).filter(Boolean);
+
+      interpretation = `There's a ${gapCylinders.length > 2 ? 'significant' : 'noticeable'} gap in focus areas. `;
+
+      if (personalOnly.length > 0) {
+        interpretation += `You prioritize ${personalOnly.map(c => framework[c - 1]?.name).join(', ')} which the company doesn't emphasize as strongly. `;
+      }
+
+      if (companyOnly.length > 0) {
+        interpretation += `The company emphasizes ${companyOnly.map(c => framework[c - 1]?.name).join(', ')} which aren't as prominent in your personal values. `;
+      }
+
+      interpretation += 'This creates opportunities for dialogue about how to bridge these perspectives.';
+    }
+
+    return {
+      hasGap,
+      interpretation,
+      personalCylinders: personalCylinders.map(c => `${c}. ${framework[c - 1]?.name}`),
+      companyCylinders: companyCylinders.map(c => `${c}. ${framework[c - 1]?.name}`),
+      gapAreas: hasGap ? [...new Set([...personalOnly, ...companyOnly])].map(c => framework[c - 1]?.name) : []
+    };
+  }
+
+  /**
+   * Format values-to-cylinder mapping for prompt
+   */
+  private formatValuesCylinderMapping(mapping: any, framework: any[]): string {
+    const lines: string[] = [];
+
+    Object.keys(mapping.cylinders).sort((a, b) => Number(a) - Number(b)).forEach(cylinderNum => {
+      const cyl = mapping.cylinders[cylinderNum];
+      const cylinderData = framework[Number(cylinderNum) - 1];
+      lines.push(`Cylinder ${cylinderNum} - ${cyl.name}: ${cyl.values.join(', ')} (${cyl.type.join(', ')})`);
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Format company cylinder mapping for prompt
+   */
+  private formatCompanyCylinderMapping(companyCulture: any, framework: any[]): string {
+    if (!companyCulture || !companyCulture.values) {
+      return 'No company culture data available';
+    }
+
+    const mapping = this.mapValuesToCylinders(companyCulture.values, framework);
+    return this.formatValuesCylinderMapping(mapping, framework);
   }
 
   private async storeAnalysis(input: CultureAnalysisInput, result: AnalysisResult): Promise<void> {
