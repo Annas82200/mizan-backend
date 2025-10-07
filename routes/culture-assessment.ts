@@ -269,22 +269,59 @@ router.get('/campaign/:campaignId/status', authenticate, authorize(['clientAdmin
 });
 
 /**
- * Submit culture assessment
+ * Submit culture assessment (PUBLIC - uses survey token instead of auth)
  */
-router.post('/submit', authenticate, async (req: Request, res: Response) => {
+router.post('/submit', async (req: Request, res: Response) => {
   try {
-    // Validate request body
-    const validatedData = CultureAssessmentSchema.parse(req.body);
+    // Validate survey token first
+    const schema = z.object({
+      surveyToken: z.string().uuid(),
+      personalValues: z.array(z.string()).length(10),
+      currentExperience: z.array(z.string()).length(10),
+      desiredExperience: z.array(z.string()).length(10),
+      engagement: z.number().min(1).max(5),
+      recognition: z.number().min(1).max(5)
+    });
 
-    // Save assessment to database (match actual schema)
+    const validatedData = schema.parse(req.body);
+
+    // Find the survey invitation by token
+    const invitation = await db.query.cultureSurveyInvitations.findFirst({
+      where: eq(cultureSurveyInvitations.surveyToken, validatedData.surveyToken)
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid survey token'
+      });
+    }
+
+    // Check if already completed
+    if (invitation.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey already completed'
+      });
+    }
+
+    // Check if expired
+    if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey link has expired'
+      });
+    }
+
+    // Save assessment to database
     const assessment = await db.insert(cultureAssessments).values({
-      tenantId: req.user!.tenantId,
-      userId: req.user!.id,
+      tenantId: invitation.tenantId,
+      userId: invitation.employeeId,
       personalValues: validatedData.personalValues,
-      currentExperience: validatedData.currentExperienceValues,
-      desiredExperience: validatedData.desiredFutureValues,
-      engagement: validatedData.engagementLevel,
-      recognition: validatedData.recognitionLevel
+      currentExperience: validatedData.currentExperience,
+      desiredExperience: validatedData.desiredExperience,
+      engagement: validatedData.engagement,
+      recognition: validatedData.recognition
     }).returning();
 
     // Mark survey invitation as completed
@@ -293,13 +330,10 @@ router.post('/submit', authenticate, async (req: Request, res: Response) => {
         status: 'completed',
         completedAt: new Date()
       })
-      .where(and(
-        eq(cultureSurveyInvitations.employeeId, req.user!.id),
-        eq(cultureSurveyInvitations.tenantId, req.user!.tenantId)
-      ));
+      .where(eq(cultureSurveyInvitations.surveyToken, validatedData.surveyToken));
 
     // Trigger immediate individual report generation (async background)
-    generateEmployeeReport(assessment[0].id, req.user!.id, req.user!.tenantId);
+    generateEmployeeReport(assessment[0].id, invitation.employeeId, invitation.tenantId);
 
     return res.json({
       success: true,
