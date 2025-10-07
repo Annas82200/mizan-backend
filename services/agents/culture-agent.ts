@@ -390,12 +390,21 @@ Return ONLY a valid JSON object with NO markdown formatting:
     // Parse JSON with fallback handling
     try {
       let jsonText = response.narrative;
+      console.log('🔍 ORG CULTURE - Raw response length:', jsonText?.length);
+      console.log('🔍 ORG CULTURE - First 500 chars:', jsonText?.substring(0, 500));
+      console.log('🔍 ORG CULTURE - Last 500 chars:', jsonText?.substring(jsonText.length - 500));
+
       // Remove markdown code blocks if present
       jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+      console.log('🔍 ORG CULTURE - After cleanup, first 300 chars:', jsonText?.substring(0, 300));
+
       const analysis = JSON.parse(jsonText);
+      console.log('✅ ORG CULTURE - JSON parsed successfully!');
       return analysis;
     } catch (error) {
-      console.error('Failed to parse organization culture analysis:', error);
+      console.error('❌ ORG CULTURE - Parse error:', error);
+      console.error('❌ ORG CULTURE - Full response:', response.narrative);
       // Return structured fallback
       return {
         totalEmployees: input.assessments.length,
