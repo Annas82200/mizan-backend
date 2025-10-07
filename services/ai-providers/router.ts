@@ -97,7 +97,7 @@ class AIProviderRouter {
   private async invokeOpenAI(call: ProviderCall): Promise<ProviderResponse> {
     try {
       const response = await this.openai.chat.completions.create({
-        model: call.model || "gpt-4-turbo-preview",
+        model: call.model || "gpt-4o",  // gpt-4o supports 16k output tokens vs 4k for gpt-4-turbo
         messages: [
           {
             role: "system",

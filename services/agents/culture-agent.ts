@@ -396,7 +396,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
-      maxTokens: 4000
+      maxTokens: 8000  // Increased for comprehensive analysis (Claude supports 8k, GPT-4o supports 16k)
     });
 
     console.log('🎉 ORG CULTURE - Multi-AI returned, providers used:', response.provider);
