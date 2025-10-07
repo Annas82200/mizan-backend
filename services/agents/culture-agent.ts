@@ -190,10 +190,21 @@ Return ONLY a valid JSON object with NO markdown formatting:
       // Parse JSON response
       let jsonText = response.narrative;
 
-      // Remove markdown code blocks if present
-      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      // EnsembleAI wraps JSON in explanatory text - extract the actual JSON
+      const jsonMatch = jsonText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+      } else {
+        const directJsonMatch = jsonText.match(/(\{[\s\S]*\})/);
+        if (directJsonMatch) {
+          jsonText = directJsonMatch[1];
+        } else {
+          jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        }
+      }
 
       const analysis = JSON.parse(jsonText);
+      console.log('✅ Individual employee analysis - JSON parsed successfully');
       return analysis;
     } catch (error) {
       console.error('Failed to parse individual employee AI response:', error);
@@ -400,12 +411,27 @@ Return ONLY a valid JSON object with NO markdown formatting:
       let jsonText = response.narrative;
       console.log('🔍 ORG CULTURE - Raw response length:', jsonText?.length);
       console.log('🔍 ORG CULTURE - First 500 chars:', jsonText?.substring(0, 500));
-      console.log('🔍 ORG CULTURE - Last 500 chars:', jsonText?.substring(jsonText.length - 500));
 
-      // Remove markdown code blocks if present
-      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      // EnsembleAI wraps JSON in explanatory text like "Multi-AI reasoning analysis for undefined: ```json {...} ```"
+      // Extract JSON from markdown code blocks first
+      const jsonMatch = jsonText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+        console.log('🔍 ORG CULTURE - Extracted JSON from code block');
+      } else {
+        // Try to extract JSON object directly
+        const directJsonMatch = jsonText.match(/(\{[\s\S]*\})/);
+        if (directJsonMatch) {
+          jsonText = directJsonMatch[1];
+          console.log('🔍 ORG CULTURE - Extracted JSON object directly');
+        } else {
+          // Remove markdown and extra text as fallback
+          jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+          console.log('🔍 ORG CULTURE - Used fallback cleanup');
+        }
+      }
 
-      console.log('🔍 ORG CULTURE - After cleanup, first 300 chars:', jsonText?.substring(0, 300));
+      console.log('🔍 ORG CULTURE - After extraction, first 300 chars:', jsonText?.substring(0, 300));
 
       const analysis = JSON.parse(jsonText);
       console.log('✅ ORG CULTURE - JSON parsed successfully!');
