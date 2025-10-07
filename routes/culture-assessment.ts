@@ -441,7 +441,61 @@ router.get('/status/:userId', authenticate, async (req: Request, res: Response) 
 });
 
 /**
- * Get employee culture report
+ * Get employee culture report by survey token (PUBLIC - no auth required)
+ */
+router.get('/report/survey/:surveyToken', async (req: Request, res: Response) => {
+  try {
+    const { surveyToken } = req.params;
+
+    // Find the survey invitation
+    const invitation = await db.query.cultureSurveyInvitations.findFirst({
+      where: eq(cultureSurveyInvitations.surveyToken, surveyToken)
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid survey token'
+      });
+    }
+
+    // Get the assessment for this employee
+    const assessment = await db.query.cultureAssessments.findFirst({
+      where: and(
+        eq(cultureAssessments.userId, invitation.employeeId),
+        eq(cultureAssessments.tenantId, invitation.tenantId)
+      ),
+      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+    });
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: 'No assessment found. Report is being generated.',
+        status: 'pending'
+      });
+    }
+
+    // Get the report
+    const report = await getEmployeeReport(assessment.id, invitation.employeeId);
+
+    return res.json({
+      success: true,
+      report,
+      status: report.userId ? 'pending' : 'completed'
+    });
+
+  } catch (error) {
+    console.error('Error fetching employee report:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch report'
+    });
+  }
+});
+
+/**
+ * Get employee culture report (AUTHENTICATED)
  */
 router.get('/report/employee/:userId', authenticate, async (req: Request, res: Response) => {
   try {
