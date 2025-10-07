@@ -85,11 +85,16 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
   try {
     const schema = z.object({
       campaignName: z.string().optional(),
-      expiryDays: z.number().default(30)
+      expiryDays: z.number().default(30),
+      tenantId: z.string().optional()
     });
 
-    const { campaignName, expiryDays } = schema.parse(req.body);
-    const tenantId = req.user!.tenantId;
+    const { campaignName, expiryDays, tenantId: requestTenantId } = schema.parse(req.body);
+
+    // Superadmins can select any tenant, others use their own tenant
+    const tenantId = req.user!.role === 'superadmin' && requestTenantId
+      ? requestTenantId
+      : req.user!.tenantId;
 
     // Get all active employees from tenant
     const employees = await db.query.users.findMany({

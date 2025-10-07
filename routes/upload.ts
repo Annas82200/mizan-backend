@@ -4,10 +4,11 @@ import { parse } from "csv-parse/sync";
 import { authenticate } from "../middleware/auth.js";
 import { StructureAgentV2 } from "../services/agents/structure/structure-agent.js";
 import { db } from "../db/index.js";
-import { orgStructures } from "../db/schema/core.js";
+import { orgStructures, users, tenants } from "../db/schema/core.js";
 import { organizationStructure } from "../db/schema/strategy.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared.js";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
@@ -252,12 +253,86 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     const targetTenantId = req.body.tenantId || req.user!.tenantId;
 
     let orgText = req.body.orgText || "";
+    let csvRecords: Array<Record<string, string>> | null = null;
 
     if (req.file) {
       if (req.file.mimetype === "text/csv") {
+        // Parse CSV to extract employee data
+        csvRecords = parse(req.file.buffer, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        }) as Array<Record<string, string>>;
+
         orgText = parseCSVOrgStructure(req.file.buffer);
       } else {
         orgText = req.file.buffer.toString("utf-8");
+      }
+    }
+
+    // Create employee user accounts from CSV if employee data is present
+    let employeesCreated = 0;
+    if (csvRecords && csvRecords.length > 0) {
+      const firstRecord = csvRecords[0];
+      const hasEmployeeFormat =
+        'employee_name' in firstRecord ||
+        'name' in firstRecord ||
+        'Name' in firstRecord ||
+        'employee_email' in firstRecord ||
+        'email' in firstRecord ||
+        'Email' in firstRecord;
+
+      if (hasEmployeeFormat) {
+        // Default password for CSV-imported employees
+        const defaultPassword = 'Welcome@123';
+        const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+        for (const record of csvRecords) {
+          const employeeName = record.employee_name || record.name || record.Name;
+          const employeeEmail = record.employee_email || record.email || record.Email;
+          const title = record.title || record.Title || record.position || record.Position || null;
+
+          if (employeeEmail && employeeName) {
+            try {
+              // Check if user already exists
+              const existingUser = await db.query.users.findFirst({
+                where: and(
+                  eq(users.email, employeeEmail.toLowerCase()),
+                  eq(users.tenantId, targetTenantId)
+                )
+              });
+
+              if (!existingUser) {
+                await db.insert(users).values({
+                  tenantId: targetTenantId,
+                  email: employeeEmail.toLowerCase(),
+                  passwordHash,
+                  name: employeeName,
+                  title,
+                  role: 'employee',
+                  isActive: true
+                });
+                employeesCreated++;
+              }
+            } catch (err) {
+              console.error(`Skipped user ${employeeEmail}:`, err);
+            }
+          }
+        }
+
+        // Update tenant employee count
+        if (employeesCreated > 0) {
+          const allEmployees = await db.query.users.findMany({
+            where: and(
+              eq(users.tenantId, targetTenantId),
+              eq(users.role, 'employee')
+            )
+          });
+
+          await db.update(tenants)
+            .set({ employeeCount: allEmployees.length })
+            .where(eq(tenants.id, targetTenantId));
+        }
       }
     }
 
@@ -291,6 +366,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
 
     return res.json({
       id: saved.id,
+      employeesCreated,
       ...result,
     });
   } catch (error: any) {
