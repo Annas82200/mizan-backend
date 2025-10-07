@@ -296,27 +296,27 @@ Top 10: ${topDesiredExperience.join(', ')}
 4. ENGAGEMENT SCORE: ${avgEngagement.toFixed(1)}/5.0
 5. RECOGNITION SCORE: ${avgRecognition.toFixed(1)}/5.0
 
-Provide a comprehensive analysis following this structure. Write 2-3 paragraphs for each section - be warm, insightful, and tell a STORY about what this culture means:
+Provide a comprehensive analysis following this structure. IMPORTANT: Keep interpretations concise - 4-6 sentences per section maximum. Be warm and insightful but BRIEF:
 
-1. INTENDED CULTURE INTERPRETATION (2-3 paragraphs)
-What do the company's stated values reveal about leadership's vision? What kind of culture are they trying to build? If no values are defined, what does that absence mean?
+1. INTENDED CULTURE INTERPRETATION (4-6 sentences)
+What do the company's stated values reveal about leadership's vision? What kind of culture are they trying to build?
 
-2. CURRENT REALITY MEANING (2-3 paragraphs)
-Describe HOW employees experience the company today based on the Current Experience values. Don't list values - paint a picture of their daily reality. What does it feel like to work here? What's emphasized? What's missing?
+2. CURRENT REALITY MEANING (4-6 sentences)
+Describe HOW employees experience the company today. Paint a picture of their daily reality - what does it feel like to work here?
 
-3. DESIRED CULTURE MEANING (2-3 paragraphs)
-What kind of culture are employees hoping for? What are they seeking that they don't have now? What does this reveal about unmet needs?
+3. DESIRED CULTURE MEANING (4-6 sentences)
+What kind of culture are employees hoping for? What are they seeking that they don't have now?
 
-4. GAP ANALYSIS (2-3 paragraphs for EACH gap):
+4. GAP ANALYSIS (4-6 sentences for EACH gap):
    - Intended vs Current: The "say-do gap" - are leaders walking the talk?
    - Intended vs Desired: Do employees even want what leadership is trying to build?
    - Current vs Desired: What's the delta between today's reality and employee aspirations?
 
-5. ENGAGEMENT & RECOGNITION INTERPRETATION (2-3 paragraphs)
-What do the engagement and recognition scores tell us about how people feel? Connect this to the cultural gaps identified above.
+5. ENGAGEMENT & RECOGNITION INTERPRETATION (4-6 sentences EACH)
+What do the engagement and recognition scores tell us? Connect to cultural gaps.
 
-6. CULTURAL HEALTH ASSESSMENT (2-3 paragraphs)
-Overall verdict: Is this culture healthy? What's working? What's broken? What's the entropy score (0-100)?
+6. CULTURAL HEALTH ASSESSMENT (4-6 sentences)
+Overall verdict: Is this culture healthy? What's working? What's broken? Entropy score (0-100)?
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
