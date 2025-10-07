@@ -783,6 +783,8 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
   setTimeout(async () => {
     try {
       const cultureAgent = new CultureAgent();
+      const engagementAgent = new EngagementAgent();
+      const recognitionAgent = new RecognitionAgent();
 
       // Get the assessment with user data
       const assessment = await db.query.cultureAssessments.findFirst({
@@ -802,6 +804,28 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         personalValues: assessment.personalValues as string[],
         currentExperienceValues: assessment.currentExperience as string[],
         desiredExperienceValues: assessment.desiredExperience as string[]
+      });
+
+      // Call Engagement Agent to analyze engagement score (4-AI consensus)
+      const engagementAnalysis = await engagementAgent.analyzeIndividual({
+        tenantId,
+        employeeId: userId,
+        engagementScore: assessment.engagement || 0,
+        context: {
+          valuesAlignment: cultureAnalysis.alignmentScore || 0,
+          currentExperience: assessment.currentExperience as string[]
+        }
+      });
+
+      // Call Recognition Agent to analyze recognition score (4-AI consensus)
+      const recognitionAnalysis = await recognitionAgent.analyzeIndividual({
+        tenantId,
+        employeeId: userId,
+        recognitionScore: assessment.recognition || 0,
+        context: {
+          valuesAlignment: cultureAnalysis.alignmentScore || 0,
+          engagement: assessment.engagement || 0
+        }
       });
 
       // Build comprehensive employee report with rich AI insights
@@ -842,14 +866,22 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           recommendations: cultureAnalysis.recommendations || []
         },
 
-        // Engagement with score
+        // Engagement with AI-powered score interpretation
         engagement: {
-          score: assessment.engagement || 0
+          score: assessment.engagement || 0,
+          interpretation: engagementAnalysis.interpretation || 'Analysis in progress...',
+          meaning: engagementAnalysis.meaning || '',
+          factors: engagementAnalysis.factors || [],
+          recommendations: engagementAnalysis.recommendations || []
         },
 
-        // Recognition with score
+        // Recognition with AI-powered score interpretation
         recognition: {
-          score: assessment.recognition || 0
+          score: assessment.recognition || 0,
+          interpretation: recognitionAnalysis.interpretation || 'Analysis in progress...',
+          meaning: recognitionAnalysis.meaning || '',
+          impact: recognitionAnalysis.impact || '',
+          recommendations: recognitionAnalysis.recommendations || []
         },
 
         // Overall summary

@@ -60,19 +60,19 @@ export class EngagementAgent extends ThreeEngineAgent {
   constructor() {
     const config = {
       knowledge: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.3,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.5,
         maxTokens: 4000
@@ -785,5 +785,79 @@ export class EngagementAgent extends ThreeEngineAgent {
 
   protected parseReasoningOutput(response: string): any {
     try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  /**
+   * Analyze individual employee engagement score with AI insights
+   */
+  async analyzeIndividual(input: {
+    tenantId: string;
+    employeeId: string;
+    engagementScore: number;
+    context: {
+      valuesAlignment: number;
+      currentExperience: string[];
+    };
+  }): Promise<any> {
+    const prompt = `You are an expert engagement analyst using professional yet warm tone. Analyze this employee's engagement score and provide insights.
+
+EMPLOYEE ENGAGEMENT DATA:
+- Engagement Score: ${input.engagementScore}/5.0
+- Values Alignment: ${input.context.valuesAlignment}%
+- Current Experience Values: ${input.context.currentExperience.join(', ')}
+
+Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Be insightful but concise.
+
+1. ENGAGEMENT INTERPRETATION (4-6 sentences)
+What does this engagement score reveal? How does it connect to their values alignment and current experience? What might be driving this level of engagement?
+
+2. KEY FACTORS (4-6 sentences)
+What specific factors are likely influencing their engagement? Consider work satisfaction, growth opportunities, relationships, and purpose.
+
+3. RECOMMENDATIONS (2-3 actionable items)
+What specific steps would improve this employee's engagement? Be practical and specific.
+
+Return ONLY a valid JSON object with NO markdown formatting:
+{
+  "interpretation": "4-6 sentence interpretation",
+  "meaning": "what this score means for the employee",
+  "factors": ["factor 1", "factor 2", "factor 3"],
+  "recommendations": [
+    {"title": "string", "description": "string", "actionItems": ["string"]}
+  ]
+}`;
+
+    // Call reasoning AI with 4-provider consensus
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
+      prompt,
+      temperature: 0.7,
+      maxTokens: 4000
+    });
+
+    try {
+      let jsonText = response.narrative;
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = jsonText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+      } else {
+        const directJsonMatch = jsonText.match(/(\{[\s\S]*\})/);
+        if (directJsonMatch) {
+          jsonText = directJsonMatch[1];
+        }
+      }
+
+      return JSON.parse(jsonText);
+    } catch (error) {
+      console.error('❌ EngagementAgent.analyzeIndividual - Parse error:', error);
+      return {
+        interpretation: 'Analysis in progress...',
+        meaning: '',
+        factors: [],
+        recommendations: []
+      };
+    }
   }
 }

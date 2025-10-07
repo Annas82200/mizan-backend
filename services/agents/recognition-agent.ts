@@ -74,19 +74,19 @@ export class RecognitionAgent extends ThreeEngineAgent {
   constructor() {
     const config = {
       knowledge: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.3,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.5,
         maxTokens: 4000
@@ -848,5 +848,79 @@ export class RecognitionAgent extends ThreeEngineAgent {
 
   protected parseReasoningOutput(response: string): any {
     try { return JSON.parse(response); } catch { return {}; }
+  }
+
+  /**
+   * Analyze individual employee recognition score with AI insights
+   */
+  async analyzeIndividual(input: {
+    tenantId: string;
+    employeeId: string;
+    recognitionScore: number;
+    context: {
+      valuesAlignment: number;
+      engagement: number;
+    };
+  }): Promise<any> {
+    const prompt = `You are an expert recognition analyst using professional yet warm tone. Analyze this employee's recognition score and provide insights.
+
+EMPLOYEE RECOGNITION DATA:
+- Recognition Score: ${input.recognitionScore}/5.0
+- Values Alignment: ${input.context.valuesAlignment}%
+- Engagement Score: ${input.context.engagement}/5.0
+
+Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Be insightful but concise.
+
+1. RECOGNITION INTERPRETATION (4-6 sentences)
+What does this recognition score reveal? How does it connect to their values alignment and engagement? What might be driving this level of recognition?
+
+2. IMPACT ANALYSIS (4-6 sentences)
+How does this recognition level impact their motivation, performance, and retention? What are the implications?
+
+3. RECOMMENDATIONS (2-3 actionable items)
+What specific steps would improve recognition for this employee? Be practical and specific.
+
+Return ONLY a valid JSON object with NO markdown formatting:
+{
+  "interpretation": "4-6 sentence interpretation",
+  "meaning": "what this score means for the employee",
+  "impact": "how this impacts them",
+  "recommendations": [
+    {"title": "string", "description": "string", "actionItems": ["string"]}
+  ]
+}`;
+
+    // Call reasoning AI with 4-provider consensus
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
+      prompt,
+      temperature: 0.7,
+      maxTokens: 4000
+    });
+
+    try {
+      let jsonText = response.narrative;
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = jsonText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+      } else {
+        const directJsonMatch = jsonText.match(/(\{[\s\S]*\})/);
+        if (directJsonMatch) {
+          jsonText = directJsonMatch[1];
+        }
+      }
+
+      return JSON.parse(jsonText);
+    } catch (error) {
+      console.error('❌ RecognitionAgent.analyzeIndividual - Parse error:', error);
+      return {
+        interpretation: 'Analysis in progress...',
+        meaning: '',
+        impact: '',
+        recommendations: []
+      };
+    }
   }
 }
