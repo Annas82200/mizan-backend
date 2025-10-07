@@ -212,6 +212,65 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
 });
 
 /**
+ * GET /api/culture-assessment/employees
+ * Get employees with survey completion status
+ */
+router.get('/employees', authenticate, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.query.tenantId as string || req.user!.tenantId;
+
+    // Get all employees for tenant
+    const allEmployees = await db.query.users.findMany({
+      where: and(
+        eq(users.tenantId, tenantId),
+        eq(users.role, 'employee'),
+        eq(users.isActive, true)
+      ),
+      columns: {
+        id: true,
+        email: true,
+        name: true,
+        title: true
+      }
+    });
+
+    // Get survey completion status
+    const employeesWithStatus = await Promise.all(
+      allEmployees.map(async (emp) => {
+        const assessment = await db.query.cultureAssessments.findFirst({
+          where: and(
+            eq(cultureAssessments.userId, emp.id),
+            eq(cultureAssessments.tenantId, tenantId)
+          ),
+          orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+        });
+
+        return {
+          id: emp.id,
+          name: emp.name,
+          email: emp.email,
+          department: emp.title || 'Unassigned',
+          role: emp.title,
+          hasCompletedSurvey: !!assessment
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      employees: employeesWithStatus
+    });
+
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch employees'
+    });
+  }
+});
+
+/**
  * GET /api/culture-assessment/campaign/:campaignId/status
  * Get survey campaign status and completion rates
  */
