@@ -96,6 +96,9 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
       ? requestTenantId
       : req.user!.tenantId;
 
+    console.log('[Culture Survey] Distributing for tenantId:', tenantId);
+    console.log('[Culture Survey] Requested by user:', req.user!.email, 'role:', req.user!.role);
+
     // Get all active employees from tenant
     const employees = await db.query.users.findMany({
       where: and(
@@ -105,13 +108,39 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
       columns: {
         id: true,
         email: true,
-        name: true
+        name: true,
+        role: true
       }
     });
 
+    console.log('[Culture Survey] Found employees:', employees.length);
+    if (employees.length > 0) {
+      console.log('[Culture Survey] Sample employee:', employees[0]);
+    }
+
     if (employees.length === 0) {
+      // Check if any users exist for this tenant at all
+      const allUsers = await db.query.users.findMany({
+        where: eq(users.tenantId, tenantId),
+        columns: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true
+        }
+      });
+
+      console.log('[Culture Survey] Total users for tenant:', allUsers.length);
+      console.log('[Culture Survey] All users:', allUsers);
+
       return res.status(400).json({
-        error: 'No active employees found'
+        error: 'No active employees found',
+        debug: {
+          tenantId,
+          totalUsers: allUsers.length,
+          users: allUsers
+        }
       });
     }
 
