@@ -62,8 +62,8 @@ export class AgentManager {
     this.agents.set('skills', new SkillsAgent());
     this.agents.set('benchmarking', new BenchmarkingAgent());
     this.agents.set('performance', new PerformanceAgent('performance', defaultThreeEngineConfig));
-    this.agents.set('engagement', new EngagementAgent('engagement', defaultThreeEngineConfig));
-    this.agents.set('recognition', new RecognitionAgent('recognition', defaultThreeEngineConfig));
+    this.agents.set('engagement', new EngagementAgent());
+    this.agents.set('recognition', new RecognitionAgent());
   }
 
   async runAnalysis(request: AgentAnalysisRequest): Promise<AgentAnalysisResult> {

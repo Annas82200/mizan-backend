@@ -1331,27 +1331,7 @@ async function analyzeEngagementScore(
   riskLevel: string;
 }> {
   try {
-    const engagementAgent = new EngagementAgent('engagement', {
-      knowledge: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.3,
-        maxTokens: 1500
-      },
-      data: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.1,
-        maxTokens: 2000
-      },
-      reasoning: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.5,
-        maxTokens: 2000
-      },
-      consensusThreshold: 0.7
-    });
+    const engagementAgent = new EngagementAgent();
 
     // Build context for engagement analysis
     const context = {
@@ -1436,27 +1416,7 @@ async function analyzeRecognitionScore(
   impactOnEngagement: string;
 }> {
   try {
-    const recognitionAgent = new RecognitionAgent('recognition', {
-      knowledge: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.3,
-        maxTokens: 1500
-      },
-      data: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.1,
-        maxTokens: 2000
-      },
-      reasoning: {
-        providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
-        temperature: 0.5,
-        maxTokens: 2000
-      },
-      consensusThreshold: 0.7
-    });
+    const recognitionAgent = new RecognitionAgent();
 
     // Build context for recognition analysis
     const context = {

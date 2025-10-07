@@ -57,7 +57,31 @@ interface EngagementResult {
 }
 
 export class EngagementAgent extends ThreeEngineAgent {
-  
+  constructor() {
+    const config = {
+      knowledge: {
+        providers: ['openai', 'anthropic'],
+        model: 'gpt-4',
+        temperature: 0.3,
+        maxTokens: 2000
+      },
+      data: {
+        providers: ['openai', 'anthropic'],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 3000
+      },
+      reasoning: {
+        providers: ['openai', 'anthropic'],
+        model: 'gpt-4',
+        temperature: 0.5,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.7
+    };
+    super('engagement', config);
+  }
+
   async executeKnowledgeEngine(request: EngagementAnalysisRequest): Promise<any> {
     // Knowledge Engine: Employee engagement research and frameworks
     const knowledgeBase = {
