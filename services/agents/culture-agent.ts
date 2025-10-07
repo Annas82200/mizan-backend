@@ -58,19 +58,19 @@ export class CultureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
       knowledge: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.3,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.5,
         maxTokens: 4000
@@ -274,7 +274,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     const avgEngagement = input.assessments.reduce((sum, a) => sum + a.engagement, 0) / input.assessments.length;
     const avgRecognition = input.assessments.reduce((sum, a) => sum + a.recognition, 0) / input.assessments.length;
 
-    const prompt = `You are a trusted culture advisor speaking directly to leadership about their organization. Write like you're having a honest, empathetic conversation - not like you're writing a research paper. Use simple, clear language that feels human and accessible. Avoid jargon, academic terms, or overly formal phrasing.
+    const prompt = `You are an expert culture analyst using the Mizan 7-Cylinder Framework to provide strategic insights to leadership. Write in a professional yet approachable tone - insightful and evidence-based, but warm and direct. Think executive advisor, not academic researcher. Use clear, precise language that demonstrates expertise while remaining accessible.
 
 COMPANY: ${input.companyName}
 EMPLOYEES SURVEYED: ${input.assessments.length}
@@ -296,7 +296,7 @@ Top 10: ${topDesiredExperience.join(', ')}
 4. ENGAGEMENT SCORE: ${avgEngagement.toFixed(1)}/5.0
 5. RECOGNITION SCORE: ${avgRecognition.toFixed(1)}/5.0
 
-Write like a human advisor having a candid conversation. Use "you" and "your team" when talking to leadership. Keep it conversational, warm, and direct. IMPORTANT: 4-6 sentences per section maximum.
+Write with professional insight balanced by human understanding. Be direct about what you observe, but empathetic in interpretation. IMPORTANT: 4-6 sentences per section maximum.
 
 1. INTENDED CULTURE INTERPRETATION (4-6 sentences)
 What do the company's stated values reveal about leadership's vision? What kind of culture are they trying to build?
