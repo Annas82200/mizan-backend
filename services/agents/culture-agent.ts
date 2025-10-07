@@ -179,15 +179,16 @@ Return ONLY a valid JSON object with NO markdown formatting:
 }`;
 
     // Call reasoning AI directly for rich text generation
-    const response = await this.reasoningAI.generateResponse(prompt, {
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
+      prompt,
       temperature: 0.7,
-      maxTokens: 3000,
-      responseFormat: 'json'
+      maxTokens: 3000
     });
 
     try {
       // Parse JSON response
-      let jsonText = response.content;
+      let jsonText = response.narrative;
 
       // Remove markdown code blocks if present
       jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
@@ -195,8 +196,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
       const analysis = JSON.parse(jsonText);
       return analysis;
     } catch (error) {
-      console.error('Failed to parse AI response:', error);
-      console.error('Raw response:', response.content);
+      console.error('Failed to parse individual employee AI response:', error);
+      console.error('Raw response:', response.narrative);
 
       // Return a structured fallback
       return {
@@ -379,15 +380,16 @@ Return ONLY a valid JSON object with NO markdown formatting:
 }`;
 
     // Call reasoning AI directly for rich text generation
-    const response = await this.reasoningAI.generateResponse(prompt, {
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
+      prompt,
       temperature: 0.7,
-      maxTokens: 5000,
-      responseFormat: 'json'
+      maxTokens: 5000
     });
 
     // Parse JSON with fallback handling
     try {
-      let jsonText = response.content;
+      let jsonText = response.narrative;
       // Remove markdown code blocks if present
       jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       const analysis = JSON.parse(jsonText);
