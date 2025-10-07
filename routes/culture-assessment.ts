@@ -591,6 +591,54 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
 });
 
 /**
+ * POST /api/culture-assessment/report/employee/:userId/regenerate
+ * Regenerate employee culture report (AUTHENTICATED)
+ */
+router.post('/report/employee/:userId/regenerate', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    // Get latest assessment
+    const assessment = await db.query.cultureAssessments.findFirst({
+      where: eq(cultureAssessments.userId, userId),
+      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)],
+      with: { user: true }
+    });
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: 'No assessment found'
+      });
+    }
+
+    console.log('🔄 Regenerating employee report for:', userId);
+
+    // Delete old report if exists
+    await db.delete(cultureReports)
+      .where(eq(cultureReports.analysisId, assessment.id));
+
+    // Get tenant ID from assessment or user
+    const tenantId = assessment.tenantId || (assessment.user as any)?.tenantId;
+
+    // Trigger regeneration
+    generateEmployeeReport(assessment.id, userId, tenantId);
+
+    return res.json({
+      success: true,
+      message: 'Employee report regeneration triggered. Report will be ready in 10-15 seconds.'
+    });
+
+  } catch (error) {
+    console.error('Error regenerating employee report:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to regenerate report'
+    });
+  }
+});
+
+/**
  * Get department culture report
  */
 router.get('/report/department/:departmentId', authenticate, async (req: Request, res: Response) => {
