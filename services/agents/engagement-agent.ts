@@ -799,31 +799,29 @@ export class EngagementAgent extends ThreeEngineAgent {
       currentExperience: string[];
     };
   }): Promise<any> {
-    const prompt = `You are an expert engagement analyst using professional yet warm tone. Analyze this employee's engagement score and provide insights.
+    const prompt = `You are an expert engagement analyst using professional yet warm tone. This analysis is FOR THE EMPLOYEE - focus on what THEY can control to improve their own engagement. Be empowering and action-oriented. Do NOT mention workplace problems.
 
 EMPLOYEE ENGAGEMENT DATA:
-- Engagement Score: ${input.engagementScore}/5.0
-- Values Alignment: ${input.context.valuesAlignment}%
-- Current Experience Values: ${input.context.currentExperience.join(', ')}
+- Your Engagement Score: ${input.engagementScore}/5.0
 
-Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Be insightful but concise.
+Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Focus on personal agency and growth.
 
-1. ENGAGEMENT INTERPRETATION (4-6 sentences)
-What does this engagement score reveal? How does it connect to their values alignment and current experience? What might be driving this level of engagement?
+1. WHAT YOUR SCORE MEANS (4-6 sentences)
+What does a ${input.engagementScore}/5.0 engagement score reveal about YOU? This is about self-awareness, not workplace critique. What does this score say about your current connection to your work?
 
-2. KEY FACTORS (4-6 sentences)
-What specific factors are likely influencing their engagement? Consider work satisfaction, growth opportunities, relationships, and purpose.
+2. WHAT YOU CAN CONTROL (4-6 sentences)
+Focus on factors YOU have influence over: How you approach your work, how you build relationships, how you seek growth opportunities, how you find meaning and purpose. What personal actions could shift your engagement?
 
-3. RECOMMENDATIONS (2-3 actionable items)
-What specific steps would improve this employee's engagement? Be practical and specific.
+3. HOW TO IMPROVE YOUR ENGAGEMENT (2-3 actionable items you control)
+Specific steps YOU can take to increase your engagement. Focus on personal agency, not what others should do.
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
-  "interpretation": "4-6 sentence interpretation",
-  "meaning": "what this score means for the employee",
-  "factors": ["factor 1", "factor 2", "factor 3"],
+  "interpretation": "4-6 sentence self-awareness focused interpretation",
+  "meaning": "what this score means about your relationship with your work",
+  "factors": ["factors YOU can influence"],
   "recommendations": [
-    {"title": "string", "description": "string", "actionItems": ["string"]}
+    {"title": "string", "description": "action YOU can take", "actionItems": ["specific steps"]}
   ]
 }`;
 

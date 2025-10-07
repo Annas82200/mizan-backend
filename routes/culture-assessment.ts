@@ -834,39 +834,22 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         employeeName: assessment.user?.name || 'Employee',
         assessmentDate: assessment.completedAt,
 
-        // Personal values interpretation - what they mean personally
+        // Personal values interpretation - what drives them, their strengths
         personalValues: {
           selected: assessment.personalValues,
           interpretation: cultureAnalysis.personalValuesInterpretation || 'Analysis in progress...',
-          dominantCylinders: cultureAnalysis.dominantCylinders || [],
           strengths: cultureAnalysis.strengths || [],
           limitingFactors: cultureAnalysis.limitingFactors || []
         },
 
-        // Current experience - how they experience the company TODAY
-        currentExperience: {
-          selected: assessment.currentExperience,
-          meaning: cultureAnalysis.currentExperienceMeaning || 'Analysis in progress...',
-          cylinders: cultureAnalysis.currentExperienceCylinders || []
-        },
-
-        // Desired experience - how they WANT to experience the company
-        desiredExperience: {
+        // Vision for growth - their aspirations and opportunities
+        visionForGrowth: {
           selected: assessment.desiredExperience,
-          meaning: cultureAnalysis.desiredExperienceMeaning || 'Analysis in progress...',
-          gaps: cultureAnalysis.experienceGaps || [],
+          meaning: cultureAnalysis.visionForGrowth || 'Analysis in progress...',
           opportunities: cultureAnalysis.growthOpportunities || []
         },
 
-        // Alignment analysis
-        alignment: {
-          personalVsCurrent: cultureAnalysis.alignmentScore || 0,
-          interpretation: cultureAnalysis.alignmentInterpretation || '',
-          retentionRisk: cultureAnalysis.retentionRisk || 'medium',
-          recommendations: cultureAnalysis.recommendations || []
-        },
-
-        // Engagement with AI-powered score interpretation
+        // Engagement - what they can control to improve it
         engagement: {
           score: assessment.engagement || 0,
           interpretation: engagementAnalysis.interpretation || 'Analysis in progress...',
@@ -875,7 +858,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           recommendations: engagementAnalysis.recommendations || []
         },
 
-        // Recognition with AI-powered score interpretation
+        // Recognition - how they can increase visibility
         recognition: {
           score: assessment.recognition || 0,
           interpretation: recognitionAnalysis.interpretation || 'Analysis in progress...',
@@ -884,16 +867,17 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           recommendations: recognitionAnalysis.recommendations || []
         },
 
-        // Overall summary
+        // Reflection questions - personalized for growth
+        reflectionQuestions: cultureAnalysis.reflectionQuestions || [],
+
+        // Summary - growth-focused
         overallSummary: {
-          culturalFit: cultureAnalysis.alignmentScore >= 70 ? 'Strong' :
-                       cultureAnalysis.alignmentScore >= 50 ? 'Moderate' : 'Needs Attention',
           keyStrengths: cultureAnalysis.strengths?.slice(0, 3) || [],
-          developmentAreas: cultureAnalysis.recommendations?.slice(0, 3) || [],
-          nextSteps: cultureAnalysis.nextSteps || [
-            'Review your personalized insights',
-            'Discuss development opportunities with your manager',
-            'Explore recommended learning paths'
+          growthOpportunities: cultureAnalysis.growthOpportunities?.slice(0, 3) || [],
+          nextSteps: [
+            'Reflect on your personalized questions',
+            'Take one small action from your recommendations',
+            'Revisit this report monthly to track your growth'
           ]
         }
       };

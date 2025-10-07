@@ -136,43 +136,38 @@ export class CultureAgent extends ThreeEngineAgent {
     desiredExperienceValues: string[];
   }): Promise<any> {
     // Build a comprehensive prompt for AI analysis
-    const prompt = `You are an expert culture analyst using the Mizan 7-Cylinder Framework. This analysis is FOR THE EMPLOYEE to read about themselves. Write in a professional yet warm tone - insightful and honest, but encouraging and supportive. Be direct and personal.
+    const prompt = `You are an expert culture analyst using the Mizan 7-Cylinder Framework. This analysis is FOR THE EMPLOYEE to read about themselves - focus on GROWTH, STRENGTHS, and EMPOWERMENT. Write in a professional yet warm tone that inspires self-reflection and positive action. Do NOT mention workplace problems or cultural issues.
 
 EMPLOYEE: ${input.employeeName}
 
 SURVEY RESPONSES:
 1. Personal Values (what matters most to them): ${input.personalValues.join(', ')}
-2. Current Experience (how they experience the company today): ${input.currentExperienceValues.join(', ')}
-3. Desired Future Experience (how they want to experience the company): ${input.desiredExperienceValues.join(', ')}
+2. Desired Future Experience (what they're seeking): ${input.desiredExperienceValues.join(', ')}
 
-Provide analysis in this structure. IMPORTANT: Keep each section to 4-6 sentences maximum. Be insightful but concise.
+IMPORTANT: Keep each section to 4-6 sentences maximum. Be empowering, growth-focused, and forward-looking.
 
 1. PERSONAL VALUES INTERPRETATION (4-6 sentences)
-What do these values reveal about this person? What drives them? What are their core strengths? If any limiting values were selected, what might be holding them back? Be personal, encouraging, and accurate.
+What do these values reveal about what drives this person? What are their core strengths based on these values? If any limiting values (Fear, Neglect, Instability, Complacency) were selected, gently explore what might be holding them back. Focus on self-awareness and personal growth, not workplace critique.
 
-2. CURRENT EXPERIENCE MEANING (4-6 sentences)
-Describe HOW this employee experiences the company today. Paint a picture of their daily reality. What does their work environment feel like? Be empathetic.
+2. YOUR VISION FOR GROWTH (4-6 sentences)
+Based on their desired future values (${input.desiredExperienceValues.join(', ')}), what kind of experience are they seeking? What opportunities for growth and development would help them thrive? Paint an inspiring picture of their aspirations. Be encouraging and forward-looking.
 
-3. DESIRED FUTURE MEANING (4-6 sentences)
-What kind of experience is this employee seeking? What would make work more fulfilling? What gaps exist? What growth opportunities? Be encouraging and forward-looking.
-
-4. ALIGNMENT ANALYSIS (4-6 sentences)
-Calculate alignment score (0-100) between personal values and current experience. Provide interpretation. Assess retention risk (low/medium/high). Give 2-3 actionable recommendations.
+3. REFLECTION QUESTIONS (2 customized questions)
+Generate 2 personalized reflection questions:
+- Question 1: How can they use their core strengths (from personal values) to create positive impact and promote a healthy, productive culture?
+- Question 2: What small, actionable step could they take this week to bring more of their desired values into their daily work experience?
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
-  "personalValuesInterpretation": "string",
-  "strengths": ["string"],
-  "limitingFactors": ["string"],
-  "currentExperienceMeaning": "string",
-  "desiredExperienceMeaning": "string",
-  "experienceGaps": ["string"],
-  "growthOpportunities": ["string"],
-  "alignmentScore": number,
-  "alignmentInterpretation": "string",
-  "retentionRisk": "low|medium|high",
-  "recommendations": [{"title": "string", "description": "string", "actionItems": ["string"]}],
-  "nextSteps": ["string"]
+  "personalValuesInterpretation": "4-6 sentence interpretation focused on self-awareness",
+  "strengths": ["3-5 core strengths based on their values"],
+  "limitingFactors": ["any limiting values if present"],
+  "visionForGrowth": "4-6 sentence inspiring description of their aspirations",
+  "growthOpportunities": ["3-5 specific opportunities for development"],
+  "reflectionQuestions": [
+    {"question": "How can you use your strengths in [X, Y, Z] to create positive cultural impact?", "purpose": "Leverage strengths for team benefit"},
+    {"question": "What small step could you take this week to bring more [desired value] into your work?", "purpose": "Actionable values alignment"}
+  ]
 }`;
 
     // Call reasoning AI with 4-provider consensus for rich text generation
@@ -209,18 +204,21 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
       // Return a structured fallback
       return {
-        personalValuesInterpretation: `Based on the values selected (${input.personalValues.join(', ')}), this employee demonstrates a thoughtful approach to their work and relationships. Further analysis is being refined.`,
-        strengths: input.personalValues.filter(v => !['Fear', 'Neglect', 'Instability', 'Complacency'].includes(v)).slice(0, 3),
+        personalValuesInterpretation: `Based on your values (${input.personalValues.join(', ')}), you demonstrate a thoughtful approach to your work and relationships. Further analysis is being refined.`,
+        strengths: input.personalValues.filter(v => !['Fear', 'Neglect', 'Instability', 'Complacency'].includes(v)).slice(0, 5),
         limitingFactors: input.personalValues.filter(v => ['Fear', 'Neglect', 'Instability', 'Complacency'].includes(v)),
-        currentExperienceMeaning: `The employee's current experience is characterized by ${input.currentExperienceValues.join(', ').toLowerCase()}. Further analysis is being refined.`,
-        desiredExperienceMeaning: `They aspire to experience ${input.desiredExperienceValues.join(', ').toLowerCase()} in their work environment. Further analysis is being refined.`,
-        experienceGaps: [],
-        growthOpportunities: [],
-        alignmentScore: 50,
-        alignmentInterpretation: 'Analysis in progress...',
-        retentionRisk: 'medium',
-        recommendations: [],
-        nextSteps: ['Review your personalized insights', 'Discuss with your manager']
+        visionForGrowth: `You aspire to experience ${input.desiredExperienceValues.join(', ').toLowerCase()} in your work environment, showing a clear vision for meaningful growth. Further analysis is being refined.`,
+        growthOpportunities: input.desiredExperienceValues.slice(0, 5),
+        reflectionQuestions: [
+          {
+            question: "How can you use your core strengths to create positive impact on your team's culture?",
+            purpose: "Leverage strengths for team benefit"
+          },
+          {
+            question: "What small step could you take this week to bring more of your desired values into your daily work?",
+            purpose: "Actionable values alignment"
+          }
+        ]
       };
     }
   }

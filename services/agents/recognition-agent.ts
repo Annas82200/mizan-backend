@@ -862,31 +862,29 @@ export class RecognitionAgent extends ThreeEngineAgent {
       engagement: number;
     };
   }): Promise<any> {
-    const prompt = `You are an expert recognition analyst using professional yet warm tone. Analyze this employee's recognition score and provide insights.
+    const prompt = `You are an expert recognition analyst using professional yet warm tone. This analysis is FOR THE EMPLOYEE - focus on what THEY can do to increase their own visibility and recognition. Be empowering and action-oriented. Do NOT mention workplace problems.
 
 EMPLOYEE RECOGNITION DATA:
-- Recognition Score: ${input.recognitionScore}/5.0
-- Values Alignment: ${input.context.valuesAlignment}%
-- Engagement Score: ${input.context.engagement}/5.0
+- Your Recognition Score: ${input.recognitionScore}/5.0
 
-Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Be insightful but concise.
+Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Focus on personal agency and growth.
 
-1. RECOGNITION INTERPRETATION (4-6 sentences)
-What does this recognition score reveal? How does it connect to their values alignment and engagement? What might be driving this level of recognition?
+1. WHAT YOUR SCORE REVEALS (4-6 sentences)
+What does a ${input.recognitionScore}/5.0 recognition score reveal about YOU? How do you best receive recognition? What does this score say about your current visibility and acknowledgment?
 
-2. IMPACT ANALYSIS (4-6 sentences)
-How does this recognition level impact their motivation, performance, and retention? What are the implications?
+2. HOW YOU CAN INCREASE RECOGNITION (4-6 sentences)
+Focus on what YOU control: How you share your achievements, how you communicate your contributions, how you build relationships that lead to acknowledgment. What can you do to make your work more visible?
 
-3. RECOMMENDATIONS (2-3 actionable items)
-What specific steps would improve recognition for this employee? Be practical and specific.
+3. ACTIONABLE STEPS (2-3 items you control)
+Specific ways YOU can increase the visibility of your contributions and receive more meaningful recognition. Focus on personal actions.
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
-  "interpretation": "4-6 sentence interpretation",
-  "meaning": "what this score means for the employee",
-  "impact": "how this impacts them",
+  "interpretation": "4-6 sentence self-awareness focused interpretation",
+  "meaning": "what this score means about your visibility and acknowledgment",
+  "impact": "how recognition affects your motivation and growth",
   "recommendations": [
-    {"title": "string", "description": "string", "actionItems": ["string"]}
+    {"title": "string", "description": "action YOU can take", "actionItems": ["specific steps"]}
   ]
 }`;
 

@@ -50,19 +50,19 @@ export class StructureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
       knowledge: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.2,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.4,
         maxTokens: 4000
@@ -88,7 +88,7 @@ export class StructureAgent extends ThreeEngineAgent {
     structureData: any;
     strategyData?: any;
   }): Promise<any> {
-    const prompt = `You are an organizational design expert analyzing a company's structure with deep empathy and strategic insight. This analysis is for LEADERSHIP to understand what their structure really means for their business and people.
+    const prompt = `You are an organizational design expert analyzing a company's structure with professional yet warm tone. This analysis is for LEADERSHIP to understand what their structure really means for their business and people.
 
 COMPANY: ${input.companyName}
 
@@ -98,46 +98,46 @@ ${JSON.stringify(input.structureData, null, 2)}
 ${input.strategyData ? `COMPANY STRATEGY:
 ${JSON.stringify(input.strategyData, null, 2)}` : ''}
 
-Provide a comprehensive analysis following this structure. Write 2-3 paragraphs for each section - be warm, insightful, and tell a STORY about what this structure means:
+Provide a comprehensive analysis following this structure. IMPORTANT: Keep each interpretation to 4-6 sentences maximum. Be insightful and tell a STORY about what this structure means:
 
-1. OVERALL STRUCTURAL HEALTH (2-3 paragraphs)
+1. OVERALL STRUCTURAL HEALTH (4-6 sentences)
 Paint a picture of this organization's structure. What does it feel like to work here based on the structure? How does information flow? How empowered are employees? Don't just say "7 layers" - explain what that MEANS for decision-making speed, employee autonomy, and organizational agility.
 
-2. SPAN OF CONTROL REALITY (2-3 paragraphs)
+2. SPAN OF CONTROL REALITY (4-6 sentences)
 Describe what the span of control patterns reveal about management capacity and employee support. If managers have 15 direct reports, what does that MEAN for their daily reality? Can they actually coach and develop people? If spans are too narrow (2-3 reports), what does that mean for organizational efficiency and employee empowerment?
 
-3. HIERARCHICAL LAYERS IMPACT (2-3 paragraphs)
+3. HIERARCHICAL LAYERS IMPACT (4-6 sentences)
 Explain what the layer structure means for the business. How does this affect decision-making? Employee engagement? Speed of execution? Does the structure enable or hinder the strategy? If there are bottlenecks, describe the ACTUAL BUSINESS IMPACT (not just "bottleneck detected").
 
-4. STRATEGY-STRUCTURE ALIGNMENT (2-3 paragraphs, if strategy provided)
+4. STRATEGY-STRUCTURE ALIGNMENT (4-6 sentences, if strategy provided)
 Tell the story of whether the structure supports or undermines the strategic goals. Be specific about WHERE the misalignment exists and WHY it matters. What will happen if this isn't fixed?
 
-5. HUMAN IMPACT (2-3 paragraphs)
+5. HUMAN IMPACT (4-6 sentences)
 What does this structure mean for the people working here? Are employees set up for success? Are managers overwhelmed? Are there career growth paths? Is innovation encouraged or stifled by the structure?
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
   "overallScore": number (0-100),
-  "overallHealthInterpretation": "2-3 paragraph warm, contextual interpretation",
+  "overallHealthInterpretation": "4-6 sentence warm, contextual interpretation",
   "spanAnalysis": {
     "average": number,
     "distribution": {},
     "outliers": [],
-    "interpretation": "2-3 paragraph story about what span patterns mean for managers and employees"
+    "interpretation": "4-6 sentence story about what span patterns mean for managers and employees"
   },
   "layerAnalysis": {
     "totalLayers": number,
     "averageLayersToBottom": number,
     "bottlenecks": [],
-    "interpretation": "2-3 paragraph story about what the layer structure means for the business"
+    "interpretation": "4-6 sentence story about what the layer structure means for the business"
   },
   "strategyAlignment": {
     "score": number (0-100),
     "misalignments": [],
-    "interpretation": "2-3 paragraph story about how structure helps or hinders strategy"
+    "interpretation": "4-6 sentence story about how structure helps or hinders strategy"
   },
   "humanImpact": {
-    "interpretation": "2-3 paragraph story about what this means for people",
+    "interpretation": "4-6 sentence story about what this means for people",
     "strengths": ["string"],
     "challenges": ["string"]
   },
@@ -146,7 +146,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       "category": "span|layers|alignment|efficiency",
       "priority": "high|medium|low",
       "title": "string",
-      "description": "2-3 paragraph contextual explanation of WHY this matters",
+      "description": "4-6 sentence contextual explanation of WHY this matters",
       "actionItems": ["string"],
       "expectedImpact": "string",
       "timeframe": "string"
@@ -155,21 +155,23 @@ Return ONLY a valid JSON object with NO markdown formatting:
 }`;
 
     // Call reasoning AI directly for rich text generation
-    const response = await this.reasoningAI.generateResponse(prompt, {
+    const response = await this.reasoningAI.call({
+      engine: 'reasoning',
+      prompt,
       temperature: 0.7,
-      maxTokens: 4000,
-      responseFormat: 'json'
+      maxTokens: 8000
     });
 
     // Parse JSON with fallback handling
     try {
-      let jsonText = response.content;
+      let jsonText = response.narrative;
       // Remove markdown code blocks if present
       jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       const analysis = JSON.parse(jsonText);
       return analysis;
     } catch (error) {
       console.error('Failed to parse structure analysis:', error);
+      console.error('Raw response:', response.narrative?.substring(0, 500));
       // Return structured fallback
       return {
         overallScore: 50,
