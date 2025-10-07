@@ -913,6 +913,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       return JSON.parse(jsonText);
     } catch (error) {
       console.error('❌ RecognitionAgent.analyzeIndividual - Parse error:', error);
+      console.error('Raw response:', response.narrative?.substring(0, 500));
       return {
         interpretation: 'Analysis in progress...',
         meaning: '',

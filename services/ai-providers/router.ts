@@ -161,7 +161,7 @@ class AIProviderRouter {
   private async invokeGemini(call: ProviderCall): Promise<ProviderResponse> {
     try {
       const model = this.gemini.getGenerativeModel({
-        model: call.model || "gemini-pro"  // v1beta API only supports gemini-pro, not 1.5-pro
+        model: call.model || "gemini-1.5-flash"  // v1 API supports gemini-1.5-flash (faster, cheaper) and gemini-1.5-pro
       });
       
       const result = await model.generateContent({
