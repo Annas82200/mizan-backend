@@ -783,8 +783,6 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
   setTimeout(async () => {
     try {
       const cultureAgent = new CultureAgent();
-      const engagementAgent = new EngagementAgent();
-      const recognitionAgent = new RecognitionAgent();
 
       // Get the assessment with user data
       const assessment = await db.query.cultureAssessments.findFirst({
@@ -796,7 +794,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
 
       if (!assessment) return;
 
-      // Call Culture Agent to analyze individual employee
+      // Call Culture Agent to analyze individual employee (4-AI consensus)
       const cultureAnalysis = await cultureAgent.analyzeIndividualEmployee({
         tenantId,
         employeeId: userId,
@@ -804,28 +802,6 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         personalValues: assessment.personalValues as string[],
         currentExperienceValues: assessment.currentExperience as string[],
         desiredExperienceValues: assessment.desiredExperience as string[]
-      });
-
-      // Get engagement insights from Engagement Agent
-      const engagementAnalysis = await engagementAgent.analyzeIndividual({
-        tenantId,
-        employeeId: userId,
-        engagementScore: assessment.engagement || 0,
-        context: {
-          valuesAlignment: cultureAnalysis.alignmentScore || 0,
-          currentExperience: assessment.currentExperience as string[]
-        }
-      });
-
-      // Get recognition insights from Recognition Agent
-      const recognitionAnalysis = await recognitionAgent.analyzeIndividual({
-        tenantId,
-        employeeId: userId,
-        recognitionScore: assessment.recognition || 0,
-        context: {
-          valuesAlignment: cultureAnalysis.alignmentScore || 0,
-          engagement: assessment.engagement || 0
-        }
       });
 
       // Build comprehensive employee report with rich AI insights
@@ -866,22 +842,14 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           recommendations: cultureAnalysis.recommendations || []
         },
 
-        // Engagement with score interpretation
+        // Engagement with score
         engagement: {
-          score: assessment.engagement || 0,
-          interpretation: engagementAnalysis.interpretation || '',
-          meaning: engagementAnalysis.meaning || '',
-          factors: engagementAnalysis.factors || [],
-          recommendations: engagementAnalysis.recommendations || []
+          score: assessment.engagement || 0
         },
 
-        // Recognition with score interpretation
+        // Recognition with score
         recognition: {
-          score: assessment.recognition || 0,
-          interpretation: recognitionAnalysis.interpretation || '',
-          meaning: recognitionAnalysis.meaning || '',
-          impact: recognitionAnalysis.impact || '',
-          recommendations: recognitionAnalysis.recommendations || []
+          score: assessment.recognition || 0
         },
 
         // Overall summary
