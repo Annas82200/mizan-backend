@@ -58,19 +58,19 @@ export class CultureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
       knowledge: {
-        providers: ['openai', 'anthropic', 'mistral'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.3,
         maxTokens: 2000
       },
       data: {
-        providers: ['openai', 'anthropic', 'mistral'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
-        providers: ['openai', 'anthropic', 'mistral'],
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
         model: 'gpt-4',
         temperature: 0.5,
         maxTokens: 4000
