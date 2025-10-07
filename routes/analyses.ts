@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { analyzeStructure } from "../services/agents/structure-agent.js";
+import { analyzeStructure, StructureAgent } from "../services/agents/structure-agent.js";
 import { analyzeCulture } from "../services/agents/culture-agent.js";
 import { runArchitectAI } from "../services/orchestrator/architect-ai.js";
 import { buildUnifiedResults } from "../services/results/unified-results.js";
@@ -526,6 +526,20 @@ router.post("/structure", async (req, res) => {
     // Calculate real analysis from actual data with strategy alignment
     const result = calculateRealStructureAnalysis(structureData, strategyData);
 
+    // Run rich AI-powered structure analysis for human, contextual insights
+    const structureAgent = new StructureAgent();
+    let richAnalysis: any = null;
+    try {
+      richAnalysis = await structureAgent.generateRichStructureAnalysis({
+        tenantId,
+        companyName: tenantInfo?.name || 'Your Organization',
+        structureData: structureData,
+        strategyData: strategyData.vision || strategyData.mission || strategyData.strategy ? strategyData : undefined
+      });
+    } catch (error) {
+      console.error('Failed to generate rich structure analysis:', error);
+    }
+
     // Run expert organizational design analysis
     let expertAnalysis: ExpertOrgDesignAnalysis | null = null;
     if (strategyData.vision || strategyData.mission || strategyData.strategy) {
@@ -550,6 +564,7 @@ router.post("/structure", async (req, res) => {
 
     return res.json({
       ...result,
+      richAnalysis: richAnalysis || null,
       expertInsights: expertAnalysis ? {
         companyStage: {
           stage: expertAnalysis.companyStage.stage,

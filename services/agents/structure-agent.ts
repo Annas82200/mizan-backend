@@ -78,6 +78,129 @@ export class StructureAgent extends ThreeEngineAgent {
     return result.finalOutput;
   }
 
+  /**
+   * Generate rich, human, contextual structure analysis using AI
+   * Similar to Culture Agent's analyzeIndividualEmployee - tells a story, not just data
+   */
+  async generateRichStructureAnalysis(input: {
+    tenantId: string;
+    companyName: string;
+    structureData: any;
+    strategyData?: any;
+  }): Promise<any> {
+    const prompt = `You are an organizational design expert analyzing a company's structure with deep empathy and strategic insight. This analysis is for LEADERSHIP to understand what their structure really means for their business and people.
+
+COMPANY: ${input.companyName}
+
+STRUCTURE DATA:
+${JSON.stringify(input.structureData, null, 2)}
+
+${input.strategyData ? `COMPANY STRATEGY:
+${JSON.stringify(input.strategyData, null, 2)}` : ''}
+
+Provide a comprehensive analysis following this structure. Write 2-3 paragraphs for each section - be warm, insightful, and tell a STORY about what this structure means:
+
+1. OVERALL STRUCTURAL HEALTH (2-3 paragraphs)
+Paint a picture of this organization's structure. What does it feel like to work here based on the structure? How does information flow? How empowered are employees? Don't just say "7 layers" - explain what that MEANS for decision-making speed, employee autonomy, and organizational agility.
+
+2. SPAN OF CONTROL REALITY (2-3 paragraphs)
+Describe what the span of control patterns reveal about management capacity and employee support. If managers have 15 direct reports, what does that MEAN for their daily reality? Can they actually coach and develop people? If spans are too narrow (2-3 reports), what does that mean for organizational efficiency and employee empowerment?
+
+3. HIERARCHICAL LAYERS IMPACT (2-3 paragraphs)
+Explain what the layer structure means for the business. How does this affect decision-making? Employee engagement? Speed of execution? Does the structure enable or hinder the strategy? If there are bottlenecks, describe the ACTUAL BUSINESS IMPACT (not just "bottleneck detected").
+
+4. STRATEGY-STRUCTURE ALIGNMENT (2-3 paragraphs, if strategy provided)
+Tell the story of whether the structure supports or undermines the strategic goals. Be specific about WHERE the misalignment exists and WHY it matters. What will happen if this isn't fixed?
+
+5. HUMAN IMPACT (2-3 paragraphs)
+What does this structure mean for the people working here? Are employees set up for success? Are managers overwhelmed? Are there career growth paths? Is innovation encouraged or stifled by the structure?
+
+Return ONLY a valid JSON object with NO markdown formatting:
+{
+  "overallScore": number (0-100),
+  "overallHealthInterpretation": "2-3 paragraph warm, contextual interpretation",
+  "spanAnalysis": {
+    "average": number,
+    "distribution": {},
+    "outliers": [],
+    "interpretation": "2-3 paragraph story about what span patterns mean for managers and employees"
+  },
+  "layerAnalysis": {
+    "totalLayers": number,
+    "averageLayersToBottom": number,
+    "bottlenecks": [],
+    "interpretation": "2-3 paragraph story about what the layer structure means for the business"
+  },
+  "strategyAlignment": {
+    "score": number (0-100),
+    "misalignments": [],
+    "interpretation": "2-3 paragraph story about how structure helps or hinders strategy"
+  },
+  "humanImpact": {
+    "interpretation": "2-3 paragraph story about what this means for people",
+    "strengths": ["string"],
+    "challenges": ["string"]
+  },
+  "recommendations": [
+    {
+      "category": "span|layers|alignment|efficiency",
+      "priority": "high|medium|low",
+      "title": "string",
+      "description": "2-3 paragraph contextual explanation of WHY this matters",
+      "actionItems": ["string"],
+      "expectedImpact": "string",
+      "timeframe": "string"
+    }
+  ]
+}`;
+
+    // Call reasoning AI directly for rich text generation
+    const response = await this.reasoningAI.generateResponse(prompt, {
+      temperature: 0.7,
+      maxTokens: 4000,
+      responseFormat: 'json'
+    });
+
+    // Parse JSON with fallback handling
+    try {
+      let jsonText = response.content;
+      // Remove markdown code blocks if present
+      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const analysis = JSON.parse(jsonText);
+      return analysis;
+    } catch (error) {
+      console.error('Failed to parse structure analysis:', error);
+      // Return structured fallback
+      return {
+        overallScore: 50,
+        overallHealthInterpretation: 'Analysis in progress. We are evaluating your organizational structure to provide comprehensive insights.',
+        spanAnalysis: {
+          average: 0,
+          distribution: {},
+          outliers: [],
+          interpretation: 'Span of control analysis is being processed.'
+        },
+        layerAnalysis: {
+          totalLayers: 0,
+          averageLayersToBottom: 0,
+          bottlenecks: [],
+          interpretation: 'Hierarchical layer analysis is being processed.'
+        },
+        strategyAlignment: {
+          score: 0,
+          misalignments: [],
+          interpretation: 'Strategy-structure alignment analysis is being processed.'
+        },
+        humanImpact: {
+          interpretation: 'Human impact analysis is being processed.',
+          strengths: [],
+          challenges: []
+        },
+        recommendations: []
+      };
+    }
+  }
+
   protected async loadFrameworks(): Promise<any> {
     return {
       galbraithStar: {
