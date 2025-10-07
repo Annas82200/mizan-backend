@@ -390,30 +390,31 @@ Return ONLY a valid JSON object with NO markdown formatting:
   ]
 }`;
 
-    // Call reasoning AI directly for rich text generation
-    console.log('🚀 ORG CULTURE - Calling AI, prompt length:', prompt.length);
-    const response = await this.reasoningAI.call({
-      engine: 'reasoning',
+    // Call OpenAI directly to avoid EnsembleAI text wrapping that corrupts JSON
+    console.log('🚀 ORG CULTURE - Calling OpenAI directly, prompt length:', prompt.length);
+    const { invokeProvider } = await import('../ai-providers/router.js');
+    const rawResponse = await invokeProvider('openai', {
       prompt,
       temperature: 0.7,
-      maxTokens: 4000
+      maxTokens: 4000,
+      requireJson: true
     });
 
-    console.log('🎉 ORG CULTURE - AI returned, response keys:', Object.keys(response || {}));
-    console.log('🎉 ORG CULTURE - narrative exists?', !!response?.narrative, 'type:', typeof response?.narrative);
+    console.log('🎉 ORG CULTURE - OpenAI returned, response type:', typeof rawResponse.response);
 
     // Parse JSON with fallback handling
     try {
-      if (!response || !response.narrative) {
-        throw new Error(`AI response missing: response=${!!response}, narrative=${!!response?.narrative}`);
+      let jsonText: string;
+      if (typeof rawResponse.response === 'string') {
+        jsonText = rawResponse.response;
+      } else {
+        jsonText = JSON.stringify(rawResponse.response);
       }
 
-      let jsonText = response.narrative;
       console.log('🔍 ORG CULTURE - Raw response length:', jsonText?.length);
       console.log('🔍 ORG CULTURE - First 500 chars:', jsonText?.substring(0, 500));
 
-      // EnsembleAI wraps JSON in explanatory text like "Multi-AI reasoning analysis for undefined: ```json {...} ```"
-      // Extract JSON from markdown code blocks first
+      // Extract JSON from markdown code blocks if present
       const jsonMatch = jsonText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1];
@@ -424,10 +425,6 @@ Return ONLY a valid JSON object with NO markdown formatting:
         if (directJsonMatch) {
           jsonText = directJsonMatch[1];
           console.log('🔍 ORG CULTURE - Extracted JSON object directly');
-        } else {
-          // Remove markdown and extra text as fallback
-          jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-          console.log('🔍 ORG CULTURE - Used fallback cleanup');
         }
       }
 
@@ -438,7 +435,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       return analysis;
     } catch (error) {
       console.error('❌ ORG CULTURE - Parse error:', error);
-      console.error('❌ ORG CULTURE - Full response:', response.narrative);
+      console.error('❌ ORG CULTURE - Full response:', rawResponse.response);
       // Return structured fallback
       return {
         totalEmployees: input.assessments.length,
