@@ -396,7 +396,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
-      maxTokens: 5000
+      maxTokens: 4000
     });
 
     console.log('🎉 ORG CULTURE - AI returned, response keys:', Object.keys(response || {}));
