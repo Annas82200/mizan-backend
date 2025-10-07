@@ -132,7 +132,7 @@ class AIProviderRouter {
   private async invokeAnthropic(call: ProviderCall): Promise<ProviderResponse> {
     try {
       const response = await this.anthropic.messages.create({
-        model: call.model || "claude-3-5-sonnet-20240620",
+        model: call.model || "claude-sonnet-4-5",
         messages: [
           {
             role: "user",
