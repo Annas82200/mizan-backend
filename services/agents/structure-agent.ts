@@ -120,6 +120,18 @@ Tell the story of whether the structure supports or undermines the strategic goa
 5. HUMAN IMPACT (4-6 sentences)
 What does this structure mean for the people working here? Are employees set up for success? Are managers overwhelmed? Are there career growth paths? Is innovation encouraged or stifled by the structure?
 
+6. RECOMMENDATIONS
+Your recommendations must answer: "What does the organization need to do to achieve the strategy?"
+CRITICAL: Base recommendations ONLY on:
+- The actual organizational structure provided (reporting relationships, layers, spans)
+- The stated strategy/vision/mission provided
+- Observable structural patterns (bottlenecks, spans, layers)
+Do NOT assume or recommend based on:
+- Cross-functional collaboration (unless visible in structure data)
+- Team dynamics or culture (not part of structure data)
+- Skills or capabilities (not provided in structure data)
+- Any other factors not explicitly present in the data
+
 Return ONLY a valid JSON object with NO markdown formatting:
 {
   "overallScore": number (0-100),
@@ -151,9 +163,9 @@ Return ONLY a valid JSON object with NO markdown formatting:
       "category": "span|layers|alignment|efficiency",
       "priority": "high|medium|low",
       "title": "string",
-      "description": "4-6 sentence contextual explanation of WHY this matters",
+      "description": "4-6 sentence explanation focused on: What does the organization need to do to achieve the strategy? Base this ONLY on the actual structure and strategy data provided - do NOT assume information about cross-functional collaboration, culture, or other factors not present in the data.",
       "actionItems": ["string"],
-      "expectedImpact": "string",
+      "expectedImpact": "How this structural change will help achieve the stated strategy",
       "timeframe": "string"
     }
   ]
