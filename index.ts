@@ -23,6 +23,7 @@ import modulesRoutes from './routes/modules.js';
 import frameworkRoutes from './routes/framework.js';
 import exportRoutes from './routes/export.js';
 import testAiRoutes from './routes/test-ai.js';
+import publicStructureRoutes from './routes/public-structure.js';
 
 // Load environment variables
 dotenv.config();
@@ -192,6 +193,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // API Routes
+app.use('/api/public/structure', publicStructureRoutes); // Public structure analysis (no auth required)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/employee', employeeRoutes);
