@@ -98,6 +98,8 @@ ${JSON.stringify(input.structureData, null, 2)}
 ${input.strategyData ? `COMPANY STRATEGY:
 ${JSON.stringify(input.strategyData, null, 2)}` : ''}
 
+CRITICAL: ONLY analyze what you see in the actual data provided. Do NOT make assumptions about information that is not present in the structure data or strategy data. If data is missing, acknowledge the limitation rather than assuming details.
+
 Provide a comprehensive analysis following this structure. IMPORTANT: Keep each interpretation to 4-6 sentences maximum. Be insightful and tell a STORY about what this structure means:
 
 1. OVERALL STRUCTURAL HEALTH (4-6 sentences)

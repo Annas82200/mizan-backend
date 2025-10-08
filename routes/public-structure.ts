@@ -97,12 +97,24 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
     let richAnalysis: any = null;
 
     try {
-      richAnalysis = await structureAgent.generateRichStructureAnalysis({
+      const agentResponse = await structureAgent.generateRichStructureAnalysis({
         tenantId: 'public', // Special tenant ID for public analyses
         companyName,
         structureData,
         strategyData: vision || mission || strategy ? strategyData : undefined
       });
+
+      // Transform agent response to match frontend expectations
+      richAnalysis = {
+        overallAssessment: agentResponse.overallHealthInterpretation || '',
+        keyFindings: [
+          agentResponse.spanAnalysis?.interpretation,
+          agentResponse.layerAnalysis?.interpretation,
+          agentResponse.strategyAlignment?.interpretation,
+          agentResponse.humanImpact?.interpretation
+        ].filter(Boolean),
+        recommendations: agentResponse.recommendations || []
+      };
     } catch (aiError: any) {
       console.error('AI analysis error:', aiError);
       // Fall back to basic analysis if AI fails
