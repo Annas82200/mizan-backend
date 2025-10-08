@@ -24,6 +24,7 @@ import frameworkRoutes from './routes/framework.js';
 import exportRoutes from './routes/export.js';
 import testAiRoutes from './routes/test-ai.js';
 import publicStructureRoutes from './routes/public-structure.js';
+import socialMediaRoutes from './routes/social-media.js';
 
 // Load environment variables
 dotenv.config();
@@ -209,6 +210,7 @@ app.use('/api/billing', billingRoutes); // Billing and payment endpoints
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 app.use('/api/export', exportRoutes); // Export formatted reports
+app.use('/api/social-media', socialMediaRoutes); // Social media content generation
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware
