@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { SocialMediaAgent, SocialMediaInput } from '../services/agents/social-media-agent.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { bufferService } from '../services/buffer-service.js';
 
 const router = Router();
 
@@ -316,5 +317,146 @@ function getWeeklyStrategy(week: number): any {
 
   return strategies[week];
 }
+
+/**
+ * POST /api/social-media/schedule-to-buffer
+ * Schedule generated content to Buffer
+ */
+router.post('/schedule-to-buffer', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { content, profileIds, scheduledAt, mediaUrl } = req.body;
+
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content is required'
+      });
+    }
+
+    if (!profileIds || profileIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'At least one Buffer profile ID is required'
+      });
+    }
+
+    const bufferPosts = await bufferService.createPost({
+      profileIds,
+      text: content,
+      scheduledAt,
+      media: mediaUrl ? { photo: mediaUrl } : undefined,
+      shorten: true
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: `Post scheduled to ${bufferPosts.length} profile(s)`,
+        posts: bufferPosts
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Buffer scheduling error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to schedule to Buffer'
+    });
+  }
+});
+
+/**
+ * GET /api/social-media/buffer/profiles
+ * Get connected Buffer profiles (social media accounts)
+ */
+router.get('/buffer/profiles', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const profiles = await bufferService.getProfiles();
+
+    return res.status(200).json({
+      success: true,
+      data: profiles
+    });
+
+  } catch (error: any) {
+    console.error('Buffer profiles fetch error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch Buffer profiles'
+    });
+  }
+});
+
+/**
+ * GET /api/social-media/buffer/pending/:profileId
+ * Get pending posts in Buffer queue for a profile
+ */
+router.get('/buffer/pending/:profileId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { profileId } = req.params;
+
+    const pendingPosts = await bufferService.getPendingPosts(profileId);
+
+    return res.status(200).json({
+      success: true,
+      data: pendingPosts
+    });
+
+  } catch (error: any) {
+    console.error('Buffer pending posts fetch error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch pending posts'
+    });
+  }
+});
+
+/**
+ * DELETE /api/social-media/buffer/post/:postId
+ * Delete a scheduled post from Buffer
+ */
+router.delete('/buffer/post/:postId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+
+    const success = await bufferService.deletePost(postId);
+
+    return res.status(200).json({
+      success,
+      message: success ? 'Post deleted successfully' : 'Failed to delete post'
+    });
+
+  } catch (error: any) {
+    console.error('Buffer post deletion error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete post'
+    });
+  }
+});
+
+/**
+ * GET /api/social-media/buffer/analytics/:postId
+ * Get analytics for a sent post
+ */
+router.get('/buffer/analytics/:postId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+
+    const analytics = await bufferService.getPostAnalytics(postId);
+
+    return res.status(200).json({
+      success: true,
+      data: analytics
+    });
+
+  } catch (error: any) {
+    console.error('Buffer analytics fetch error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch analytics'
+    });
+  }
+});
 
 export default router;
