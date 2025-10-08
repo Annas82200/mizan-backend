@@ -2,6 +2,7 @@ import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent.j
 import { db } from '../../db/index.js';
 import { organizationStructure, companyStrategies } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { invokeProvider } from '../ai-providers/router.js';
 
 export interface StructureAnalysisInput {
   tenantId: string;
@@ -81,12 +82,14 @@ export class StructureAgent extends ThreeEngineAgent {
   /**
    * Generate rich, human, contextual structure analysis using AI
    * Similar to Culture Agent's analyzeIndividualEmployee - tells a story, not just data
+   * @param useFastMode - If true, uses single fast provider (Gemini) instead of 4-provider consensus
    */
   async generateRichStructureAnalysis(input: {
     tenantId: string;
     companyName: string;
     structureData: any;
     strategyData?: any;
+    useFastMode?: boolean;
   }): Promise<any> {
     const prompt = `You are an organizational design expert analyzing a company's structure with professional yet warm tone. This analysis is for LEADERSHIP to understand what their structure really means for their business and people.
 
@@ -156,13 +159,26 @@ Return ONLY a valid JSON object with NO markdown formatting:
   ]
 }`;
 
-    // Call reasoning AI directly for rich text generation
-    const response = await this.reasoningAI.call({
-      engine: 'reasoning',
-      prompt,
-      temperature: 0.7,
-      maxTokens: 8000
-    });
+    // Call AI - use fast mode (single Gemini call) or full consensus mode
+    let response;
+    if (input.useFastMode) {
+      // Fast mode: Single Gemini call (~3-5 seconds) for public page
+      const geminiResponse = await invokeProvider('gemini', {
+        prompt,
+        model: 'gemini-2.5-flash',
+        temperature: 0.7,
+        maxTokens: 8000
+      });
+      response = { narrative: geminiResponse.response };
+    } else {
+      // Full mode: 4-provider consensus (~30+ seconds) for authenticated users
+      response = await this.reasoningAI.call({
+        engine: 'reasoning',
+        prompt,
+        temperature: 0.7,
+        maxTokens: 8000
+      });
+    }
 
     // Parse JSON with fallback handling
     try {

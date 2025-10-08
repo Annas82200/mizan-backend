@@ -101,7 +101,8 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
         tenantId: 'public', // Special tenant ID for public analyses
         companyName,
         structureData,
-        strategyData: vision || mission || strategy ? strategyData : undefined
+        strategyData: vision || mission || strategy ? strategyData : undefined,
+        useFastMode: true // Use single Gemini call for speed (~3-5 seconds vs ~30+ seconds)
       });
 
       // Transform agent response to match frontend expectations
