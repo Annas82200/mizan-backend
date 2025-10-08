@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { SocialMediaAgent, SocialMediaInput } from '../services/agents/social-media-agent.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { bufferService } from '../services/buffer-service.js';
+import { LinkedInService } from '../services/linkedin-service.js';
 
 const router = Router();
 
@@ -455,6 +456,179 @@ router.get('/buffer/analytics/:postId', authenticateToken, async (req: Request, 
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch analytics'
+    });
+  }
+});
+
+// ============================================
+// LINKEDIN DIRECT POSTING (Replaces Buffer)
+// ============================================
+
+/**
+ * GET /api/social-media/linkedin/auth-url
+ * Get LinkedIn OAuth authorization URL
+ */
+router.get('/linkedin/auth-url', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${process.env.CLIENT_URL}/dashboard/superadmin/social-media/callback`;
+
+    if (!clientId) {
+      return res.status(500).json({
+        success: false,
+        error: 'LinkedIn Client ID not configured'
+      });
+    }
+
+    const state = Math.random().toString(36).substring(7);
+    const authUrl = LinkedInService.getAuthorizationUrl(
+      clientId,
+      redirectUri,
+      state,
+      ['w_member_social', 'r_liteprofile']
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        authUrl,
+        state
+      }
+    });
+
+  } catch (error: any) {
+    console.error('LinkedIn auth URL error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate auth URL'
+    });
+  }
+});
+
+/**
+ * POST /api/social-media/linkedin/callback
+ * Handle LinkedIn OAuth callback and exchange code for token
+ */
+router.post('/linkedin/callback', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+    const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${process.env.CLIENT_URL}/dashboard/superadmin/social-media/callback`;
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({
+        success: false,
+        error: 'LinkedIn credentials not configured'
+      });
+    }
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Authorization code is required'
+      });
+    }
+
+    const tokenData = await LinkedInService.getAccessToken(
+      code,
+      clientId,
+      clientSecret,
+      redirectUri
+    );
+
+    // In production, save this token to database associated with user
+    // For now, return it to frontend to store
+    return res.status(200).json({
+      success: true,
+      data: {
+        accessToken: tokenData.accessToken,
+        expiresIn: tokenData.expiresIn
+      }
+    });
+
+  } catch (error: any) {
+    console.error('LinkedIn callback error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to exchange authorization code'
+    });
+  }
+});
+
+/**
+ * POST /api/social-media/linkedin/post
+ * Post directly to LinkedIn
+ */
+router.post('/linkedin/post', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { content, accessToken, visibility } = req.body;
+
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content is required'
+      });
+    }
+
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'LinkedIn access token is required'
+      });
+    }
+
+    const linkedInService = new LinkedInService(accessToken);
+    const post = await linkedInService.createPost({
+      text: content,
+      visibility: visibility || 'PUBLIC'
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: 'Posted to LinkedIn successfully',
+        post
+      }
+    });
+
+  } catch (error: any) {
+    console.error('LinkedIn post error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to post to LinkedIn'
+    });
+  }
+});
+
+/**
+ * GET /api/social-media/linkedin/profile
+ * Get authenticated user's LinkedIn profile
+ */
+router.get('/linkedin/profile', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.headers['x-linkedin-token'] as string;
+
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'LinkedIn access token required in x-linkedin-token header'
+      });
+    }
+
+    const linkedInService = new LinkedInService(accessToken);
+    const profile = await linkedInService.getProfile();
+
+    return res.status(200).json({
+      success: true,
+      data: profile
+    });
+
+  } catch (error: any) {
+    console.error('LinkedIn profile error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch LinkedIn profile'
     });
   }
 });
