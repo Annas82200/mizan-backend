@@ -27,6 +27,7 @@ import publicStructureRoutes from './routes/public-structure.js';
 import socialMediaRoutes from './routes/social-media.js';
 import paymentRoutes from './routes/payment.js';
 import webhookRoutes from './routes/webhooks.js';
+import demoRoutes from './routes/demo.js';
 
 // Load environment variables
 dotenv.config();
@@ -213,6 +214,7 @@ app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
 app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture, skills)
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints (legacy)
 app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only)
+app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin management)
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 app.use('/api/export', exportRoutes); // Export formatted reports
