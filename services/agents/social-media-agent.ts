@@ -32,19 +32,19 @@ export class SocialMediaAgent extends ThreeEngineAgent {
     const config: ThreeEngineConfig = {
       knowledge: {
         providers: ['openai', 'anthropic', 'gemini', 'mistral'],
-        model: 'gpt-4',
+        model: 'gpt-4o', // Fixed: was 'gpt-4', should be 'gpt-4o' per MIZAN_MASTER_DOCUMENT.md
         temperature: 0.4,
         maxTokens: 2500
       },
       data: {
         providers: ['openai', 'anthropic', 'gemini', 'mistral'],
-        model: 'gpt-4',
+        model: 'gpt-4o', // Fixed: was 'gpt-4', should be 'gpt-4o' per MIZAN_MASTER_DOCUMENT.md
         temperature: 0.2,
         maxTokens: 1500
       },
       reasoning: {
         providers: ['openai', 'anthropic', 'gemini', 'mistral'],
-        model: 'gpt-4',
+        model: 'gpt-4o', // Fixed: was 'gpt-4', should be 'gpt-4o' per MIZAN_MASTER_DOCUMENT.md
         temperature: 0.7,
         maxTokens: 3000
       },
