@@ -144,11 +144,11 @@ export class CultureAgent extends ThreeEngineAgent {
     // Map personal values to cylinders
     const personalValuesMapping = this.mapValuesToCylinders(input.personalValues, framework);
 
-    // Get company's intended culture for gap analysis
+    // Get company's intended culture for alignment analysis
     const companyCulture = await this.getCompanyCulture(input.tenantId);
 
-    // Calculate Personal vs Company gap
-    const cultureGap = this.calculateCultureGap(personalValuesMapping, companyCulture, framework);
+    // Calculate Personal vs Company ALIGNMENT (positive framing!)
+    const cultureAlignment = this.calculateCultureAlignment(personalValuesMapping, companyCulture, framework);
 
     // Build a comprehensive prompt for AI analysis
     const prompt = `You are an expert culture analyst using the Mizan 7-Cylinder Framework. This analysis is FOR THE EMPLOYEE to read about themselves - focus on GROWTH, STRENGTHS, and EMPOWERMENT. Write in a professional yet warm tone that inspires self-reflection and positive action. Do NOT mention workplace problems or cultural issues.
@@ -164,17 +164,22 @@ ${this.formatValuesCylinderMapping(personalValuesMapping, framework)}
 COMPANY'S INTENDED CULTURE:
 ${companyCulture ? `The company values: ${companyCulture.values?.join(', ')}. These map to: ${this.formatCompanyCylinderMapping(companyCulture, framework)}` : 'Company culture data not available yet.'}
 
-${cultureGap.hasGap ? `
-PERSONAL vs COMPANY CULTURE GAP:
-${cultureGap.interpretation}
-Your cylinders: ${cultureGap.personalCylinders.join(', ')}
-Company cylinders: ${cultureGap.companyCylinders.join(', ')}
-Gap areas: ${cultureGap.gapAreas.join(', ')}
-` : ''}
+${cultureAlignment.hasAlignment ? `
+PERSONAL & COMPANY CULTURE ALIGNMENT (POSITIVE!):
+${cultureAlignment.interpretation}
+Your cylinders: ${cultureAlignment.personalCylinders.join(', ')}
+Company cylinders: ${cultureAlignment.companyCylinders.join(', ')}
+Shared cylinders: ${cultureAlignment.sharedCylinders.join(', ')}
+Shared values: ${cultureAlignment.sharedValues.join(', ')}
+Alignment strength: ${cultureAlignment.alignmentStrength}
+` : `
+CULTURE ALIGNMENT:
+${cultureAlignment.interpretation}
+`}
 
 DESIRED FUTURE EXPERIENCE: ${input.desiredExperienceValues.join(', ')}
 
-IMPORTANT: Keep each section to 4-6 sentences maximum. Be empowering, growth-focused, and forward-looking.
+IMPORTANT: Keep each section to 4-6 sentences maximum. Be empowering, growth-focused, and forward-looking. FOCUS ON THE POSITIVE - what aligns, what supports, what reinforces.
 
 1. PERSONAL VALUES INTERPRETATION (4-6 sentences)
 Based on their cylinder mapping, what does this reveal about what drives them? Reference their SPECIFIC values by name (e.g., "Your Courage and Integrity values show..."). What are their core strengths? If limiting values were selected, gently explore what might be holding them back.
@@ -182,8 +187,8 @@ Based on their cylinder mapping, what does this reveal about what drives them? R
 2. YOUR VISION FOR GROWTH (4-6 sentences)
 Based on their desired values, what kind of experience are they seeking? What opportunities align with their value cylinders? Reference specific desired values by name. Be encouraging and forward-looking.
 
-3. PERSONAL vs COMPANY CULTURE ALIGNMENT (4-6 sentences)
-${cultureGap.hasGap ? `Explain the gap between their personal values and company's intended culture. Where do they align? Where do they differ? What does this mean for their experience and growth? Be balanced - gaps aren't bad, they're opportunities for dialogue.` : `Explain how their personal values align with the company's intended culture. What strengths does this alignment create?`}
+3. HOW YOUR VALUES ALIGN WITH COMPANY CULTURE (4-6 sentences)
+Focus on the POSITIVE alignment between personal and company values. Highlight shared values, shared cylinders, and how their values SUPPORT and REINFORCE the company culture. If there are unique values, frame them as COMPLEMENTARY strengths that ADD DIVERSITY. Be affirming and positive - this should make them feel good about the alignment!
 
 4. PERSONALIZED RECOMMENDATIONS (3-4 recommendations)
 Generate recommendations that reference SPECIFIC values by name. Format: "Given your [Value1] and [Value2] values, you could [actionable step]..."
@@ -191,7 +196,7 @@ Generate recommendations that reference SPECIFIC values by name. Format: "Given 
 5. REFLECTION QUESTIONS (3 open-ended questions like Barrett's Exercise 1)
 Generate deep, personalized reflection questions that reference their SPECIFIC values and cylinder focus:
 - Question 1: About using their specific core values (name them!) to promote healthy culture
-- Question 2: About bridging any gap between personal and company values
+- Question 2: About how their values can strengthen the company's culture
 - Question 3: About bringing their desired values into daily work
 
 CRITICAL: Return ONLY valid JSON. NO markdown. NO newlines inside string values. All text must be on ONE line per field.
@@ -204,10 +209,11 @@ CRITICAL: Return ONLY valid JSON. NO markdown. NO newlines inside string values.
   "visionForGrowth": "4-6 sentence description referencing specific desired values - ALL ON ONE LINE",
   "growthOpportunities": ["3-5 opportunities aligned with their cylinders"],
   "cultureAlignment": {
-    "interpretation": "4-6 sentence gap or alignment analysis - ALL ON ONE LINE",
-    "alignedAreas": ["areas where personal and company align"],
-    "gapAreas": ["areas where they differ"],
-    "whatThisMeans": "brief explanation - ALL ON ONE LINE"
+    "interpretation": "4-6 sentence POSITIVE alignment analysis - focus on shared values and support - ALL ON ONE LINE",
+    "sharedValues": ["exact values shared with company"],
+    "sharedCylinders": ["cylinder areas where both align"],
+    "alignmentStrength": "strong/moderate/complementary",
+    "whatThisMeans": "brief positive explanation of what this alignment creates - ALL ON ONE LINE"
   },
   "recommendations": [
     "Given your [Value1] and [Value2] values, [specific actionable recommendation]",
@@ -215,7 +221,7 @@ CRITICAL: Return ONLY valid JSON. NO markdown. NO newlines inside string values.
   ],
   "reflectionQuestions": [
     {"question": "How can you use your [specific values] to promote healthy culture?", "purpose": "purpose text"},
-    {"question": "What would bridging the gap between your [value] and company [value] look like?", "purpose": "purpose text"},
+    {"question": "How can your [value] strengthen the company's [company value] culture?", "purpose": "purpose text"},
     {"question": "What small step brings your [desired value] into daily work?", "purpose": "purpose text"}
   ]
 }
@@ -1308,16 +1314,19 @@ Return JSON:
   }
 
   /**
-   * Calculate gap between personal values and company culture
+   * Calculate ALIGNMENT between personal values and company culture (POSITIVE framing)
+   * Focus on what's SHARED and how values SUPPORT each other, not gaps
    */
-  private calculateCultureGap(personalMapping: any, companyCulture: any, framework: any[]): any {
+  private calculateCultureAlignment(personalMapping: any, companyCulture: any, framework: any[]): any {
     if (!companyCulture || !companyCulture.values) {
       return {
-        hasGap: false,
-        interpretation: '',
+        hasAlignment: false,
+        interpretation: 'Company culture data not yet available for alignment analysis.',
         personalCylinders: [],
         companyCylinders: [],
-        gapAreas: []
+        sharedCylinders: [],
+        sharedValues: [],
+        alignmentStrength: 'unknown'
       };
     }
 
@@ -1328,36 +1337,48 @@ Return JSON:
     const personalCylinders = Object.keys(personalMapping.cylinders).map(Number).sort((a, b) => a - b);
     const companyCylinders = Object.keys(companyMapping.cylinders).map(Number).sort((a, b) => a - b);
 
-    // Find gaps (cylinders in personal but not in company, and vice versa)
-    const personalOnly = personalCylinders.filter(c => !companyCylinders.includes(c));
-    const companyOnly = companyCylinders.filter(c => !personalCylinders.includes(c));
+    // Find SHARED cylinders (alignment areas - POSITIVE!)
+    const sharedCylinders = personalCylinders.filter(c => companyCylinders.includes(c));
 
-    const hasGap = personalOnly.length > 0 || companyOnly.length > 0;
+    // Find shared values (exact value matches)
+    const personalValuesList = personalMapping.values.map((v: any) => v.value.toLowerCase());
+    const companyValuesList = companyCulture.values.map((v: string) => v.toLowerCase());
+    const sharedValues = personalValuesList.filter((v: string) => companyValuesList.includes(v));
+
+    const hasAlignment = sharedCylinders.length > 0 || sharedValues.length > 0;
 
     let interpretation = '';
-    if (hasGap) {
-      const gapCylinders = [...personalOnly, ...companyOnly];
-      const gapNames = gapCylinders.map(c => framework[c - 1]?.name).filter(Boolean);
-
-      interpretation = `There's a ${gapCylinders.length > 2 ? 'significant' : 'noticeable'} gap in focus areas. `;
-
-      if (personalOnly.length > 0) {
-        interpretation += `You prioritize ${personalOnly.map(c => framework[c - 1]?.name).join(', ')} which the company doesn't emphasize as strongly. `;
+    if (hasAlignment) {
+      if (sharedValues.length > 0) {
+        // Exact value matches - strongest alignment
+        const matchedValues = sharedValues.map((v: string) =>
+          companyCulture.values.find((cv: string) => cv.toLowerCase() === v) || v
+        );
+        interpretation = `Your values beautifully align with the company's intended culture. You share ${matchedValues.length} core ${matchedValues.length === 1 ? 'value' : 'values'} with the organization: ${matchedValues.slice(0, 3).join(', ')}${matchedValues.length > 3 ? ` and ${matchedValues.length - 3} more` : ''}. `;
       }
 
-      if (companyOnly.length > 0) {
-        interpretation += `The company emphasizes ${companyOnly.map(c => framework[c - 1]?.name).join(', ')} which aren't as prominent in your personal values. `;
+      if (sharedCylinders.length > 0) {
+        // Cylinder-level alignment
+        const sharedCylinderNames = sharedCylinders.map(c => framework[c - 1]?.name);
+        interpretation += `Both you and the company prioritize ${sharedCylinderNames.join(', ')}, creating a strong foundation for you to thrive and contribute meaningfully. `;
       }
 
-      interpretation += 'This creates opportunities for dialogue about how to bridge these perspectives.';
+      interpretation += 'This alignment means your personal values will naturally support and reinforce the company culture.';
+    } else {
+      // No direct alignment - reframe positively as complementary
+      interpretation = 'Your unique values bring complementary strengths to the company culture. Your perspective adds diversity to the organizational values, enriching the overall culture.';
     }
 
     return {
-      hasGap,
+      hasAlignment,
       interpretation,
       personalCylinders: personalCylinders.map(c => `${c}. ${framework[c - 1]?.name}`),
       companyCylinders: companyCylinders.map(c => `${c}. ${framework[c - 1]?.name}`),
-      gapAreas: hasGap ? [...new Set([...personalOnly, ...companyOnly])].map(c => framework[c - 1]?.name) : []
+      sharedCylinders: sharedCylinders.map(c => `${c}. ${framework[c - 1]?.name}`),
+      sharedValues: sharedValues.map((v: string) =>
+        companyCulture.values.find((cv: string) => cv.toLowerCase() === v) || v
+      ),
+      alignmentStrength: sharedValues.length > 0 ? 'strong' : sharedCylinders.length > 0 ? 'moderate' : 'complementary'
     };
   }
 

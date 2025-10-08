@@ -850,11 +850,12 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
           opportunities: cultureAnalysis.growthOpportunities || []
         },
 
-        // Personal vs Company Culture Alignment (NEW)
+        // How Personal Values ALIGN with Company Culture (POSITIVE framing!)
         cultureAlignment: {
-          interpretation: cultureAnalysis.cultureAlignment?.interpretation || 'Analyzing alignment with company culture...',
-          alignedAreas: cultureAnalysis.cultureAlignment?.alignedAreas || [],
-          gapAreas: cultureAnalysis.cultureAlignment?.gapAreas || [],
+          interpretation: cultureAnalysis.cultureAlignment?.interpretation || 'Analyzing how your values align with company culture...',
+          sharedValues: cultureAnalysis.cultureAlignment?.sharedValues || [],
+          sharedCylinders: cultureAnalysis.cultureAlignment?.sharedCylinders || [],
+          alignmentStrength: cultureAnalysis.cultureAlignment?.alignmentStrength || 'analyzing',
           whatThisMeans: cultureAnalysis.cultureAlignment?.whatThisMeans || ''
         },
 
