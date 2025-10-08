@@ -91,7 +91,7 @@ export class StructureAgent extends ThreeEngineAgent {
     strategyData?: any;
     useFastMode?: boolean;
   }): Promise<any> {
-    const prompt = `You are an organizational design expert analyzing a company's structure with professional yet warm tone. This analysis is for LEADERSHIP to understand what their structure really means for their business and people.
+    const prompt = `You are an organizational design expert helping a CEO understand if their structure will help them achieve their strategy. Write like you're sitting across from them having a frank conversation - professional but human, insightful but not academic.
 
 COMPANY: ${input.companyName}
 
@@ -103,7 +103,19 @@ ${JSON.stringify(input.strategyData, null, 2)}` : ''}
 
 CRITICAL: ONLY analyze what you see in the actual data provided. Do NOT make assumptions about information that is not present in the structure data or strategy data. If data is missing, acknowledge the limitation rather than assuming details.
 
-Provide a comprehensive analysis following this structure. IMPORTANT: Keep each interpretation to 4-6 sentences maximum. Be insightful and tell a STORY about what this structure means:
+TONE & LANGUAGE:
+- Write like you're talking TO the CEO, not writing a textbook
+- Use "you" and "your" (e.g., "Your structure has 7 layers, which means...")
+- Replace jargon with plain language:
+  ❌ "Implement hierarchical optimization"
+  ✅ "Remove a management layer to speed up decisions"
+  ❌ "Enhance cross-functional coordination mechanisms"
+  ✅ "Create direct lines between teams that need to work together"
+  ❌ "Optimize span of control ratios"
+  ✅ "Reduce how many people report to your managers so they can actually coach"
+- Keep it conversational but insightful
+
+Provide a comprehensive analysis following this structure. IMPORTANT: Keep each interpretation to 4-6 sentences maximum. Tell a STORY about what this structure means:
 
 1. OVERALL STRUCTURAL HEALTH (4-6 sentences)
 Paint a picture of this organization's structure. What does it feel like to work here based on the structure? How does information flow? How empowered are employees? Don't just say "7 layers" - explain what that MEANS for decision-making speed, employee autonomy, and organizational agility.
@@ -120,8 +132,22 @@ Tell the story of whether the structure supports or undermines the strategic goa
 5. HUMAN IMPACT (4-6 sentences)
 What does this structure mean for the people working here? Are employees set up for success? Are managers overwhelmed? Are there career growth paths? Is innovation encouraged or stifled by the structure?
 
-6. RECOMMENDATIONS
+6. RECOMMENDATIONS (PLAIN LANGUAGE!)
 Your recommendations must answer: "What does the organization need to do to achieve the strategy?"
+
+LANGUAGE RULES FOR RECOMMENDATIONS:
+- Write like you're advising a friend, not writing a consulting report
+- Use action verbs: "Remove the layer between X and Y" not "Optimize hierarchical structures"
+- Be specific: "Split Sarah's 15 reports into two teams" not "Reduce span of control"
+- Make it visual: Help them SEE the change (e.g., "Right now decisions go through 4 people. Cut that to 2.")
+- Examples of GOOD vs BAD language:
+  ❌ "Implement a flatter organizational paradigm"
+  ✅ "Remove one management layer so your team leads can make decisions without waiting for approval"
+  ❌ "Enhance structural alignment with strategic imperatives"
+  ✅ "Your strategy needs speed, but your 6 layers slow everything down. Cut to 4."
+  ❌ "Establish cross-functional coordination mechanisms"
+  ✅ "Have your product and sales teams report to the same person so they stop working in silos"
+
 CRITICAL: Base recommendations ONLY on:
 - The actual organizational structure provided (reporting relationships, layers, spans)
 - The stated strategy/vision/mission provided
@@ -235,36 +261,82 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
   protected async loadFrameworks(): Promise<any> {
     return {
+      // PRIMARY: Strategy-Structure Alignment Frameworks
       galbraithStar: {
         name: 'Galbraith Star Model',
         dimensions: ['Strategy', 'Structure', 'Processes', 'Rewards', 'People'],
-        description: 'Framework for organizational design alignment'
+        principle: 'Structure must follow strategy. All 5 dimensions must align.',
+        application: 'If strategy requires speed/innovation → flat structure. If strategy requires efficiency/scale → more hierarchy.'
       },
+      chandlerPrinciple: {
+        name: "Chandler's Strategy-Structure Thesis",
+        principle: 'Structure follows strategy',
+        guidance: 'When strategy changes (growth, diversification, innovation), structure must adapt or performance suffers.',
+        structuralChoices: {
+          functionalStrategy: 'Centralized, functional structure (Finance, Ops, Sales)',
+          productDiversification: 'Divisional structure (by product line or geography)',
+          innovationStrategy: 'Matrix or flat structure with cross-functional teams',
+          efficiencyStrategy: 'Hierarchical with clear reporting lines'
+        }
+      },
+      milesSnow: {
+        name: 'Miles & Snow Strategic Types',
+        types: {
+          defender: {
+            strategy: 'Efficiency, stability, narrow focus',
+            idealStructure: 'Centralized, functional, hierarchical'
+          },
+          prospector: {
+            strategy: 'Innovation, growth, new markets',
+            idealStructure: 'Decentralized, flat, flexible teams'
+          },
+          analyzer: {
+            strategy: 'Balance efficiency + innovation',
+            idealStructure: 'Hybrid: functional core + flexible divisions'
+          },
+          reactor: {
+            strategy: 'No clear strategy (warning sign)',
+            idealStructure: 'Inconsistent, often misaligned'
+          }
+        }
+      },
+
+      // SECONDARY: Organizational Design Frameworks
       mckinsey7S: {
         name: 'McKinsey 7S Framework',
         elements: ['Strategy', 'Structure', 'Systems', 'Shared Values', 'Style', 'Staff', 'Skills'],
-        description: 'Holistic model for organizational effectiveness'
+        principle: 'All 7 elements must align. Structure alone cannot fix misalignment.'
       },
       mintzbergTypes: {
-        name: 'Mintzberg Organizational Types',
-        types: [
-          'Simple Structure',
-          'Machine Bureaucracy',
-          'Professional Bureaucracy',
-          'Divisionalized Form',
-          'Adhocracy'
-        ]
+        name: 'Mintzberg Organizational Configurations',
+        types: {
+          simpleStructure: 'Direct supervision, flat, entrepreneurial',
+          machineBureaucracy: 'Standardized work, many rules, efficiency focus',
+          professionalBureaucracy: 'Skilled workers, decentralized (hospitals, universities)',
+          divisionalized: 'Semi-autonomous units, product/geographic divisions',
+          adhocracy: 'Project-based, innovation focus, fluid teams'
+        }
       },
+
+      // TACTICAL: Span & Layer Guidelines
       spanGuidelines: {
-        executive: { min: 3, max: 7, optimal: 5 },
-        management: { min: 5, max: 12, optimal: 8 },
-        operational: { min: 8, max: 20, optimal: 12 }
+        executive: { min: 3, max: 7, optimal: 5, rationale: 'Strategic oversight requires deep attention' },
+        management: { min: 5, max: 12, optimal: 8, rationale: 'Balance coaching with coordination' },
+        operational: { min: 8, max: 20, optimal: 12, rationale: 'Routine work allows wider spans' }
       },
       layerGuidelines: {
-        small: { maxLayers: 4, employees: '<100' },
-        medium: { maxLayers: 6, employees: '100-1000' },
-        large: { maxLayers: 8, employees: '1000-10000' },
-        enterprise: { maxLayers: 10, employees: '>10000' }
+        principle: 'Each layer adds 2-3 days to decisions and dilutes strategy communication',
+        small: { maxLayers: 4, employees: '<100', reason: 'Preserve agility and direct communication' },
+        medium: { maxLayers: 6, employees: '100-1000', reason: 'Balance coordination needs with speed' },
+        large: { maxLayers: 8, employees: '1000-10000', reason: 'Necessary complexity, manage carefully' },
+        enterprise: { maxLayers: 10, employees: '>10000', reason: 'Unavoidable but requires active delayering' }
+      },
+
+      // Decision-Making Framework
+      decisionRights: {
+        principle: 'Clear decision rights prevent bottlenecks and enable strategy execution',
+        push_down: 'Decisions should be made at lowest competent level',
+        escalation: 'Only strategic/cross-unit decisions go up'
       }
     };
   }
@@ -310,22 +382,29 @@ Return ONLY a valid JSON object with NO markdown formatting:
   }
 
   protected getKnowledgeSystemPrompt(): string {
-    return `You are the Knowledge Engine for Mizan's Structure Agent. Your role is to apply organizational design frameworks to understand optimal structure patterns.
+    return `You are the Knowledge Engine for Mizan's Structure Agent. Your role is to apply organizational design frameworks to understand if a company's structure will help them achieve their strategy.
 
-Key frameworks to consider:
-1. Galbraith Star Model - Strategy-Structure alignment
-2. McKinsey 7S Framework - Holistic organizational effectiveness
-3. Mintzberg's Organizational Types - Structural archetypes
-4. Span of Control principles - Optimal management ratios
-5. Organizational Layer theory - Hierarchy optimization
+CORE QUESTION: "Does this structure enable the strategy, or fight against it?"
+
+Key frameworks to apply:
+1. **Chandler's Principle** - "Structure follows strategy" (if strategy changes, structure must adapt)
+2. **Galbraith Star Model** - All 5 dimensions (Strategy, Structure, Processes, Rewards, People) must align
+3. **Miles & Snow Strategic Types** - Match structural form to strategic type:
+   - Defender (efficiency) → Hierarchical, centralized
+   - Prospector (innovation) → Flat, decentralized
+   - Analyzer (balance) → Hybrid structure
+4. **McKinsey 7S** - Structure alone cannot fix misalignment
+5. **Mintzberg Configurations** - What structural archetype fits this strategy?
+6. **Span & Layer Guidelines** - Tactical optimization for speed/coaching
+7. **Decision Rights** - Who decides what? Push decisions down.
 
 Your output should be structured JSON containing:
-- applicable_frameworks: Most relevant frameworks for this analysis
-- design_principles: Key organizational design principles
-- optimal_patterns: What constitutes effective structure
-- alignment_factors: How structure should align with strategy
+- applicable_frameworks: Which frameworks are most relevant for this strategy type?
+- strategy_structure_fit: Does current structure match what this strategy needs?
+- misalignment_risks: Where will structure prevent strategy execution?
+- optimal_patterns: What structural pattern would enable this strategy?
 
-Focus on evidence-based organizational design theory.`;
+Focus on: "Will this structure help them achieve their goals, or slow them down?"`;
   }
 
   protected getDataSystemPrompt(): string {
