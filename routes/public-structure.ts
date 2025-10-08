@@ -22,8 +22,8 @@ const upload = multer({
 
 /**
  * POST /api/public/structure/analyze
- * Public endpoint for structure analysis - no authentication required
- * Rate limited and returns watermarked/limited results
+ * Public endpoint for FULL AI-powered structure analysis
+ * Now collects company info and runs complete Structure Agent
  */
 router.post('/analyze', upload.single('file'), async (req: Request, res: Response) => {
   try {
@@ -31,6 +31,15 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       return res.status(400).json({
         success: false,
         error: 'No file uploaded'
+      });
+    }
+
+    const { companyName, vision, mission, strategy, values } = req.body;
+
+    if (!companyName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Company name is required'
       });
     }
 
@@ -45,26 +54,62 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       });
     }
 
-    // Basic structure analysis
-    // For public access, we provide limited insights (no full AI analysis)
-    const employeeCount = lines.length - 1; // Exclude header
-
-    // Simple entropy calculation based on reporting relationships
-    // This is a simplified version - full analysis requires authentication
+    // Parse org structure from CSV
+    const orgStructure: any[] = [];
     const reportingRelationships: { [key: string]: string[] } = {};
 
-    // Parse basic structure (assuming format: Employee, Manager)
+    // Parse (assuming format: Employee, Manager or Name, Reports To)
     for (let i = 1; i < lines.length; i++) {
       const [employee, manager] = lines[i].split(',').map(s => s.trim());
-      if (manager && manager !== '' && manager.toLowerCase() !== 'none') {
-        if (!reportingRelationships[manager]) {
-          reportingRelationships[manager] = [];
+      if (employee) {
+        orgStructure.push({
+          name: employee,
+          manager: manager && manager !== '' && manager.toLowerCase() !== 'none' ? manager : null
+        });
+
+        if (manager && manager !== '' && manager.toLowerCase() !== 'none') {
+          if (!reportingRelationships[manager]) {
+            reportingRelationships[manager] = [];
+          }
+          reportingRelationships[manager].push(employee);
         }
-        reportingRelationships[manager].push(employee);
       }
     }
 
-    // Calculate basic metrics
+    // Prepare structure data for AI analysis
+    const structureData = {
+      employees: orgStructure,
+      reportingRelationships,
+      totalEmployees: orgStructure.length,
+      managers: Object.keys(reportingRelationships)
+    };
+
+    // Prepare strategy data
+    const strategyData = {
+      vision: vision || '',
+      mission: mission || '',
+      strategy: strategy || '',
+      values: values ? values.split(',').map((v: string) => v.trim()) : []
+    };
+
+    // Run FULL AI-powered structure analysis using Structure Agent
+    const structureAgent = new StructureAgent();
+    let richAnalysis: any = null;
+
+    try {
+      richAnalysis = await structureAgent.generateRichStructureAnalysis({
+        tenantId: 'public', // Special tenant ID for public analyses
+        companyName,
+        structureData,
+        strategyData: vision || mission || strategy ? strategyData : undefined
+      });
+    } catch (aiError: any) {
+      console.error('AI analysis error:', aiError);
+      // Fall back to basic analysis if AI fails
+      richAnalysis = null;
+    }
+
+    // Calculate basic metrics (fallback or supplement to AI)
     const managers = Object.keys(reportingRelationships);
     const spansOfControl = managers.map(m => reportingRelationships[m].length);
     const avgSpan = spansOfControl.reduce((a, b) => a + b, 0) / spansOfControl.length || 0;
@@ -74,28 +119,38 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
     const bottlenecks = managers.filter(m => reportingRelationships[m].length > 7);
 
     // Simple entropy score (0-100, lower is better)
-    // Based on span variance and bottleneck count
     const spanVariance = spansOfControl.reduce((acc, span) => acc + Math.pow(span - avgSpan, 2), 0) / spansOfControl.length || 0;
     const entropyScore = Math.min(100, Math.round((spanVariance * 10) + (bottlenecks.length * 5)));
 
     // Health score (0-100, higher is better)
     const healthScore = Math.max(0, 100 - entropyScore);
 
-    // Limited public response (watermarked)
+    // Return response with BOTH rich AI analysis AND basic metrics
     return res.status(200).json({
       success: true,
-      message: 'Basic structure analysis complete. Sign up for full insights.',
+      message: richAnalysis ? 'AI-powered structure analysis complete!' : 'Basic structure analysis complete. Sign up for full AI insights.',
       data: {
+        // Rich AI analysis (if available)
+        richAnalysis,
+
+        // Basic metrics (always available)
         entropyScore,
         healthScore,
-        employeeCount,
+        employeeCount: orgStructure.length,
         managerCount: managers.length,
         avgSpan: Math.round(avgSpan * 10) / 10,
         maxSpan,
-        bottlenecks: bottlenecks.map(name => ({ name, directReports: reportingRelationships[name].length })),
+        bottlenecks: bottlenecks.map(name => ({
+          name,
+          directReports: reportingRelationships[name].length
+        })),
+
+        // Company info
+        companyName,
+
         // Watermark for public access
         isPreview: true,
-        upgradeMessage: 'This is a basic scan. Sign up to unlock:\n• Detailed AI-powered analysis\n• Strategy alignment insights\n• Comprehensive recommendations\n• Historical trend tracking'
+        upgradeMessage: 'This is a free scan. Sign up to unlock:\n• Historical trend tracking\n• Detailed reports and exports\n• Team collaboration features\n• Ongoing monitoring'
       }
     });
 
