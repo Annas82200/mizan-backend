@@ -25,6 +25,8 @@ import exportRoutes from './routes/export.js';
 import testAiRoutes from './routes/test-ai.js';
 import publicStructureRoutes from './routes/public-structure.js';
 import socialMediaRoutes from './routes/social-media.js';
+import paymentRoutes from './routes/payment.js';
+import webhookRoutes from './routes/webhooks.js';
 
 // Load environment variables
 dotenv.config();
@@ -194,6 +196,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // API Routes
+// Webhook routes MUST be registered BEFORE body parsing middleware for raw body access
+app.use('/api/webhooks', webhookRoutes); // Stripe webhooks (NO auth required, uses signature verification)
+
 app.use('/api/public/structure', publicStructureRoutes); // Public structure analysis (no auth required)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -206,7 +211,8 @@ app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoin
 app.use('/api/hiring', hiringRoutes); // Complete hiring flow endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
 app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture, skills)
-app.use('/api/billing', billingRoutes); // Billing and payment endpoints
+app.use('/api/billing', billingRoutes); // Billing and payment endpoints (legacy)
+app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only)
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 app.use('/api/export', exportRoutes); // Export formatted reports
