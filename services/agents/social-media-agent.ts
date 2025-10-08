@@ -48,7 +48,7 @@ export class SocialMediaAgent extends ThreeEngineAgent {
         temperature: 0.7,
         maxTokens: 3000
       },
-      consensusThreshold: 0.7
+      consensusThreshold: 0.6 // Lowered from 0.7 - social media content is less critical than culture analysis
     };
 
     super('social-media', config);
