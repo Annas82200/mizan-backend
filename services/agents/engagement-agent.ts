@@ -799,38 +799,38 @@ export class EngagementAgent extends ThreeEngineAgent {
       currentExperience: string[];
     };
   }): Promise<any> {
-    const prompt = `You are an expert engagement analyst using professional yet warm tone. This analysis is FOR THE EMPLOYEE - focus on what THEY can control to improve their own engagement. Be empowering and action-oriented. Do NOT mention workplace problems.
+    const prompt = `You are an expert engagement analyst. This analysis is FOR THE EMPLOYEE. Be concise, warm, and empowering.
 
-EMPLOYEE ENGAGEMENT DATA:
-- Your Engagement Score: ${input.engagementScore}/5.0
+ENGAGEMENT SCORE: ${input.engagementScore}/5.0
 
-Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Focus on personal agency and growth.
+CRITICAL CONSTRAINTS:
+- "interpretation" field: EXACTLY 3-4 sentences. NOT a paragraph. NOT more than 4 sentences.
+- "meaning" field: EXACTLY 1-2 sentences maximum.
+- "factors" array: List ONLY 5 brief factors (3-6 words each)
+- Each recommendation description: EXACTLY 1 sentence.
 
-1. WHAT YOUR SCORE MEANS (4-6 sentences)
-What does a ${input.engagementScore}/5.0 engagement score reveal about YOU? This is about self-awareness, not workplace critique. What does this score say about your current connection to your work?
+Focus on what THEY can control. Be action-oriented. NO workplace criticism.
 
-2. WHAT YOU CAN CONTROL (4-6 sentences)
-Focus on factors YOU have influence over: How you approach your work, how you build relationships, how you seek growth opportunities, how you find meaning and purpose. What personal actions could shift your engagement?
-
-3. HOW TO IMPROVE YOUR ENGAGEMENT (2-3 actionable items you control)
-Specific steps YOU can take to increase your engagement. Focus on personal agency, not what others should do.
-
-Return ONLY a valid JSON object with NO markdown formatting:
+Return ONLY valid JSON:
 {
-  "interpretation": "4-6 sentence self-awareness focused interpretation",
-  "meaning": "what this score means about your relationship with your work",
-  "factors": ["factors YOU can influence"],
+  "interpretation": "3-4 sentences about what this score means for their engagement journey",
+  "meaning": "1-2 sentences about their relationship with work",
+  "factors": ["Brief factor 1", "Brief factor 2", "Brief factor 3", "Brief factor 4", "Brief factor 5"],
   "recommendations": [
-    {"title": "string", "description": "action YOU can take", "actionItems": ["specific steps"]}
+    {"title": "Action Title", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2", "step 3"]},
+    {"title": "Action Title 2", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2"]},
+    {"title": "Action Title 3", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2"]}
   ]
-}`;
+}
+
+REMEMBER: interpretation = 3-4 sentences MAX. meaning = 1-2 sentences MAX.`;
 
     // Call reasoning AI with 4-provider consensus
     const response = await this.reasoningAI.call({
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
-      maxTokens: 4000
+      maxTokens: 800  // Reduced from 4000 to enforce brevity
     });
 
     try {

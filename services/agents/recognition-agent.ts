@@ -862,40 +862,38 @@ export class RecognitionAgent extends ThreeEngineAgent {
       engagement: number;
     };
   }): Promise<any> {
-    const prompt = `You are an expert recognition analyst using professional yet warm tone. This analysis is FOR THE EMPLOYEE - focus on what THEY can do to increase their own visibility and recognition. Be empowering and action-oriented. Do NOT mention workplace problems.
+    const prompt = `You are an expert recognition analyst. This analysis is FOR THE EMPLOYEE. Be concise, warm, and empowering.
 
-EMPLOYEE RECOGNITION DATA:
-- Your Recognition Score: ${input.recognitionScore}/5.0
+RECOGNITION SCORE: ${input.recognitionScore}/5.0
 
-Provide analysis in this structure. IMPORTANT: Keep to 4-6 sentences maximum. Focus on personal agency and growth.
+CRITICAL CONSTRAINTS:
+- "interpretation" field: EXACTLY 3-4 sentences. NOT a paragraph. NOT more than 4 sentences.
+- "meaning" field: EXACTLY 1-2 sentences maximum.
+- "impact" field: EXACTLY 1-2 sentences about how recognition affects motivation.
+- Each recommendation description: EXACTLY 1 sentence.
 
-1. WHAT YOUR SCORE REVEALS (4-6 sentences)
-What does a ${input.recognitionScore}/5.0 recognition score reveal about YOU? How do you best receive recognition? What does this score say about your current visibility and acknowledgment?
+Focus on what THEY can control to increase visibility. Be action-oriented. NO workplace criticism.
 
-2. HOW YOU CAN INCREASE RECOGNITION (4-6 sentences)
-Focus on what YOU control: How you share your achievements, how you communicate your contributions, how you build relationships that lead to acknowledgment. What can you do to make your work more visible?
-
-3. ACTIONABLE STEPS (2-3 items you control)
-Specific ways YOU can increase the visibility of your contributions and receive more meaningful recognition. Focus on personal actions.
-
-Return ONLY a valid JSON object with NO markdown formatting. Do NOT nest "interpretation" as an object - it must be a STRING at root level:
+Return ONLY valid JSON:
 {
-  "interpretation": "STRING: 4-6 sentence self-awareness focused interpretation of what the score reveals",
-  "meaning": "STRING: what this score means about your visibility and acknowledgment",
-  "impact": "STRING: how recognition affects your motivation and growth",
+  "interpretation": "3-4 sentences about what this score reveals about their visibility and recognition",
+  "meaning": "1-2 sentences about their current acknowledgment level",
+  "impact": "1-2 sentences about how recognition drives motivation and growth",
   "recommendations": [
-    {"title": "string", "description": "action YOU can take", "actionItems": ["specific steps"]}
+    {"title": "Action Title", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2", "step 3"]},
+    {"title": "Action Title 2", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2"]},
+    {"title": "Action Title 3", "description": "One sentence what they can do", "actionItems": ["step 1", "step 2"]}
   ]
 }
 
-CRITICAL: interpretation, meaning, and impact must be STRINGS, not objects!`;
+REMEMBER: interpretation = 3-4 sentences MAX. meaning = 1-2 sentences MAX. impact = 1-2 sentences MAX.`;
 
     // Call reasoning AI with 4-provider consensus
     const response = await this.reasoningAI.call({
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
-      maxTokens: 4000
+      maxTokens: 800  // Reduced from 4000 to enforce brevity
     });
 
     try {
