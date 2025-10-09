@@ -15,7 +15,8 @@ import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-// import { pdf as pdfParse } from 'pdf-parse'; // TODO: Fix PDF parsing - causes DOMMatrix error in Node
+// @ts-ignore - pdf-parse-fork doesn't have TypeScript definitions
+import pdfParse from 'pdf-parse-fork';
 import mammoth from 'mammoth';
 
 const router = Router();
@@ -940,13 +941,16 @@ async function extractTextFromFile(filePath: string, mimeType: string): Promise<
       return await fs.readFile(filePath, 'utf-8');
     }
 
-    // PDF files - TEMPORARILY DISABLED due to DOMMatrix error
+    // PDF files - Using pdf-parse-fork (fixes DOMMatrix error)
     if (mimeType === 'application/pdf' || filePath.toLowerCase().endsWith('.pdf')) {
-      // TODO: Fix PDF parsing - use alternative library or canvas polyfill
-      throw new Error('PDF parsing temporarily unavailable. Please upload DOCX or TXT instead.');
-      // const dataBuffer = await fs.readFile(filePath);
-      // const data = await pdfParse(dataBuffer);
-      // return data.text;
+      try {
+        const dataBuffer = await fs.readFile(filePath);
+        const data = await pdfParse(dataBuffer);
+        return data.text;
+      } catch (pdfError: any) {
+        console.error('PDF parsing error:', pdfError);
+        throw new Error(`Failed to parse PDF: ${pdfError.message}. Please try converting to DOCX or TXT.`);
+      }
     }
 
     // DOCX files
