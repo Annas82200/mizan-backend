@@ -436,49 +436,157 @@ Provide:
   }
 
   private analyzeTrends(dataResult: any) {
-    // Generate trend data for the last 6 periods
-    const periods = ['Q1', 'Q2', 'Q3', 'Q4', 'Q1+1', 'Q2+1'];
-    
+    const { reviews, goals, kpiData, okrData } = dataResult;
+
+    // Group reviews by quarter to calculate trends
+    const reviewsByQuarter: Record<string, any[]> = {};
+    if (reviews && reviews.length > 0) {
+      reviews.forEach((review: any) => {
+        const date = new Date(review.reviewDate || review.createdAt);
+        const quarter = `Q${Math.floor(date.getMonth() / 3) + 1}`;
+        const year = date.getFullYear();
+        const key = `${year}-${quarter}`;
+        if (!reviewsByQuarter[key]) reviewsByQuarter[key] = [];
+        reviewsByQuarter[key].push(review);
+      });
+    }
+
+    // Calculate productivity trend from reviews
+    const productivityTrend = Object.entries(reviewsByQuarter).map(([period, periodReviews]) => {
+      const avgScore = periodReviews.reduce((sum: number, r: any) => sum + (r.overallRating || 0), 0) / periodReviews.length;
+      return { period, value: (avgScore / 5) * 100 };
+    });
+
+    // Calculate quality trend from KPIs
+    const qualityTrend = kpiData && kpiData.length > 0
+      ? kpiData
+          .filter((kpi: any) => kpi.category === 'quality')
+          .map((kpi: any) => ({
+            period: kpi.endDate ? `Q${Math.floor(new Date(kpi.endDate).getMonth() / 3) + 1}` : 'Current',
+            value: (parseFloat(kpi.currentValue) / parseFloat(kpi.targetValue)) * 100
+          }))
+      : [{ period: 'Current', value: 70 }];
+
+    // Calculate goal completion from OKRs
+    const goalCompletionTrend = okrData && okrData.length > 0
+      ? okrData.map((okr: any) => ({
+          period: okr.quarter || 'Current',
+          value: okr.progress || 0
+        }))
+      : [{ period: 'Current', value: 65 }];
+
     return {
-      productivity: periods.map((period, index) => ({
-        period,
-        value: 65 + Math.sin(index * 0.5) * 10 + Math.random() * 5
-      })),
-      quality: periods.map((period, index) => ({
-        period,
-        value: 70 + Math.cos(index * 0.3) * 8 + Math.random() * 4
-      })),
-      goalCompletion: periods.map((period, index) => ({
-        period,
-        value: 68 + Math.sin(index * 0.7) * 12 + Math.random() * 6
-      }))
+      productivity: productivityTrend.length > 0 ? productivityTrend : [{ period: 'Current', value: 65 }],
+      quality: qualityTrend,
+      goalCompletion: goalCompletionTrend
     };
   }
 
   private identifyTopPerformers(dataResult: any) {
-    const { reviews, employees } = dataResult;
-    
-    // Mock top performers based on available data
-    return [
-      {
-        employeeId: 'emp-001',
-        name: 'Sarah Johnson',
-        score: 92,
-        achievements: ['Exceeded quarterly targets', 'Led innovation project', 'Mentored 3 team members']
-      },
-      {
-        employeeId: 'emp-002',
-        name: 'Michael Chen',
-        score: 89,
-        achievements: ['Improved process efficiency by 25%', 'Zero defects record', 'Cross-functional collaboration']
-      },
-      {
-        employeeId: 'emp-003',
-        name: 'Emily Rodriguez',
-        score: 87,
-        achievements: ['Customer satisfaction 98%', 'Completed certification', 'Knowledge sharing sessions']
+    const { reviews, employees, goals, okrData } = dataResult;
+
+    if (!reviews || reviews.length === 0) {
+      return [];
+    }
+
+    // Calculate performance scores for each employee
+    const employeeScores: Record<string, {
+      employeeId: string;
+      name: string;
+      reviewScore: number;
+      goalScore: number;
+      okrScore: number;
+      reviewCount: number;
+    }> = {};
+
+    // Aggregate review scores
+    reviews.forEach((review: any) => {
+      const empId = review.employeeId;
+      if (!employeeScores[empId]) {
+        const employee = employees?.find((e: any) => e.id === empId);
+        employeeScores[empId] = {
+          employeeId: empId,
+          name: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
+          reviewScore: 0,
+          goalScore: 0,
+          okrScore: 0,
+          reviewCount: 0
+        };
       }
-    ];
+
+      employeeScores[empId].reviewScore += (review.overallRating || 0);
+      employeeScores[empId].reviewCount++;
+    });
+
+    // Add goal completion scores
+    if (goals && goals.length > 0) {
+      goals.forEach((goal: any) => {
+        const empId = goal.employeeId;
+        if (employeeScores[empId] && goal.status === 'completed') {
+          employeeScores[empId].goalScore += 1;
+        }
+      });
+    }
+
+    // Add OKR progress scores
+    if (okrData && okrData.length > 0) {
+      okrData.forEach((okr: any) => {
+        const empId = okr.ownerId;
+        if (employeeScores[empId]) {
+          employeeScores[empId].okrScore += (okr.progress || 0) / 100;
+        }
+      });
+    }
+
+    // Calculate final scores and rank
+    const performers = Object.values(employeeScores).map(emp => {
+      const avgReviewScore = emp.reviewCount > 0 ? emp.reviewScore / emp.reviewCount : 0;
+      const finalScore = (avgReviewScore * 0.5) + (emp.goalScore * 0.3) + (emp.okrScore * 0.2);
+
+      return {
+        employeeId: emp.employeeId,
+        name: emp.name,
+        score: Math.round((finalScore / 5) * 100), // Normalize to 0-100
+        achievements: this.generateAchievements(emp, reviews, goals)
+      };
+    });
+
+    // Return top 3 performers
+    return performers
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  }
+
+  private generateAchievements(emp: any, reviews: any[], goals: any[]): string[] {
+    const achievements: string[] = [];
+
+    // Check reviews for high ratings
+    const empReviews = reviews.filter((r: any) => r.employeeId === emp.employeeId);
+    if (empReviews.length > 0) {
+      const avgRating = empReviews.reduce((sum, r) => sum + (r.overallRating || 0), 0) / empReviews.length;
+      if (avgRating >= 4.5) {
+        achievements.push(`Consistently exceeded expectations (${avgRating.toFixed(1)}/5.0 rating)`);
+      }
+    }
+
+    // Check goal completion
+    const empGoals = goals?.filter((g: any) => g.employeeId === emp.employeeId) || [];
+    const completedGoals = empGoals.filter((g: any) => g.status === 'completed').length;
+    if (completedGoals > 0) {
+      achievements.push(`Completed ${completedGoals} goal${completedGoals > 1 ? 's' : ''} this period`);
+    }
+
+    // Add OKR achievement if applicable
+    if (emp.okrScore > 0.8) {
+      achievements.push(`Strong OKR performance (${Math.round(emp.okrScore * 100)}% completion)`);
+    }
+
+    // Fallback if no specific achievements
+    if (achievements.length === 0) {
+      achievements.push('Demonstrated strong performance');
+    }
+
+    return achievements.slice(0, 3);
   }
 
   private identifyImprovementAreas(dataResult: any, knowledgeResult: any): any[] {
