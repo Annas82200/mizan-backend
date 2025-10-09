@@ -150,6 +150,143 @@ export class EmailService {
           </div>
         `,
         text: `New hiring requisition: ${data.title} in ${data.department}`
+      }),
+
+      demoRequestConfirmation: (data) => ({
+        subject: 'Thank you for your interest in Mizan!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>Thank you for requesting a demo!</h1>
+            <p>Hi ${data.firstName},</p>
+            <p>We received your demo request for ${data.company}. Our team will review your information and reach out within 24 hours.</p>
+            <p><strong>What happens next:</strong></p>
+            <ul>
+              <li>Our team will review your organizational needs</li>
+              <li>We'll schedule a personalized demo session</li>
+              <li>You'll see how Mizan can transform your culture and performance</li>
+            </ul>
+            <p>In the meantime, feel free to explore our resources at <a href="https://www.mizan.work">www.mizan.work</a></p>
+            <p>Best regards,<br>The Mizan Team</p>
+          </div>
+        `,
+        text: `Thank you for requesting a demo, ${data.firstName}! We'll contact you within 24 hours to schedule your personalized session.`
+      }),
+
+      demoRequestNotification: (data) => ({
+        subject: `New Demo Request: ${data.company} (${data.employeeCount || 'N/A'} employees)`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>🎯 New Demo Request</h1>
+            <p>A new demo request has been submitted:</p>
+            <ul>
+              <li><strong>Name:</strong> ${data.firstName} ${data.lastName}</li>
+              <li><strong>Email:</strong> ${data.email}</li>
+              <li><strong>Company:</strong> ${data.company}</li>
+              <li><strong>Phone:</strong> ${data.phone || 'Not provided'}</li>
+              <li><strong>Employee Count:</strong> ${data.employeeCount || 'Not provided'}</li>
+              <li><strong>Industry:</strong> ${data.industry || 'Not provided'}</li>
+              <li><strong>Interested In:</strong> ${data.interestedIn || 'Not specified'}</li>
+              <li><strong>Message:</strong> ${data.message || 'No message'}</li>
+            </ul>
+            <p><strong>Action Required:</strong> Contact within 24 hours</p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/superadmin/demo-requests" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View in Dashboard</a>
+          </div>
+        `,
+        text: `New demo request from ${data.firstName} ${data.lastName} at ${data.company}. Email: ${data.email}`
+      }),
+
+      paymentSuccess: (data) => ({
+        subject: `Payment Successful - Mizan ${data.plan} Plan`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>✅ Payment Successful!</h1>
+            <p>Hi ${data.customerName},</p>
+            <p>Your payment has been successfully processed.</p>
+            <p><strong>Payment Details:</strong></p>
+            <ul>
+              <li><strong>Plan:</strong> Mizan ${data.plan} Plan</li>
+              <li><strong>Amount:</strong> $${(data.amount / 100).toFixed(2)}</li>
+              <li><strong>Billing Period:</strong> ${data.billingPeriod}</li>
+              <li><strong>Employee Count:</strong> ${data.employeeCount}</li>
+            </ul>
+            <p>Your account is now active. Access your dashboard at <a href="${process.env.FRONTEND_URL}/dashboard">${process.env.FRONTEND_URL}/dashboard</a></p>
+            <p>Best regards,<br>The Mizan Team</p>
+          </div>
+        `,
+        text: `Payment successful! Your Mizan ${data.plan} plan is now active. Amount: $${(data.amount / 100).toFixed(2)}`
+      }),
+
+      paymentFailed: (data) => ({
+        subject: 'Payment Failed - Action Required',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>⚠️ Payment Failed</h1>
+            <p>Hi ${data.customerName},</p>
+            <p>We were unable to process your recent payment.</p>
+            <p><strong>Details:</strong></p>
+            <ul>
+              <li><strong>Amount:</strong> $${(data.amount / 100).toFixed(2)}</li>
+              <li><strong>Reason:</strong> ${data.reason || 'Payment declined'}</li>
+            </ul>
+            <p><strong>What to do next:</strong></p>
+            <ol>
+              <li>Update your payment method in your account settings</li>
+              <li>Ensure sufficient funds are available</li>
+              <li>Contact your bank if the issue persists</li>
+            </ol>
+            <a href="${process.env.FRONTEND_URL}/dashboard/billing" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Update Payment Method</a>
+            <p>If you need assistance, please contact our support team.</p>
+          </div>
+        `,
+        text: `Payment failed for $${(data.amount / 100).toFixed(2)}. Please update your payment method.`
+      }),
+
+      employeeInvitation: (data) => ({
+        subject: `${data.adminName} invited you to join ${data.companyName} on Mizan`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>You're Invited to Mizan!</h1>
+            <p>Hi ${data.employeeName},</p>
+            <p>${data.adminName} has invited you to join ${data.companyName} on the Mizan platform.</p>
+            <p><strong>About Mizan:</strong></p>
+            <p>Mizan is a comprehensive organizational culture and performance platform that helps you:</p>
+            <ul>
+              <li>Understand your values and how they align with the company</li>
+              <li>Track your professional growth and development</li>
+              <li>Receive personalized insights and recommendations</li>
+              <li>Contribute to a healthier organizational culture</li>
+            </ul>
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>Click the button below to accept your invitation</li>
+              <li>Complete your profile setup</li>
+              <li>Take the culture assessment survey</li>
+            </ol>
+            <a href="${data.invitationLink}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Accept Invitation</a>
+            <p style="margin-top: 20px; color: #666; font-size: 12px;">This invitation will expire in 7 days.</p>
+          </div>
+        `,
+        text: `${data.adminName} invited you to join ${data.companyName} on Mizan. Accept invitation: ${data.invitationLink}`
+      }),
+
+      consultingRequestConfirmation: (data) => ({
+        subject: 'Consulting Request Received - Mizan',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>Thank you for your consulting request</h1>
+            <p>Hi ${data.name},</p>
+            <p>We received your request for ${data.requestType} consulting services.</p>
+            <p>Our team of experts will review your request and reach out within 48 hours to discuss how we can help.</p>
+            <p><strong>Your Request Details:</strong></p>
+            <ul>
+              <li><strong>Service Type:</strong> ${data.requestType}</li>
+              <li><strong>Company:</strong> ${data.company || 'Not provided'}</li>
+              <li><strong>Description:</strong> ${data.description}</li>
+            </ul>
+            <p>Best regards,<br>The Mizan Consulting Team</p>
+          </div>
+        `,
+        text: `Thank you for your consulting request for ${data.requestType}. We'll contact you within 48 hours.`
       })
     };
 

@@ -3,13 +3,14 @@ import Stripe from 'stripe';
 import { db } from '../db/index.js';
 import { subscriptions, payments, demoRequests } from '../db/schema/payments.js';
 import { eq } from 'drizzle-orm';
+import { emailService } from './email.js';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2024-04-10',
 });
 
 // Pricing configuration (matches pricing page)
@@ -215,6 +216,23 @@ export class StripeService {
         })
         .where(eq(demoRequests.id, demoRequestId));
 
+      // Send payment success email
+      try {
+        await emailService.sendEmail({
+          to: session.customer_email || demoRequest.email,
+          template: 'paymentSuccess',
+          data: {
+            customerName: session.customer_details?.name || `${demoRequest.firstName} ${demoRequest.lastName}`,
+            plan: plan.charAt(0).toUpperCase() + plan.slice(1),
+            amount: totalAmount,
+            billingPeriod: billingPeriod === 'annual' ? 'Annual' : 'Monthly',
+            employeeCount,
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send payment success email:', emailError);
+      }
+
       console.log(`✅ Checkout complete: Demo ${demoRequestId} → Tenant ${tenantId}`);
     } catch (error: any) {
       console.error('Checkout completion handling failed:', error);
@@ -287,7 +305,26 @@ export class StripeService {
         })
         .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
 
-      // TODO: Send email notification to customer about failed payment
+      // Send email notification to customer about failed payment
+      try {
+        const [subscription] = await db.query.subscriptions.findMany({
+          where: eq(subscriptions.stripeSubscriptionId, subscriptionId)
+        });
+
+        if (subscription) {
+          await emailService.sendEmail({
+            to: invoice.customer_email || '',
+            template: 'paymentFailed',
+            data: {
+              customerName: invoice.customer_name || 'Valued Customer',
+              amount: invoice.amount_due,
+              reason: invoice.last_finalization_error?.message || 'Payment declined',
+            }
+          });
+        }
+      } catch (emailError) {
+        console.error('Failed to send payment failed email:', emailError);
+      }
 
       console.log(`⚠️ Payment failed for subscription ${subscriptionId}`);
     } catch (error: any) {

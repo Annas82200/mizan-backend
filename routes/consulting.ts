@@ -6,6 +6,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { db } from '../db/index.js';
 import { consultingRequests, consultants } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
+import { emailService } from '../services/email.js';
 
 const router = Router();
 
@@ -32,9 +33,41 @@ router.post('/request', async (req, res) => {
         status: 'pending'
       })
       .returning();
-    
-    // TODO: Send notification email
-    
+
+    // Send confirmation email to customer
+    try {
+      await emailService.sendEmail({
+        to: validatedData.email,
+        template: 'consultingRequestConfirmation',
+        data: {
+          name: validatedData.name,
+          requestType: validatedData.type,
+          company: validatedData.company,
+          description: validatedData.message,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send consulting confirmation email:', emailError);
+    }
+
+    // Send notification to consulting team
+    try {
+      const consultingEmail = process.env.CONSULTING_EMAIL || 'consulting@mizan.work';
+      await emailService.sendEmail({
+        to: consultingEmail,
+        template: 'consultationRequest',
+        data: {
+          name: validatedData.name,
+          company: validatedData.company,
+          email: validatedData.email,
+          type: validatedData.type,
+          message: validatedData.message,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send consulting team notification:', emailError);
+    }
+
     return res.json({
       success: true,
       requestId: request.id,

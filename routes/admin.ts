@@ -16,6 +16,7 @@ import {
 } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { emailService } from '../services/email.js';
 
 const router = Router();
 
@@ -220,9 +221,32 @@ router.post('/users/invite', async (req: Request, res: Response) => {
       .returning();
     
     const user = userResult[0];
-    
-    // TODO: Send invitation email
-    
+
+    // Send invitation email
+    try {
+      const invitationToken = randomUUID();
+      const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation/${invitationToken}`;
+
+      // Get tenant info for the email
+      const [tenant] = await db.query.tenants.findMany({
+        where: eq(tenants.id, req.user.tenantId)
+      });
+
+      await emailService.sendEmail({
+        to: validatedData.email,
+        template: 'employeeInvitation',
+        data: {
+          employeeName: validatedData.name,
+          adminName: req.user.name || 'Your administrator',
+          companyName: tenant?.name || 'the organization',
+          invitationLink,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
     res.json({
       success: true,
       user: {

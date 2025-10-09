@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { demoRequests } from '../db/schema/payments.js';
 import { eq, desc } from 'drizzle-orm';
 import { authenticateToken } from '../middleware/auth.js';
+import { emailService } from '../services/email.js';
 
 const router = Router();
 
@@ -63,8 +64,44 @@ router.post('/submit', async (req: Request, res: Response) => {
       })
       .returning();
 
-    // TODO: Send email notification to superadmin
-    // TODO: Send confirmation email to customer
+    // Send confirmation email to customer
+    try {
+      await emailService.sendEmail({
+        to: email,
+        template: 'demoRequestConfirmation',
+        data: {
+          firstName,
+          lastName,
+          company,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send customer confirmation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Send notification to superadmin
+    try {
+      const superadminEmail = process.env.SUPERADMIN_EMAIL || 'admin@mizan.work';
+      await emailService.sendEmail({
+        to: superadminEmail,
+        template: 'demoRequestNotification',
+        data: {
+          firstName,
+          lastName,
+          email,
+          company,
+          phone,
+          employeeCount,
+          industry,
+          interestedIn,
+          message,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send superadmin notification email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     return res.status(201).json({
       success: true,
