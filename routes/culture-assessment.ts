@@ -394,6 +394,16 @@ router.post('/submit', async (req: Request, res: Response) => {
     // Trigger immediate individual report generation (async background)
     generateEmployeeReport(assessment[0].id, invitation.employeeId, invitation.tenantId);
 
+    // Delete cached company-level reports to force regeneration with new data
+    // This ensures aggregate reports reflect the latest survey responses
+    await db.delete(cultureReports)
+      .where(and(
+        eq(cultureReports.tenantId, invitation.tenantId),
+        eq(cultureReports.reportType, 'company')
+      ));
+
+    console.log(`🔄 Deleted company reports for tenant ${invitation.tenantId} to trigger regeneration`);
+
     return res.json({
       success: true,
       assessmentId: assessment[0].id,
