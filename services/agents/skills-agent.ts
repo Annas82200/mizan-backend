@@ -50,19 +50,19 @@ export class SkillsAgent extends ThreeEngineAgent {
     const config: ThreeEngineConfig = {
       knowledge: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.2,
         maxTokens: 2000
       },
       data: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.1,
         maxTokens: 3000
       },
       reasoning: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.4,
         maxTokens: 4000
       },
@@ -103,6 +103,129 @@ export class SkillsAgent extends ThreeEngineAgent {
           'Domain Knowledge'
         ]
       },
+      // NEW FRAMEWORK 1: SFIA (Skills Framework for the Information Age)
+      sfiaFramework: {
+        name: 'SFIA - Skills Framework for the Information Age',
+        description: 'Global skills and competency framework for digital professionals',
+        levels: [1, 2, 3, 4, 5, 6, 7],
+        levelDescriptions: {
+          1: 'Follow - Works under close direction',
+          2: 'Assist - Works under routine direction',
+          3: 'Apply - Works under general direction',
+          4: 'Enable - Works under minimal direction',
+          5: 'Ensure, advise - Works autonomously',
+          6: 'Initiate, influence - Demonstrates leadership',
+          7: 'Set strategy, inspire - Provides strategic leadership'
+        },
+        categories: {
+          strategy: ['Information strategy', 'Advice and guidance', 'Business strategy'],
+          change: ['Business change management', 'Stakeholder relationship management'],
+          development: ['Systems development', 'User experience design', 'Programming'],
+          delivery: ['Service delivery', 'Problem management', 'Release and deployment'],
+          skills: ['Data management', 'Information security', 'Quality management'],
+          relationships: ['Stakeholder engagement', 'Collaboration', 'Relationship building']
+        },
+        topSkills: [
+          'Programming/software development', 'Systems design', 'Data management',
+          'Information security', 'Business analysis', 'Testing', 'User experience',
+          'Service management', 'Project management', 'Enterprise architecture'
+        ]
+      },
+      // NEW FRAMEWORK 2: LinkedIn Skills Genome (Market Demand)
+      linkedinSkillsGenome: {
+        name: 'LinkedIn Skills Genome',
+        description: 'Market-driven skill demand and trends',
+        trendingSkills2025: [
+          'Artificial Intelligence', 'Machine Learning', 'Generative AI',
+          'Cloud Computing', 'Cybersecurity', 'Data Science',
+          'DevOps', 'Kubernetes', 'Python', 'React'
+        ],
+        skillAdjacencies: {
+          'Python': ['Data Science', 'Machine Learning', 'Backend Development'],
+          'JavaScript': ['React', 'Node.js', 'TypeScript', 'Frontend Development'],
+          'Cloud': ['AWS', 'Azure', 'GCP', 'DevOps', 'Kubernetes'],
+          'Leadership': ['Team Management', 'Strategic Thinking', 'Communication']
+        },
+        inDemandByIndustry: {
+          'Technology': ['AI/ML', 'Cloud', 'DevOps', 'Cybersecurity'],
+          'Finance': ['Data Analytics', 'Risk Management', 'Compliance'],
+          'Healthcare': ['Healthcare IT', 'Data Privacy', 'Interoperability']
+        },
+        emergingSkills: [
+          'Prompt Engineering', 'LLM Integration', 'AI Ethics',
+          'Quantum Computing', 'Edge Computing', 'Web3'
+        ]
+      },
+      // NEW FRAMEWORK 3: Emotional Intelligence (EQ)
+      emotionalIntelligence: {
+        name: 'Emotional Intelligence (EQ) Framework',
+        description: 'Critical soft skills for leadership and collaboration',
+        dimensions: {
+          selfAwareness: {
+            name: 'Self-Awareness',
+            description: 'Understanding your emotions, strengths, weaknesses',
+            skills: ['Self-reflection', 'Emotional awareness', 'Self-confidence']
+          },
+          selfRegulation: {
+            name: 'Self-Regulation',
+            description: 'Managing your emotions and impulses',
+            skills: ['Self-control', 'Adaptability', 'Conscientiousness']
+          },
+          motivation: {
+            name: 'Motivation',
+            description: 'Passion for work beyond money and status',
+            skills: ['Achievement drive', 'Commitment', 'Initiative', 'Optimism']
+          },
+          empathy: {
+            name: 'Empathy',
+            description: 'Understanding others\' emotional makeup',
+            skills: ['Understanding others', 'Service orientation', 'Diversity awareness']
+          },
+          socialSkills: {
+            name: 'Social Skills',
+            description: 'Managing relationships and building networks',
+            skills: ['Influence', 'Communication', 'Conflict management', 'Collaboration', 'Team building']
+          }
+        },
+        levels: ['Developing', 'Moderate', 'High', 'Advanced', 'Exceptional'],
+        leadershipImpact: 'High EQ correlates with 58% of job performance across all roles'
+      },
+      // NEW FRAMEWORK 4: 70-20-10 Learning Model
+      seventyTwentyTen: {
+        name: '70-20-10 Learning Model',
+        description: 'How people develop skills most effectively',
+        model: {
+          experiential: {
+            percentage: 70,
+            name: 'On-the-Job Experience',
+            description: 'Learning through challenging assignments and practice',
+            methods: [
+              'Stretch assignments', 'Job rotation', 'Special projects',
+              'Real-world problem solving', 'Learning by doing'
+            ]
+          },
+          social: {
+            percentage: 20,
+            name: 'Coaching & Mentoring',
+            description: 'Learning from others through feedback and observation',
+            methods: [
+              'Mentoring', 'Coaching', 'Peer learning',
+              'Communities of practice', 'Feedback sessions'
+            ]
+          },
+          formal: {
+            percentage: 10,
+            name: 'Formal Training',
+            description: 'Structured learning through courses and programs',
+            methods: [
+              'Online courses', 'Workshops', 'Certifications',
+              'Conferences', 'Books and documentation'
+            ]
+          }
+        },
+        application: 'Use this to recommend diverse skill development paths, not just courses'
+      },
+      // Existing frameworks
       skillCategories: {
         technical: ['Programming', 'Data Analysis', 'System Design', 'Testing'],
         leadership: ['Team Management', 'Strategic Thinking', 'Decision Making'],
@@ -156,16 +279,20 @@ Key frameworks to consider:
 1. O*NET Skills Taxonomy - Comprehensive skills database
 2. Bloom's Taxonomy - Learning and skill development levels
 3. Competency Modeling - Behavioral and technical competencies
-4. Skills-based hiring frameworks
-5. Learning and development best practices
+4. SFIA (Skills Framework for the Information Age) - Global IT skills standard with 7 proficiency levels
+5. LinkedIn Skills Genome - Market-driven skill demand and trending skills
+6. Emotional Intelligence (EQ) - 5 dimensions of soft skills critical for leadership
+7. 70-20-10 Learning Model - How to develop skills (70% experience, 20% coaching, 10% formal training)
 
 Your output should be structured JSON containing:
 - applicable_frameworks: Most relevant skills frameworks
 - skill_categories: How to categorize and group skills
-- proficiency_standards: Standards for measuring skill levels
-- development_pathways: How skills can be developed
+- proficiency_standards: Standards for measuring skill levels (use SFIA 1-7 scale when appropriate)
+- development_pathways: How skills can be developed (apply 70-20-10 model)
+- market_demand: Which skills are in demand (LinkedIn Skills Genome)
+- eq_assessment: Emotional intelligence dimensions relevant to skills
 
-Focus on evidence-based skills assessment and development theory.`;
+Focus on evidence-based skills assessment and development theory. Use SFIA for IT/digital skills, EQ for leadership/soft skills, and 70-20-10 for training recommendations.`;
   }
 
   protected getDataSystemPrompt(): string {

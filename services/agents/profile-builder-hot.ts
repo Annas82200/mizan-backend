@@ -16,19 +16,19 @@ export class ProfileBuilderHOT extends ThreeEngineAgent {
     const config: ThreeEngineConfig = {
       knowledge: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.7, // Higher temperature for conversational tone
         maxTokens: 2000
       },
       data: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.3,
         maxTokens: 1500
       },
       reasoning: {
         providers: ['openai', 'anthropic'],
-        model: 'gpt-4',
+        model: 'gpt-4o',
         temperature: 0.5,
         maxTokens: 2000
       },
