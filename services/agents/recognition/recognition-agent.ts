@@ -1,11 +1,17 @@
-// import { DEFAULT_VALUES_FRAMEWORK } from "@mizan/shared/schema";
-// import { runTriad, TriadResult } from "../ai-providers/router.js";
-// import { EnsembleAI } from "../ai-providers/ensemble.js";
+import { EnsembleAI } from "../../ai-providers/ensemble.js";
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
-const DEFAULT_VALUES_FRAMEWORK: any = [];  // TODO: Import from shared location
-type TriadResult = any;  // TODO: Import from ai-providers
-const runTriad = async (...args: any[]): Promise<TriadResult> => ({ consensus: null, confidence: 0 } as any);  // TODO: Implement
-class EnsembleAI { constructor(...args: any[]) {} async call(...args: any[]): Promise<any> { return {}; } }  // TODO: Implement
+// Load Mizan 7-Cylinder Framework from JSON file
+let DEFAULT_VALUES_FRAMEWORK: any = [];
+try {
+  const frameworkPath = join(process.cwd(), 'mizan-framework-updated.json');
+  const frameworkData = await readFile(frameworkPath, 'utf-8');
+  DEFAULT_VALUES_FRAMEWORK = JSON.parse(frameworkData);
+} catch (error) {
+  console.error('Failed to load Mizan framework:', error);
+  DEFAULT_VALUES_FRAMEWORK = [];
+}
 
 export type RecognitionChannels = {
   peerToPeer: number;
@@ -30,7 +36,7 @@ export type RecognitionResult = {
   impactAnalysis: RecognitionImpact;
   recommendations: string[];
   programs: RecognitionProgram[];
-  triad: TriadResult;
+  triad: { consensus: string; confidence: number };
   score: number;
   confidence: number;
 };
@@ -127,20 +133,31 @@ export async function analyzeRecognition(input: {
     input.tenantId
   );
   
-  // Run triad analysis
-  const triad = await runTriad("Recognition", {
-    tenantId: input.tenantId,
-    signalStrength: recognitionHealth,
-    focusCylinder: focusCylinder,
-    context: [
-      `Health: ${Math.round(recognitionHealth * 100)}%`,
-      `Top channel: ${getTopChannel(channels)}`,
-      `Quality score: ${Math.round(quality.overall * 100)}%`,
-      `Impact on engagement: ${impactAnalysis.onEngagement}`
-    ],
-    prompt: `Analyze recognition systems and recommend improvements aligned with ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name} values`,
-    useEnsemble: true
+  // Run ensemble AI analysis
+  const ensemble = new EnsembleAI({
+    strategy: "weighted",
+    providers: ["openai", "anthropic", "gemini"]
   });
+
+  const triadResponse = await ensemble.call({
+    agent: "Recognition",
+    engine: "reasoning",
+    tenantId: input.tenantId,
+    prompt: `Analyze recognition systems and recommend improvements aligned with ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name} values.
+
+Context:
+- Health: ${Math.round(recognitionHealth * 100)}%
+- Top channel: ${getTopChannel(channels)}
+- Quality score: ${Math.round(quality.overall * 100)}%
+- Impact on engagement: ${impactAnalysis.onEngagement}`,
+    temperature: 0.7,
+    maxTokens: 2000
+  });
+
+  const triad = {
+    consensus: triadResponse.narrative,
+    confidence: triadResponse.confidence
+  };
 
   // Compile recommendations
   const recommendations = compileRecommendations(

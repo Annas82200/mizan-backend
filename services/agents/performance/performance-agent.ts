@@ -1,11 +1,20 @@
-// import { DEFAULT_VALUES_FRAMEWORK } from "@mizan/shared/schema";
-// import { runTriad, TriadResult } from "../ai-providers/router.js";
-// import { EnsembleAI } from "../ai-providers/ensemble.js";
+import { EnsembleAI } from "../../ai-providers/ensemble.js";
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
-const DEFAULT_VALUES_FRAMEWORK: any = [];  // TODO: Import from shared location
-type TriadResult = any;  // TODO: Import from ai-providers
-const runTriad = async (...args: any[]): Promise<TriadResult> => ({ consensus: null, confidence: 0 } as any);  // TODO: Implement
-class EnsembleAI { constructor(...args: any[]) {} async call(...args: any[]): Promise<any> { return {}; } }  // TODO: Implement
+// Load Mizan 7-Cylinder Framework from JSON file
+let DEFAULT_VALUES_FRAMEWORK: any = [];
+try {
+  const frameworkPath = join(process.cwd(), 'mizan-framework-updated.json');
+  const frameworkData = await readFile(frameworkPath, 'utf-8');
+  DEFAULT_VALUES_FRAMEWORK = JSON.parse(frameworkData);
+} catch (error) {
+  console.error('Failed to load Mizan framework:', error);
+  DEFAULT_VALUES_FRAMEWORK = [];
+}
+
+// Note: runTriad is no longer used in this implementation
+// The agent uses EnsembleAI directly throughout
 
 export type PerformanceMetrics = {
   productivity: number;
@@ -30,7 +39,7 @@ export type PerformanceResult = {
   predictiveInsights: PredictiveInsight[];
   recommendations: string[];
   interventions: PerformanceIntervention[];
-  triad: TriadResult;
+  triad: { consensus: string; confidence: number };
   score: number;
   confidence: number;
 };
@@ -128,20 +137,31 @@ export async function analyzePerformance(input: {
     input.tenantId
   );
   
-  // Run triad analysis
-  const triad = await runTriad("Performance", {
-    tenantId: input.tenantId,
-    signalStrength: predictedProductivity,
-    focusCylinder: focusCylinder,
-    context: [
-      `Current productivity: ${Math.round(currentMetrics.productivity * 100)}%`,
-      `Predicted: ${Math.round(predictedProductivity * 100)}%`,
-      `Trend: ${trendAnalysis.overallTrend}`,
-      `Critical bottlenecks: ${bottlenecks.filter((b: any) => b.severity === "critical").length}`
-    ],
-    prompt: `Analyze performance patterns and recommend strategies to enhance ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name}-driven performance`,
-    useEnsemble: true
+  // Run ensemble AI analysis for final synthesis
+  const ensemble = new EnsembleAI({
+    strategy: "weighted",
+    providers: ["openai", "anthropic", "gemini"]
   });
+
+  const triadResponse = await ensemble.call({
+    agent: "Performance",
+    engine: "reasoning",
+    tenantId: input.tenantId,
+    prompt: `Analyze performance patterns and recommend strategies to enhance ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name}-driven performance.
+
+Context:
+- Current productivity: ${Math.round(currentMetrics.productivity * 100)}%
+- Predicted: ${Math.round(predictedProductivity * 100)}%
+- Trend: ${trendAnalysis.overallTrend}
+- Critical bottlenecks: ${bottlenecks.filter((b: any) => b.severity === "critical").length}`,
+    temperature: 0.7,
+    maxTokens: 2000
+  });
+
+  const triad = {
+    consensus: triadResponse.narrative,
+    confidence: triadResponse.confidence
+  };
 
   // Compile recommendations
   const recommendations = compileRecommendations(

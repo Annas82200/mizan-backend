@@ -1,11 +1,17 @@
-// import { DEFAULT_VALUES_FRAMEWORK } from "@mizan/shared/schema";
-// import { runTriad, TriadResult } from "../ai-providers/router.js";
-// import { EnsembleAI } from "../ai-providers/ensemble.js";
+import { EnsembleAI } from "../../ai-providers/ensemble.js";
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
-const DEFAULT_VALUES_FRAMEWORK: any = [];  // TODO: Import from shared location
-type TriadResult = any;  // TODO: Import from ai-providers
-const runTriad = async (...args: any[]): Promise<TriadResult> => ({ consensus: null, confidence: 0 } as any);  // TODO: Implement
-class EnsembleAI { constructor(...args: any[]) {} async call(...args: any[]): Promise<any> { return {}; } }  // TODO: Implement
+// Load Mizan 7-Cylinder Framework from JSON file
+let DEFAULT_VALUES_FRAMEWORK: any = [];
+try {
+  const frameworkPath = join(process.cwd(), 'mizan-framework-updated.json');
+  const frameworkData = await readFile(frameworkPath, 'utf-8');
+  DEFAULT_VALUES_FRAMEWORK = JSON.parse(frameworkData);
+} catch (error) {
+  console.error('Failed to load Mizan framework:', error);
+  DEFAULT_VALUES_FRAMEWORK = [];
+}
 
 export type BenchmarkMetrics = {
   organizationalHealth: number;
@@ -30,7 +36,7 @@ export type BenchmarkingResult = {
   maturityAssessment: MaturityModel;
   recommendations: string[];
   actionPlan: BenchmarkActionPlan[];
-  triad: TriadResult;
+  triad: { consensus: string; confidence: number };
   confidence: number;
 };
 
@@ -177,20 +183,31 @@ export async function analyzeBenchmarking(input: {
   // Calculate overall score
   const score = calculateBenchmarkScore(metrics, industryPosition, maturityAssessment);
   
-  // Run triad analysis
-  const triad = await runTriad("Benchmarking", {
-    tenantId: input.tenantId,
-    signalStrength: score,
-    focusCylinder: focusCylinder,
-    context: [
-      `Industry position: ${industryPosition.percentile}th percentile`,
-      `Maturity level: ${maturityAssessment.currentLevel}/5`,
-      `Critical gaps: ${gaps.filter(g => g.priority === "critical").length}`,
-      `Competitive advantages: ${competitiveAnalysis.strengths.length}`
-    ],
-    prompt: `Analyze competitive position and recommend strategies to achieve top-quartile performance through ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name} excellence`,
-    useEnsemble: true
+  // Run ensemble AI analysis
+  const ensemble = new EnsembleAI({
+    strategy: "weighted",
+    providers: ["openai", "anthropic", "gemini"]
   });
+
+  const triadResponse = await ensemble.call({
+    agent: "Benchmarking",
+    engine: "reasoning",
+    tenantId: input.tenantId,
+    prompt: `Analyze competitive position and recommend strategies to achieve top-quartile performance through ${DEFAULT_VALUES_FRAMEWORK[focusCylinder - 1]?.name} excellence.
+
+Context:
+- Industry position: ${industryPosition.percentile}th percentile
+- Maturity level: ${maturityAssessment.currentLevel}/5
+- Critical gaps: ${gaps.filter(g => g.priority === "critical").length}
+- Competitive advantages: ${competitiveAnalysis.strengths.length}`,
+    temperature: 0.7,
+    maxTokens: 2000
+  });
+
+  const triad = {
+    consensus: triadResponse.narrative,
+    confidence: triadResponse.confidence
+  };
 
   // Compile recommendations
   const recommendations = compileRecommendations(
