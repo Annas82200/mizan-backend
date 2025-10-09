@@ -176,6 +176,13 @@ export class StripeService {
 
       // Calculate pricing
       const planConfig = PRICING_CONFIG[plan as keyof typeof PRICING_CONFIG];
+
+      // Enterprise plan doesn't have standard pricing
+      if (plan === 'enterprise' || !('annual' in planConfig) || !('monthly' in planConfig)) {
+        console.error('Enterprise plan should not go through standard checkout');
+        return;
+      }
+
       const pricePerEmployee = billingPeriod === 'annual' ? planConfig.annual : planConfig.monthly;
       const totalAmount = pricePerEmployee * employeeCount;
 
@@ -347,6 +354,43 @@ export class StripeService {
       return stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (error: any) {
       throw new Error(`Webhook signature verification failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Main webhook handler - Routes events to specific handlers
+   */
+  async handleWebhook(event: Stripe.Event): Promise<void> {
+    console.log(`📥 Received webhook: ${event.type}`);
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await this.handleCheckoutComplete(event.data.object as Stripe.Checkout.Session);
+          break;
+
+        case 'customer.subscription.updated':
+          await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+          break;
+
+        case 'customer.subscription.deleted':
+          await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+          break;
+
+        case 'invoice.payment_failed':
+          await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+          break;
+
+        case 'invoice.payment_succeeded':
+          console.log(`✅ Invoice payment succeeded: ${(event.data.object as Stripe.Invoice).id}`);
+          break;
+
+        default:
+          console.log(`ℹ️ Unhandled webhook event type: ${event.type}`);
+      }
+    } catch (error: any) {
+      console.error(`❌ Webhook handler error for ${event.type}:`, error);
+      throw error;
     }
   }
 }

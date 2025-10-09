@@ -211,6 +211,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     } else {
       // Full mode: 4-provider consensus (~30+ seconds) for authenticated users
       response = await this.reasoningAI.call({
+        agent: 'structure',
         engine: 'reasoning',
         prompt,
         temperature: 0.7,

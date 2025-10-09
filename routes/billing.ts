@@ -49,19 +49,25 @@ const BILLING_PLANS = {
 // Webhook (no auth)
 router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   const signature = req.headers["stripe-signature"] as string;
-  
+
   if (!signature) {
     return res.status(400).json({ error: "No signature" });
   }
-  
+
   try {
-    // Note: handleWebhook expects Stripe.Event, not raw body + signature
-    // This needs to be verified against actual webhook implementation
-    await handleWebhook(req.body);
+    // Verify webhook signature and construct event
+    const event = stripeService.verifyWebhookSignature(
+      req.body.toString(),
+      signature
+    );
+
+    // Handle the webhook event
+    await stripeService.handleWebhook(event);
+
     return res.json({ received: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Webhook error:", error);
-    return res.status(400).json({ error: "Webhook processing failed" });
+    return res.status(400).json({ error: error.message || "Webhook processing failed" });
   }
 });
 

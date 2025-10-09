@@ -827,6 +827,7 @@ REMEMBER: interpretation = 3-4 sentences MAX. meaning = 1-2 sentences MAX.`;
 
     // Call reasoning AI with 4-provider consensus
     const response = await this.reasoningAI.call({
+      agent: 'engagement',
       engine: 'reasoning',
       prompt,
       temperature: 0.7,

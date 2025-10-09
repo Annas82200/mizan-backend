@@ -60,10 +60,13 @@ export const subscriptions = pgTable('subscriptions', {
   // Trial
   trialEndsAt: timestamp('trial_ends_at'),
 
+  // Cancellation
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
+  canceledAt: timestamp('canceled_at'),
+
   // Dates
   currentPeriodStart: timestamp('current_period_start'),
   currentPeriodEnd: timestamp('current_period_end'),
-  canceledAt: timestamp('canceled_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 });

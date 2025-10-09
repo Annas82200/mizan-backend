@@ -235,6 +235,7 @@ Format like this (CORRECT - text immediately after quote):
 
     // Call reasoning AI with 4-provider consensus for rich text generation
     const response = await this.reasoningAI.call({
+      agent: 'culture',
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
@@ -454,6 +455,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     // Call reasoning AI using Three-Engine system with multi-provider consensus
     console.log('🚀 ORG CULTURE - Calling Three-Engine AI (OpenAI + Anthropic), prompt length:', prompt.length);
     const response = await this.reasoningAI.call({
+      agent: 'culture',
       engine: 'reasoning',
       prompt,
       temperature: 0.7,
