@@ -169,3 +169,25 @@ export const skillsAssessmentsRelations = relations(skillsAssessments, ({ one })
     references: [users.id],
   }),
 }));
+
+// ============================================================================
+// ADDITIONAL SKILLS TABLES
+// ============================================================================
+
+export const skillsTaxonomies = pgTable('skills_taxonomies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  skillName: text('skill_name').notNull(),
+  category: text('category'),
+  taxonomy: jsonb('taxonomy'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const employeeSkills = pgTable('employee_skills', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  skillId: text('skill_id').notNull(),
+  proficiencyLevel: integer('proficiency_level'), // 1-5 scale
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

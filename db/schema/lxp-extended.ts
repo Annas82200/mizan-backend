@@ -324,3 +324,59 @@ export const learningAnalyticsRelations = relations(learningAnalytics, ({ one })
     references: [learningPaths.id]
   })
 }));
+
+// ============================================================================
+// LEGACY LXP TABLES (backward compatibility)
+// ============================================================================
+
+export const assessments = pgTable('assessments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  assessmentType: text('assessment_type').notNull(),
+  results: jsonb('results'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const learningExperiences = pgTable('learning_experiences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  experienceType: text('experience_type').notNull(),
+  data: jsonb('data'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const learningAssignments = pgTable('learning_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  assignmentType: text('assignment_type').notNull(),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const learningProgress = pgTable('learning_progress', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  courseId: text('course_id'),
+  progress: integer('progress').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const actionModules = pgTable('action_modules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  moduleType: text('module_type').notNull(),
+  config: jsonb('config'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const orgSnapshots = pgTable('org_snapshots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  snapshotData: jsonb('snapshot_data'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

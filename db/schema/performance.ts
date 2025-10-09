@@ -738,6 +738,23 @@ export const oneOnOneMeetingsRelations = relations(oneOnOneMeetings, ({ one }) =
 }));
 
 // ============================================================================
+// TALENT & PERFORMANCE MANAGEMENT
+// ============================================================================
+
+export const talentProfiles = pgTable('talent_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  profileData: jsonb('profile_data'), // Detailed talent profile info
+  strengths: jsonb('strengths'), // Array of strengths
+  developmentAreas: jsonb('development_areas'), // Areas for growth
+  careerAspirations: text('career_aspirations'),
+  potentialRating: text('potential_rating'), // high, medium, low
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 // Note: Tables are already exported with 'export const' declarations above

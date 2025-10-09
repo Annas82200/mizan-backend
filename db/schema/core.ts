@@ -126,6 +126,17 @@ export const frameworkConfig = pgTable('framework_config', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Sessions table for authentication
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  tenantId: text('tenant_id').notNull(),
+  token: text('token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  metadata: jsonb('metadata'),
+});
+
 // Relations
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
@@ -162,4 +173,15 @@ export const departmentsRelations = relations(departments, ({ one, many }) => ({
     references: [departments.id],
   }),
   users: many(users),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id]
+  }),
+  tenant: one(tenants, {
+    fields: [sessions.tenantId],
+    references: [tenants.id]
+  })
 }));
