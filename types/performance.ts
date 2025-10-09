@@ -8,7 +8,11 @@ import {
   performanceReviews,
   performanceGoals,
   performanceFeedback,
-  performanceMetrics
+  performanceMetrics,
+  kpis,
+  okrs,
+  keyResults,
+  performanceRecommendations
 } from '../db/schema/performance.js';
 
 import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared.js';
@@ -28,6 +32,18 @@ export type PerformanceFeedbackInsert = typeof performanceFeedback.$inferInsert;
 
 export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
 export type PerformanceMetricInsert = typeof performanceMetrics.$inferInsert;
+
+export type KPI = typeof kpis.$inferSelect;
+export type KPIInsert = typeof kpis.$inferInsert;
+
+export type OKR = typeof okrs.$inferSelect;
+export type OKRInsert = typeof okrs.$inferInsert;
+
+export type KeyResult = typeof keyResults.$inferSelect;
+export type KeyResultInsert = typeof keyResults.$inferInsert;
+
+export type PerformanceRecommendation = typeof performanceRecommendations.$inferSelect;
+export type PerformanceRecommendationInsert = typeof performanceRecommendations.$inferInsert;
 
 // TODO: CoachingSession types - table doesn't exist in schema yet
 // Will need to add coaching_sessions table to performance.ts schema

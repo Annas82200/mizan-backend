@@ -8,6 +8,7 @@
 
 import { pgTable, uuid, text, timestamp, decimal, jsonb, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { tenants, users, departments } from './core.js';
 
 // ============================================================================
 // ENUMS
@@ -753,6 +754,173 @@ export const talentProfiles = pgTable('talent_profiles', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ============================================================================
+// KPIs (KEY PERFORMANCE INDICATORS)
+// ============================================================================
+
+export const kpis = pgTable('kpis', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  departmentId: text('department_id'), // Optional department-level KPI
+  employeeId: text('employee_id'), // Optional individual KPI
+  name: text('name').notNull(), // KPI name (e.g., "Sales Revenue", "Customer Satisfaction")
+  description: text('description'),
+  category: text('category'), // financial, customer, process, learning_growth
+  targetValue: decimal('target_value'), // Target to achieve
+  currentValue: decimal('current_value'), // Current actual value
+  unit: text('unit'), // Unit of measurement (%, $, count, etc.)
+  frequency: text('frequency'), // daily, weekly, monthly, quarterly, annual
+  status: text('status').default('active'), // active, achieved, at_risk, failed
+  ownerId: text('owner_id'), // Person responsible for this KPI
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  metadata: jsonb('metadata'), // Additional contextual data
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// OKRs (OBJECTIVES AND KEY RESULTS)
+// ============================================================================
+
+export const okrs = pgTable('okrs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  departmentId: text('department_id'), // Optional department OKR
+  employeeId: text('employee_id'), // Optional individual OKR
+  parentOkrId: text('parent_okr_id'), // For cascading OKRs
+  type: text('type').notNull(), // company, department, team, individual
+  objective: text('objective').notNull(), // The qualitative goal
+  description: text('description'),
+  quarter: text('quarter'), // Q1, Q2, Q3, Q4
+  year: integer('year'),
+  status: text('status').default('in_progress'), // not_started, in_progress, completed, deferred
+  progress: integer('progress').default(0), // 0-100 percentage
+  ownerId: text('owner_id').notNull(), // Person/team responsible
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Key Results for OKRs (many-to-one relationship)
+export const keyResults = pgTable('key_results', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  okrId: text('okr_id').notNull(), // Parent OKR
+  description: text('description').notNull(), // The measurable result
+  targetValue: decimal('target_value').notNull(), // What we're aiming for
+  currentValue: decimal('current_value').default('0'), // Current progress
+  unit: text('unit'), // Unit of measurement
+  status: text('status').default('not_started'), // not_started, in_progress, at_risk, achieved
+  progress: integer('progress').default(0), // 0-100 percentage
+  dueDate: timestamp('due_date'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// RECOMMENDATIONS & ACTION ITEMS
+// ============================================================================
+
+export const performanceRecommendations = pgTable('performance_recommendations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id'), // Optional - can be org-level
+  departmentId: text('department_id'), // Optional - can be dept-level
+  sourceType: text('source_type').notNull(), // performance_review, goal_tracking, 1on1, ai_analysis
+  sourceId: text('source_id'), // ID of the source (review ID, goal ID, etc.)
+  recommendationType: text('recommendation_type').notNull(), // training, coaching, goal, recognition, process_improvement
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  priority: text('priority').default('medium'), // low, medium, high, urgent
+  status: text('status').default('pending'), // pending, in_progress, completed, dismissed
+  actionItems: jsonb('action_items'), // Array of specific actions to take
+  expectedImpact: text('expected_impact'), // What will improve if implemented
+  estimatedEffort: text('estimated_effort'), // low, medium, high
+  dueDate: timestamp('due_date'),
+  completedAt: timestamp('completed_at'),
+  assignedTo: text('assigned_to'), // Who should implement this
+  aiGenerated: boolean('ai_generated').default(true), // Was this AI-generated?
+  aiModel: text('ai_model'), // Which AI model generated it
+  confidence: decimal('confidence'), // AI confidence score
+  metadata: jsonb('metadata'), // Additional context
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// RELATIONS
+// ============================================================================
+
+export const kpisRelations = relations(kpis, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [kpis.tenantId],
+    references: [tenants.id]
+  }),
+  department: one(departments, {
+    fields: [kpis.departmentId],
+    references: [departments.id]
+  }),
+  employee: one(users, {
+    fields: [kpis.employeeId],
+    references: [users.id]
+  }),
+  owner: one(users, {
+    fields: [kpis.ownerId],
+    references: [users.id]
+  })
+}));
+
+export const okrsRelations = relations(okrs, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [okrs.tenantId],
+    references: [tenants.id]
+  }),
+  department: one(departments, {
+    fields: [okrs.departmentId],
+    references: [departments.id]
+  }),
+  employee: one(users, {
+    fields: [okrs.employeeId],
+    references: [users.id]
+  }),
+  owner: one(users, {
+    fields: [okrs.ownerId],
+    references: [users.id]
+  }),
+  parentOkr: one(okrs, {
+    fields: [okrs.parentOkrId],
+    references: [okrs.id]
+  }),
+  keyResults: many(keyResults)
+}));
+
+export const keyResultsRelations = relations(keyResults, ({ one }) => ({
+  okr: one(okrs, {
+    fields: [keyResults.okrId],
+    references: [okrs.id]
+  })
+}));
+
+export const performanceRecommendationsRelations = relations(performanceRecommendations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [performanceRecommendations.tenantId],
+    references: [tenants.id]
+  }),
+  employee: one(users, {
+    fields: [performanceRecommendations.employeeId],
+    references: [users.id]
+  }),
+  department: one(departments, {
+    fields: [performanceRecommendations.departmentId],
+    references: [departments.id]
+  }),
+  assignee: one(users, {
+    fields: [performanceRecommendations.assignedTo],
+    references: [users.id]
+  })
+}));
 
 // ============================================================================
 // EXPORTS

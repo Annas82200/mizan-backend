@@ -1,6 +1,6 @@
 import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from './base/three-engine-agent.js';
 import { db } from '../../db/index.js';
-import { cultureFrameworks, cultureAssessments, cultureReports, tenants } from '../../db/schema.js';
+import { cultureAssessments, cultureReports, tenants } from '../../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { EngagementAgent } from './engagement-agent.js';
 import { RecognitionAgent } from './recognition-agent.js';
@@ -562,13 +562,14 @@ Return ONLY a valid JSON object with NO markdown formatting:
   }
 
   protected async loadFrameworks(): Promise<any> {
-    const frameworks = await db
-      .select()
-      .from(cultureFrameworks);
-
+    // TODO: Load frameworks from database when cultureFrameworks table is implemented
+    // For now, use hardcoded Mizan framework
     return {
-      mizanFramework: frameworks.find(f => f.frameworkName === 'Mizan 7-Cylinder'),
-      odModels: frameworks.filter(f => f.frameworkName !== 'Mizan 7-Cylinder'),
+      mizanFramework: {
+        frameworkName: 'Mizan 7-Cylinder',
+        description: 'Proprietary organizational culture framework based on ethical principles'
+      },
+      odModels: [],
       cylinders: {
         1: {
           name: 'Safety & Survival',

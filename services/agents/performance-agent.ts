@@ -1,6 +1,6 @@
 import { ThreeEngineAgent } from './base/three-engine-agent.js';
 import { db } from '../../db/index.js';
-import { performanceReviews, employeeProfiles } from '../../db/schema.js';
+import { performanceReviews, employeeProfiles, kpis, okrs, keyResults } from '../../db/schema.js';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 interface PerformanceAnalysisRequest {
@@ -239,25 +239,27 @@ Provide:
         ))
         .orderBy(desc(performanceReviews.reviewEndDate));
 
-      // Get KPIs - TODO: Implement kpis table
-      const kpiData: any[] = [];
-      // const kpiData = await db.select()
-      //   .from(kpis)
-      //   .where(and(
-      //     eq(kpis.tenantId, request.tenantId),
-      //     request.departmentId ? eq(kpis.departmentId, request.departmentId) : undefined,
-      //     timeframeFilter ? gte(kpis.createdAt, timeframeFilter.start) : undefined
-      //   ));
+      // Get KPIs
+      const kpiData = await db.select()
+        .from(kpis)
+        .where(and(
+          eq(kpis.tenantId, request.tenantId),
+          request.departmentId ? eq(kpis.departmentId, request.departmentId) : undefined,
+          request.employeeId ? eq(kpis.employeeId, request.employeeId) : undefined,
+          timeframeFilter ? gte(kpis.createdAt, timeframeFilter.start) : undefined
+        ))
+        .orderBy(desc(kpis.createdAt));
 
-      // Get OKRs - TODO: Implement okrs table
-      const okrData: any[] = [];
-      // const okrData = await db.select()
-      //   .from(okrs)
-      //   .where(and(
-      //     eq(okrs.tenantId, request.tenantId),
-      //     request.departmentId ? eq(okrs.departmentId, request.departmentId) : undefined,
-      //     timeframeFilter ? gte(okrs.createdAt, timeframeFilter.start) : undefined
-      //   ));
+      // Get OKRs
+      const okrData = await db.select()
+        .from(okrs)
+        .where(and(
+          eq(okrs.tenantId, request.tenantId),
+          request.departmentId ? eq(okrs.departmentId, request.departmentId) : undefined,
+          request.employeeId ? eq(okrs.employeeId, request.employeeId) : undefined,
+          timeframeFilter ? gte(okrs.createdAt, timeframeFilter.start) : undefined
+        ))
+        .orderBy(desc(okrs.createdAt));
 
       // Get employee profiles for context
       const employees = await db.select()
@@ -400,17 +402,24 @@ Provide:
 
   private calculateGoalAchievementScore(okrs: any[], kpis: any[]): number {
     if (okrs.length === 0 && kpis.length === 0) return 65;
-    
-    const completedOkrs = okrs.filter(o => o.progress >= 100).length;
+
+    // Calculate OKR score based on progress
+    const completedOkrs = okrs.filter(o => o.progress >= 100 || o.status === 'completed').length;
     const okrScore = okrs.length > 0 ? (completedOkrs / okrs.length) * 100 : 0;
-    
-    const achievedKpis = kpis.filter(k => k.actualValue >= k.targetValue).length;
+
+    // Calculate KPI score based on current vs target value
+    const achievedKpis = kpis.filter(k => {
+      const current = parseFloat(k.currentValue?.toString() || '0');
+      const target = parseFloat(k.targetValue?.toString() || '0');
+      return target > 0 && current >= target;
+    }).length;
     const kpiScore = kpis.length > 0 ? (achievedKpis / kpis.length) * 100 : 0;
-    
+
+    // Weight OKRs and KPIs equally if both exist
     if (okrs.length > 0 && kpis.length > 0) {
       return Math.round((okrScore + kpiScore) / 2);
     }
-    
+
     return Math.round(okrScore || kpiScore || 65);
   }
 
