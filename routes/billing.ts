@@ -65,13 +65,13 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
   }
 });
 
-// All other routes require auth
-router.use(authenticate);
-
-// Get available plans
+// Get available plans (public endpoint - no auth required)
 router.get("/plans", (_req, res) => {
   return res.json({ plans: BILLING_PLANS });
 });
+
+// All other routes require auth
+router.use(authenticate);
 
 // Get current subscription
 router.get("/subscription", requireTenant, async (req, res) => {
