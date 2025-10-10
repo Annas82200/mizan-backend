@@ -19,7 +19,6 @@ export const queues = {
   analysis: new Queue('analysis', { connection }),
   hiring: new Queue('hiring', { connection }),
   socialMedia: new Queue('social-media', { connection }),
-  hris: new Queue('hris', { connection }),
   email: new Queue('email', { connection }),
   notifications: new Queue('notifications', { connection }),
 };
@@ -109,20 +108,6 @@ const socialMediaWorker = new Worker('social-media', async (job: Job) => {
   return { success: true, result };
 }, { connection });
 
-// HRIS Worker
-const hrisWorker = new Worker('hris', async (job: Job) => {
-  const { integrationId, tenantId } = job.data;
-
-  await job.updateProgress(10);
-
-  const { syncAllHRISData } = await import('./hris/index.js');
-  const result = await syncAllHRISData(integrationId, tenantId);
-
-  await job.updateProgress(100);
-
-  return result;
-}, { connection });
-
 // Email Worker
 const emailWorker = new Worker('email', async (job: Job) => {
   const { to, template, data, from } = job.data;
@@ -152,7 +137,7 @@ const notificationsWorker = new Worker('notifications', async (job: Job) => {
 }, { connection });
 
 // Error handlers for all workers
-const workers = [analysisWorker, hiringWorker, socialMediaWorker, hrisWorker, emailWorker, notificationsWorker];
+const workers = [analysisWorker, hiringWorker, socialMediaWorker, emailWorker, notificationsWorker];
 
 workers.forEach(worker => {
   worker.on('completed', (job) => {
@@ -199,16 +184,6 @@ export async function addSocialMediaJob(data: any) {
   });
 }
 
-export async function addHRISJob(data: any) {
-  return queues.hris.add('sync-employees', data, {
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 10000,
-    },
-  });
-}
-
 export async function addEmailJob(data: any) {
   return queues.email.add('send-email', data, {
     attempts: 3,
@@ -238,14 +213,12 @@ export async function shutdownQueues() {
     analysisWorker.close(),
     hiringWorker.close(),
     socialMediaWorker.close(),
-    hrisWorker.close(),
     emailWorker.close(),
     notificationsWorker.close(),
     // Close queues
     queues.analysis.close(),
     queues.hiring.close(),
     queues.socialMedia.close(),
-    queues.hris.close(),
     queues.email.close(),
     queues.notifications.close(),
   ]);

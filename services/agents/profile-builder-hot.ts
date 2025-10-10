@@ -136,7 +136,7 @@ Return JSON:
     // Determine current section based on what's missing
     const currentSection = context.currentSection || this.determineNextSection(context.currentProfile);
 
-    const prompt = `You are a helpful HR assistant building an employee's skills profile through conversation.
+    const prompt = `You are an expert HR assistant specializing in skills extraction and profile building through natural conversation.
 
 IMPORTANT CONTEXT:
 - Current section focus: ${currentSection}
@@ -178,14 +178,45 @@ REQUIRED JSON OUTPUT:
   }
 }
 
-EXTRACTION RULES:
-- If user mentions a job/role → extract to currentExperience (if current) or pastExperience
-- If user mentions education/degree → extract to education
-- If user mentions certification/course → extract to certifications
-- If user mentions skills/technologies → extract to technicalSkills or softSkills
-- If user mentions project/built something → extract to projects
-- If user mentions language proficiency → extract to languages
+EXTRACTION RULES - COMPREHENSIVE SKILLS MINING:
+1. **From Current/Past Positions**:
+   - Extract job title, company, duration → to currentExperience or pastExperience
+   - CRITICAL: Extract ALL skills implied by the role (e.g., "Product Manager" implies: leadership, strategy, stakeholder management, analytics, roadmapping)
+   - Extract technologies/tools mentioned (e.g., "managed AWS infrastructure" → AWS, cloud architecture, DevOps)
+   - Extract achievements and quantify impact where possible
+
+2. **From Projects**:
+   - Project name, description, your role → to projects
+   - Technologies/frameworks used → to technicalSkills
+   - Skills demonstrated (project management, collaboration, problem-solving) → to softSkills/technicalSkills
+   - Business impact or results achieved
+
+3. **From Education & Training**:
+   - Degrees, institutions, graduation years → to education
+   - Courses, bootcamps, online learning → to certifications or training
+   - Conferences attended (e.g., "attended AWS re:Invent 2023") → extract AWS skills, note conference
+   - Webinars/workshops → extract topic as skill, note in training
+
+4. **From Certifications**:
+   - Certification name, issuing body, date → to certifications
+   - CRITICAL: Extract ALL skills the certification implies (e.g., "AWS Solutions Architect" → AWS, cloud architecture, security, networking, databases)
+   - Professional memberships → note and extract related skills
+
+5. **Skill Extraction Patterns**:
+   - Direct mentions: "I know Python" → Python to technicalSkills
+   - Indirect mentions: "I built a REST API" → REST, API development, backend development
+   - Tool usage: "used Jira for project management" → Jira, project management, Agile
+   - Responsibilities: "led a team of 5" → leadership, team management, mentoring
+   - Achievements: "improved performance by 40%" → optimization, analytics, problem-solving
+
+6. **Training & Learning Extraction**:
+   - Conferences: "attended KubeCon" → Kubernetes, containerization, cloud-native
+   - Webinars: "completed Docker webinar series" → Docker, containerization
+   - Courses: "took Harvard's CS50" → computer science fundamentals, problem-solving
+   - Self-learning: "taught myself React" → React, self-directed learning
+
 - ALWAYS extract EVERYTHING mentioned, even if indirect
+- Infer related skills from context
 - Merge with existing profile data, don't overwrite
 
 RESPONSE RULES:
@@ -237,30 +268,99 @@ RESPONSE RULES:
   }
 
   /**
-   * Basic extraction fallback (when AI fails)
+   * Enhanced extraction fallback (when AI fails) - comprehensive skill mining
    */
   private basicExtract(message: string): any {
     const extracted: any = {};
+    const lowerMessage = message.toLowerCase();
 
-    // Simple keyword detection
-    if (message.toLowerCase().includes('software') || message.toLowerCase().includes('developer') ||
-        message.toLowerCase().includes('engineer')) {
-      extracted.currentExperience = [{
-        role: 'Software Developer',
-        company: 'Company',
-        description: message,
-        startDate: 'Present'
-      }];
+    // Job role detection with implied skills
+    const rolePatterns: { [key: string]: string[] } = {
+      'software engineer': ['programming', 'debugging', 'software design', 'testing', 'version control'],
+      'developer': ['coding', 'debugging', 'problem-solving', 'software development'],
+      'product manager': ['product strategy', 'roadmapping', 'stakeholder management', 'analytics', 'leadership'],
+      'project manager': ['project planning', 'risk management', 'team coordination', 'budgeting', 'scheduling'],
+      'data scientist': ['data analysis', 'machine learning', 'statistics', 'python', 'data visualization'],
+      'designer': ['design thinking', 'user experience', 'prototyping', 'visual design'],
+      'manager': ['leadership', 'team management', 'decision making', 'strategic planning']
+    };
+
+    for (const [role, skills] of Object.entries(rolePatterns)) {
+      if (lowerMessage.includes(role)) {
+        extracted.currentExperience = [{
+          role: role.charAt(0).toUpperCase() + role.slice(1),
+          company: 'Company',
+          description: message,
+          startDate: 'Present'
+        }];
+        // Add implied skills
+        if (!extracted.technicalSkills) extracted.technicalSkills = [];
+        skills.forEach(skill => {
+          extracted.technicalSkills.push({ skill, proficiency: 'intermediate' });
+        });
+        break;
+      }
     }
 
-    // Detect skills
-    const skillKeywords = ['python', 'javascript', 'react', 'node', 'java', 'typescript', 'sql', 'aws', 'docker'];
-    const foundSkills = skillKeywords.filter(skill => message.toLowerCase().includes(skill));
-    if (foundSkills.length > 0) {
-      extracted.technicalSkills = foundSkills.map(skill => ({
-        skill,
-        proficiency: 'intermediate'
-      }));
+    // Technical skills detection - expanded list
+    const technicalSkills = [
+      'python', 'javascript', 'typescript', 'java', 'c++', 'c#', 'ruby', 'go', 'rust', 'php', 'swift',
+      'react', 'angular', 'vue', 'node', 'express', 'django', 'flask', 'spring', 'rails',
+      'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform', 'ansible', 'jenkins',
+      'sql', 'mongodb', 'postgresql', 'mysql', 'redis', 'elasticsearch',
+      'git', 'github', 'gitlab', 'bitbucket', 'jira', 'confluence',
+      'agile', 'scrum', 'kanban', 'devops', 'ci/cd', 'microservices', 'rest', 'graphql',
+      'machine learning', 'deep learning', 'neural networks', 'tensorflow', 'pytorch'
+    ];
+
+    const foundTechnicalSkills = technicalSkills.filter(skill => lowerMessage.includes(skill));
+    if (foundTechnicalSkills.length > 0) {
+      if (!extracted.technicalSkills) extracted.technicalSkills = [];
+      foundTechnicalSkills.forEach(skill => {
+        extracted.technicalSkills.push({ skill, proficiency: 'intermediate' });
+      });
+    }
+
+    // Certification detection with implied skills
+    const certPatterns: { [key: string]: string[] } = {
+      'aws certified': ['aws', 'cloud computing', 'cloud architecture'],
+      'pmp': ['project management', 'risk management', 'stakeholder management'],
+      'scrum master': ['scrum', 'agile', 'team facilitation'],
+      'cissp': ['security', 'risk assessment', 'compliance'],
+      'google cloud': ['gcp', 'cloud computing', 'data engineering']
+    };
+
+    for (const [cert, skills] of Object.entries(certPatterns)) {
+      if (lowerMessage.includes(cert)) {
+        extracted.certifications = [{ name: cert.toUpperCase(), issuer: 'Professional', date: 'Recent' }];
+        if (!extracted.technicalSkills) extracted.technicalSkills = [];
+        skills.forEach(skill => {
+          extracted.technicalSkills.push({ skill, proficiency: 'advanced' });
+        });
+      }
+    }
+
+    // Conference/training detection
+    const trainingKeywords = ['conference', 'webinar', 'workshop', 'bootcamp', 'course', 'training', 'attended', 'completed'];
+    const hasTraining = trainingKeywords.some(keyword => lowerMessage.includes(keyword));
+    if (hasTraining) {
+      // Extract potential training topics
+      if (lowerMessage.includes('aws') && lowerMessage.includes('conference')) {
+        if (!extracted.technicalSkills) extracted.technicalSkills = [];
+        extracted.technicalSkills.push({ skill: 'AWS', proficiency: 'intermediate' });
+        extracted.technicalSkills.push({ skill: 'Cloud Computing', proficiency: 'intermediate' });
+      }
+    }
+
+    // Soft skills detection
+    const softSkills = [
+      'leadership', 'communication', 'teamwork', 'problem solving', 'critical thinking',
+      'time management', 'adaptability', 'creativity', 'collaboration', 'mentoring'
+    ];
+
+    const foundSoftSkills = softSkills.filter(skill => lowerMessage.includes(skill));
+    if (foundSoftSkills.length > 0) {
+      extracted.softSkills = foundSoftSkills;
     }
 
     return extracted;
@@ -329,44 +429,49 @@ RESPONSE RULES:
   }
 
   /**
-   * Generate smart suggestions based on what's missing
+   * Generate smart suggestions for comprehensive skills extraction
    */
   private generateSmartSuggestions(profile: any, currentSection: string): string[] {
     const suggestions: string[] = [];
 
     if (currentSection === 'experience') {
       suggestions.push(
-        "Tell me about your daily responsibilities",
-        "What are your main achievements in this role?",
-        "Add a previous job position"
+        "Tell me about your daily responsibilities and the skills they require",
+        "What technologies and tools do you use in your current role?",
+        "What are your proudest achievements and the impact they had?",
+        "Have you managed teams or led any initiatives?"
       );
     } else if (currentSection === 'skills') {
       suggestions.push(
-        "List your technical skills (e.g., Python, JavaScript)",
-        "What soft skills do you excel at? (e.g., Leadership, Communication)",
-        "Mention any tools or frameworks you use"
+        "What programming languages and frameworks are you proficient in?",
+        "What cloud platforms or DevOps tools have you worked with?",
+        "What soft skills help you excel (leadership, communication, problem-solving)?",
+        "Have you attended any conferences or completed training recently?"
       );
     } else if (currentSection === 'education') {
       suggestions.push(
-        "Add your degree and university",
-        "Include any relevant coursework",
-        "Mention your graduation year"
+        "What's your educational background (degree, institution, year)?",
+        "Have you taken any online courses or bootcamps?",
+        "Any relevant coursework that gave you specific skills?",
+        "Did you participate in any academic projects or research?"
       );
     } else if (currentSection === 'certifications') {
       suggestions.push(
-        "List any certifications you've earned",
-        "Include online courses completed",
-        "Add professional licenses"
+        "What professional certifications have you earned (AWS, PMP, Scrum, etc.)?",
+        "Have you completed any online courses (Coursera, Udemy, etc.)?",
+        "Attended any webinars or workshops recently?",
+        "Any professional memberships or licenses?"
       );
     } else if (currentSection === 'projects') {
       suggestions.push(
-        "Describe a project you're proud of",
-        "What technologies did you use?",
-        "What was your role in the project?"
+        "Describe a challenging project you worked on - what skills did it require?",
+        "What was your role and what technologies did you use?",
+        "What problems did you solve and what was the business impact?",
+        "Any side projects or open source contributions?"
       );
     } else {
       suggestions.push(
-        "Review my profile",
+        "Review my extracted skills profile",
         "Add more details to a section",
         "I'm done for now"
       );

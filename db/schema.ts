@@ -14,5 +14,4 @@ export * from './schema/audit.js';
 export * from './schema/payments.js'; // Payments: subscriptions, demo requests
 export * from './schema/social-media.js'; // Social Media: accounts, posts, campaigns
 export * from './schema/workflows.js'; // Workflows: automation, actions
-export * from './schema/hris.js'; // HRIS: integrations, sync jobs
 export * from './schema/consulting.js'; // Consulting: requests, consultants
