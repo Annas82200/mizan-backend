@@ -976,4 +976,67 @@ router.post("/lxp", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/analyses/skills
+ * Perform skills gap analysis for an organization
+ */
+router.post('/skills', async (req, res) => {
+  try {
+    console.log('🎯 Skills analysis endpoint called');
+
+    const { tenantId, targetType = 'company' } = req.body;
+
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId is required for skills analysis'
+      });
+    }
+
+    // Import SkillsAgent
+    const { SkillsAgent } = await import('../services/agents/skills-agent.js');
+    const skillsAgent = new SkillsAgent();
+
+    console.log('📊 Running skills analysis for tenant:', tenantId);
+    const startTime = Date.now();
+
+    // Run the actual skills analysis
+    const analysis = await skillsAgent.analyzeSkills({
+      tenantId,
+      targetType,
+      targetId: tenantId
+    });
+
+    console.log('✅ Skills analysis complete:', {
+      tenantId,
+      coverage: analysis.overallCoverage,
+      gapsFound: analysis.skillGaps.length,
+      executionTime: Date.now() - startTime
+    });
+
+    // Return the analysis results in the format the frontend expects
+    return res.json({
+      overallCoverage: analysis.overallCoverage,
+      skillGaps: analysis.skillGaps,
+      skillSurplus: analysis.skillSurplus,
+      recommendations: analysis.recommendations,
+      trainingTriggers: analysis.trainingTriggers,
+      metadata: {
+        analysisDate: new Date().toISOString(),
+        executionTime: Date.now() - startTime,
+        targetType,
+        tenantId
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Skills analysis error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Skills analysis failed',
+      details: error.message
+    });
+  }
+});
+
 export default router;
