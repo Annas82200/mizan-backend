@@ -125,78 +125,254 @@ Return JSON:
     nextSection?: string;
     profileUpdate: any;
   }> {
+    // Check if user wants to finish
+    const finishKeywords = ['nothing', 'done', 'finished', 'complete', 'no', "that's all", "that's it", 'nope'];
+    const isFinishing = finishKeywords.some(keyword =>
+      userMessage.toLowerCase().trim() === keyword ||
+      userMessage.toLowerCase().includes(`i'm ${keyword}`) ||
+      userMessage.toLowerCase().includes(`im ${keyword}`)
+    );
+
+    // Determine current section based on what's missing
+    const currentSection = context.currentSection || this.determineNextSection(context.currentProfile);
+
     const prompt = `You are a helpful HR assistant building an employee's skills profile through conversation.
 
-Current Profile State:
+IMPORTANT CONTEXT:
+- Current section focus: ${currentSection}
+- User said: "${userMessage}"
+- Is user trying to finish?: ${isFinishing ? 'YES' : 'NO'}
+
+Current Profile Data:
 ${JSON.stringify(context.currentProfile, null, 2)}
 
-Current Section: ${context.currentSection || 'getting_started'}
+Conversation History (last 6 messages):
+${context.conversationHistory.slice(-6).map(msg => `${msg.role}: ${msg.message}`).join('\n')}
 
-Conversation History:
-${context.conversationHistory.map(msg => `${msg.role}: ${msg.message}`).join('\n')}
+YOUR TASKS:
+1. **Extract Information**: Parse ANY career details from user's message
+2. **Detect Intent**: Is user finishing, continuing, or changing topic?
+3. **Respond Appropriately**:
+   ${isFinishing ? '- User wants to finish. Acknowledge completion, summarize what was collected, ask if they want to review/edit anything' : '- User is sharing info. Extract it, acknowledge it, ask relevant follow-up'}
+4. **Structure Data**: Convert free-form text to proper JSON structures
+5. **Guide Next Steps**: Suggest what's missing or what to add next
 
-User's Latest Message:
-"${userMessage}"
-
-Your Tasks:
-1. Extract any professional information from their message (experience, skills, education, etc.)
-2. Respond conversationally and ask relevant follow-up questions
-3. Guide them to the next piece of information we need
-4. Provide suggestions for what they might want to add
-
-Return JSON:
+REQUIRED JSON OUTPUT:
 {
-  "response": "Your conversational response with follow-up questions",
+  "response": "${isFinishing ? 'Completion acknowledgment + summary + option to review' : 'Acknowledgment of what they shared + specific follow-up question'}",
   "extractedData": {
-    "experience": [{"company": "...", "role": "...", "description": "..."}],
-    "skills": ["skill1", "skill2"],
-    "education": [...],
-    "certifications": [...],
-    "projects": [...]
+    "currentExperience": [{"company": "string", "role": "string", "startDate": "string", "endDate": "Present|string", "description": "string", "achievements": ["string"]}],
+    "pastExperience": [{"company": "string", "role": "string", "duration": "string", "description": "string"}],
+    "education": [{"degree": "string", "institution": "string", "year": "string", "field": "string"}],
+    "certifications": [{"name": "string", "issuer": "string", "date": "string", "expiryDate": "string|null"}],
+    "technicalSkills": [{"skill": "string", "proficiency": "beginner|intermediate|advanced|expert", "yearsExperience": number}],
+    "softSkills": ["string"],
+    "projects": [{"name": "string", "description": "string", "role": "string", "technologies": ["string"]}],
+    "languages": [{"language": "string", "proficiency": "string"}]
   },
-  "suggestions": ["Next thing they could share", "Another option", "Alternative path"],
-  "sectionComplete": false,
-  "nextSection": "experience|education|skills|certifications|projects|complete",
+  "suggestions": ["Specific next action 1", "Specific next action 2", "Specific next action 3"],
+  "sectionComplete": ${isFinishing ? 'true' : 'false'},
+  "nextSection": "${isFinishing ? 'complete' : 'experience|education|skills|certifications|projects'}",
   "profileUpdate": {
-    // Fields to update in profile
+    // Merge extracted data here - add to existing arrays, don't replace
   }
 }
 
-Guidelines:
-- Be warm and encouraging
-- Ask one thing at a time
-- Acknowledge what they shared
-- Suggest what to add next
-- Extract structured data from free-form responses
-- If they mention multiple things, extract all of them
-- Keep responses concise (2-3 sentences max)`;
+EXTRACTION RULES:
+- If user mentions a job/role → extract to currentExperience (if current) or pastExperience
+- If user mentions education/degree → extract to education
+- If user mentions certification/course → extract to certifications
+- If user mentions skills/technologies → extract to technicalSkills or softSkills
+- If user mentions project/built something → extract to projects
+- If user mentions language proficiency → extract to languages
+- ALWAYS extract EVERYTHING mentioned, even if indirect
+- Merge with existing profile data, don't overwrite
+
+RESPONSE RULES:
+- If finishing: "Great job! You've shared [summary of sections completed]. Your profile is now [X]% complete. Would you like to review anything or add more details to any section?"
+- If continuing: "Thanks for sharing [specific thing they mentioned]! [Specific follow-up question about that topic OR move to next needed section]"
+- NEVER repeat the same question twice in a row
+- Ask specific, targeted questions based on what's missing
+- Keep responses under 3 sentences`;
 
     try {
       const response = await this.runKnowledgeEngine({ prompt });
-      const result = typeof response === 'string' ? JSON.parse(response) : response;
+      let result = typeof response === 'string' ? JSON.parse(response) : response;
+
+      // Calculate completion percentage based on extracted data
+      const profileUpdate = this.mergeProfileData(context.currentProfile, result.extractedData || {});
+      const completionPercentage = this.calculateCompletion(profileUpdate);
+
+      // Add completion percentage to profile update
+      profileUpdate.completionPercentage = completionPercentage;
 
       return {
-        response: result.response || "That's great! What else would you like to add?",
+        response: result.response || "Thank you for sharing! What else would you like to add to your profile?",
         extractedData: result.extractedData || {},
-        suggestions: result.suggestions || [
-          "Add more experience",
-          "List my skills",
-          "Add certifications"
-        ],
-        sectionComplete: result.sectionComplete || false,
-        nextSection: result.nextSection,
-        profileUpdate: result.profileUpdate || {}
+        suggestions: result.suggestions || this.generateSmartSuggestions(profileUpdate, currentSection),
+        sectionComplete: result.sectionComplete || isFinishing,
+        nextSection: result.nextSection || this.determineNextSection(profileUpdate),
+        profileUpdate
       };
     } catch (error) {
       console.error('Error processing message:', error);
+
+      // Fallback: Try basic extraction
+      const basicExtraction = this.basicExtract(userMessage);
+      const profileUpdate = this.mergeProfileData(context.currentProfile, basicExtraction);
+      const completionPercentage = this.calculateCompletion(profileUpdate);
+      profileUpdate.completionPercentage = completionPercentage;
+
       return {
-        response: "I understand. Could you tell me more about that?",
-        extractedData: {},
-        suggestions: ["Continue sharing", "Move to next section", "Review what we have"],
-        sectionComplete: false,
-        profileUpdate: {}
+        response: isFinishing
+          ? `Thanks for building your profile! It's now ${completionPercentage}% complete. You can always come back to add more details.`
+          : "Thanks for sharing that! Could you tell me more about your current role and what you do day-to-day?",
+        extractedData: basicExtraction,
+        suggestions: this.generateSmartSuggestions(profileUpdate, currentSection),
+        sectionComplete: isFinishing,
+        nextSection: this.determineNextSection(profileUpdate),
+        profileUpdate
       };
     }
+  }
+
+  /**
+   * Basic extraction fallback (when AI fails)
+   */
+  private basicExtract(message: string): any {
+    const extracted: any = {};
+
+    // Simple keyword detection
+    if (message.toLowerCase().includes('software') || message.toLowerCase().includes('developer') ||
+        message.toLowerCase().includes('engineer')) {
+      extracted.currentExperience = [{
+        role: 'Software Developer',
+        company: 'Company',
+        description: message,
+        startDate: 'Present'
+      }];
+    }
+
+    // Detect skills
+    const skillKeywords = ['python', 'javascript', 'react', 'node', 'java', 'typescript', 'sql', 'aws', 'docker'];
+    const foundSkills = skillKeywords.filter(skill => message.toLowerCase().includes(skill));
+    if (foundSkills.length > 0) {
+      extracted.technicalSkills = foundSkills.map(skill => ({
+        skill,
+        proficiency: 'intermediate'
+      }));
+    }
+
+    return extracted;
+  }
+
+  /**
+   * Merge new data with existing profile (don't overwrite, append)
+   */
+  private mergeProfileData(existing: any, newData: any): any {
+    const merged = { ...existing };
+
+    // Merge arrays (append, don't replace)
+    const arrayFields = ['currentExperience', 'pastExperience', 'education', 'certifications',
+                        'technicalSkills', 'softSkills', 'projects', 'languages'];
+
+    arrayFields.forEach(field => {
+      if (newData[field] && Array.isArray(newData[field]) && newData[field].length > 0) {
+        merged[field] = [...(merged[field] || []), ...newData[field]];
+      }
+    });
+
+    return merged;
+  }
+
+  /**
+   * Calculate profile completion percentage
+   */
+  private calculateCompletion(profile: any): number {
+    const sections = {
+      experience: (profile.currentExperience?.length || 0) + (profile.pastExperience?.length || 0),
+      education: profile.education?.length || 0,
+      skills: (profile.technicalSkills?.length || 0) + (profile.softSkills?.length || 0),
+      certifications: profile.certifications?.length || 0,
+      projects: profile.projects?.length || 0,
+      languages: profile.languages?.length || 0
+    };
+
+    let score = 0;
+    if (sections.experience > 0) score += 30; // Most important
+    if (sections.skills > 0) score += 30; // Very important
+    if (sections.education > 0) score += 20;
+    if (sections.certifications > 0) score += 10;
+    if (sections.projects > 0) score += 5;
+    if (sections.languages > 0) score += 5;
+
+    return Math.min(100, score);
+  }
+
+  /**
+   * Determine what section to ask about next
+   */
+  private determineNextSection(profile: any): string {
+    const hasExperience = (profile.currentExperience?.length || 0) + (profile.pastExperience?.length || 0) > 0;
+    const hasSkills = (profile.technicalSkills?.length || 0) + (profile.softSkills?.length || 0) > 0;
+    const hasEducation = profile.education?.length || 0 > 0;
+    const hasCertifications = profile.certifications?.length || 0 > 0;
+    const hasProjects = profile.projects?.length || 0 > 0;
+
+    if (!hasExperience) return 'experience';
+    if (!hasSkills) return 'skills';
+    if (!hasEducation) return 'education';
+    if (!hasCertifications) return 'certifications';
+    if (!hasProjects) return 'projects';
+
+    return 'complete';
+  }
+
+  /**
+   * Generate smart suggestions based on what's missing
+   */
+  private generateSmartSuggestions(profile: any, currentSection: string): string[] {
+    const suggestions: string[] = [];
+
+    if (currentSection === 'experience') {
+      suggestions.push(
+        "Tell me about your daily responsibilities",
+        "What are your main achievements in this role?",
+        "Add a previous job position"
+      );
+    } else if (currentSection === 'skills') {
+      suggestions.push(
+        "List your technical skills (e.g., Python, JavaScript)",
+        "What soft skills do you excel at? (e.g., Leadership, Communication)",
+        "Mention any tools or frameworks you use"
+      );
+    } else if (currentSection === 'education') {
+      suggestions.push(
+        "Add your degree and university",
+        "Include any relevant coursework",
+        "Mention your graduation year"
+      );
+    } else if (currentSection === 'certifications') {
+      suggestions.push(
+        "List any certifications you've earned",
+        "Include online courses completed",
+        "Add professional licenses"
+      );
+    } else if (currentSection === 'projects') {
+      suggestions.push(
+        "Describe a project you're proud of",
+        "What technologies did you use?",
+        "What was your role in the project?"
+      );
+    } else {
+      suggestions.push(
+        "Review my profile",
+        "Add more details to a section",
+        "I'm done for now"
+      );
+    }
+
+    return suggestions;
   }
 
   /**
