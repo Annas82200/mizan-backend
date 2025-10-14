@@ -1,18 +1,20 @@
-// server/services/agents/culture/culture-agent.ts
+// server/services/agents/culture/culture-agent-refactored.ts
+// ============================================================================
+// CULTURE AGENT - THREE-ENGINE ARCHITECTURE (PRODUCTION-READY)
+// ============================================================================
+// PURPOSE: Analyzes organizational culture using Mizan 7-Cylinder Framework
+// ARCHITECTURE: Three-Engine (Knowledge → Data → Reasoning)
+// TRAINING: Organizational culture theories, Mizan framework, culture-strategy alignment
+// ============================================================================
 
-import { OpenAI } from "openai";
-import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import MistralClient from "@mistralai/mistralai";
-import { db } from "../../../db/index.js";
-import {
-  assessments,
-  companies
-  // cylinders,
-  // cylinderValues,
-  // organizationStrategies
-} from "../../../db/schema.js";
-import { eq, and, inArray } from "drizzle-orm";
+import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
+import { db } from '../../../../db/index.js';
+import { tenants, cultureReports, cylinderScores } from '../../../../db/schema.js';
+import { eq } from 'drizzle-orm';
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
 
 interface MizanCylinder {
   level: number;
@@ -23,10 +25,11 @@ interface MizanCylinder {
   limitingValues: string[];
 }
 
-interface CultureAnalysisInput {
+export interface CultureAnalysisInput extends Record<string, unknown> {
   companyId: string;
   tenantId: string;
   companyValues: string[];
+  strategy?: string;
   employeeAssessments?: Array<{
     employeeId: string;
     personalValues: string[];
@@ -37,32 +40,94 @@ interface CultureAnalysisInput {
   }>;
 }
 
-interface StrategyAlignment {
-  strategy: string;
-  cultureFit: number; // 0-100
-  alignmentGaps: string[];
-  accelerators: string[];
-  blockers: string[];
-  recommendations: string[];
+export interface CultureAnalysisOutput {
+  companyId: string;
+  tenantId: string;
+  analysisDate: Date;
+  
+  // Core analysis
+  strategyAlignmentScore: number; // 0-100
+  isHealthyForStrategy: boolean;
+  
+  // Value mapping
+  valueMapping: {
+    mappings: Array<{
+      value: string;
+      cylinder: number;
+      type: 'enabling' | 'limiting';
+      rationale: string;
+      strength: number;
+    }>;
+    cylinderDistribution: Record<number, { enabling: number; limiting: number }>;
+    dominantCylinders: number[];
+    missingCylinders: number[];
+  };
+  
+  // Strategy alignment
+  strategyAlignment: {
+    cultureFit: number;
+    alignmentGaps: string[];
+    accelerators: string[];
+    blockers: string[];
+    recommendations: string[];
+  };
+  
+  // Cylinder health
+  cylinderHealth: Record<number, {
+    status: string;
+    score: number;
+    enabling?: number;
+    limiting?: number;
+  }>;
+  
+  // Employee culture gap (if assessments provided)
+  employeeCultureGap: {
+    alignmentScore: number;
+    gaps: string[];
+    insights: string[];
+  } | null;
+  
+  // Entropy score
+  entropyScore: number;
+  
+  // Recommendations
+  recommendations: {
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+  };
+  
+  // Triggers for other modules
+  triggers: Array<{
+    type: string;
+    priority: string;
+    module: string;
+    reason: string;
+    cylinders?: number[];
+  }>;
+  
+  // Metadata
+  confidence: number;
+  processingTime: number;
 }
 
-export class CultureAgent {
-  private openai: OpenAI;
-  private anthropic: Anthropic;
-  private gemini: GoogleGenerativeAI;
-  private mistral: MistralClient;
-  private mizanFramework: MizanCylinder[] = [];
+// ============================================================================
+// CULTURE AGENT CLASS - THREE-ENGINE ARCHITECTURE
+// ============================================================================
 
-  constructor() {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-    this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
+export class CultureAgentV2 extends ThreeEngineAgent {
+  private mizanFramework: MizanCylinder[];
+
+  constructor(agentType: string, config: ThreeEngineConfig) {
+    super(agentType, config);
+    this.mizanFramework = this.initializeMizanFramework();
   }
 
-  async initialize(tenantId: string) {
-    // Load the Mizan 7 Cylinders Framework (static framework)
-    this.mizanFramework = [
+  /**
+   * Initialize the Mizan 7-Cylinder Framework
+   */
+  private initializeMizanFramework(): MizanCylinder[] {
+    return [
       {
         level: 1,
         name: 'Safety & Survival',
@@ -122,330 +187,327 @@ export class CultureAgent {
     ];
   }
 
-  async analyzeCulture(input: CultureAnalysisInput): Promise<any> {
-    // First, get the company's strategy
-    const strategy = await this.getCompanyStrategy(input.companyId);
-    
-    // Map company values to Mizan framework
-    const valueMapping = await this.mapValuesToMizanFramework(input.companyValues);
-    
-    // Analyze if culture is healthy to achieve strategy
-    const strategyAlignment = await this.analyzeStrategyAlignment(
-      valueMapping,
-      strategy,
-      input
-    );
-
-    // Generate comprehensive culture report
-    const report = await this.generateCultureReport(
-      input,
-      valueMapping,
-      strategyAlignment
-    );
-
-    return report;
-  }
-
-  private async getCompanyStrategy(companyId: string): Promise<string> {
-    // Fetch strategy from tenants table
-    const { tenants } = await import('../../../db/schema.js');
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, companyId)
-    });
-
-    return tenant?.strategy || "";
-  }
-
-  private async mapValuesToMizanFramework(companyValues: string[]): Promise<any> {
-    // Use multiple AI providers for accurate mapping
-    const mappingPrompt = `
-You are an expert in the Mizan 7-Cylinder Framework. Here is the framework:
-
-${JSON.stringify(this.mizanFramework, null, 2)}
-
-Map these company values to the appropriate cylinders:
-${companyValues.join(', ')}
-
-For each value:
-1. Identify which cylinder it belongs to (1-7)
-2. Determine if it's an enabling or limiting value
-3. Explain the mapping rationale
-
-Return JSON format:
-{
-  "mappings": [
-    {
-      "value": "string",
-      "cylinder": number,
-      "type": "enabling" | "limiting",
-      "rationale": "string",
-      "strength": number (1-10)
+  /**
+   * Main analysis method
+   */
+  async analyzeCulture(input: CultureAnalysisInput): Promise<CultureAnalysisOutput> {
+    // Get strategy if not provided
+    if (!input.strategy) {
+      input.strategy = await this.getCompanyStrategy(input.companyId, input.tenantId);
     }
-  ],
-  "cylinderDistribution": {
-    "1": { "enabling": number, "limiting": number },
-    ...
-  },
-  "dominantCylinders": [number],
-  "missingCylinders": [number]
-}`;
 
-    // Get analysis from multiple providers
-    const [openaiResponse, anthropicResponse, geminiResponse] = await Promise.all([
-      this.openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [{ role: "user", content: mappingPrompt }],
-        temperature: 0.2,
-        response_format: { type: "json_object" }
-      }),
-      this.anthropic.messages.create({
-        model: "claude-3-opus-20240229",
-        messages: [{ role: "user", content: mappingPrompt }],
-        max_tokens: 4000
-      }),
-      this.gemini.getGenerativeModel({ model: "gemini-pro" })
-        .generateContent(mappingPrompt)
-    ]);
+    // Execute three-engine analysis
+    const result = await this.analyze(input);
 
-    // Aggregate results from multiple providers
-    return this.aggregateMappingResults([
-      JSON.parse(openaiResponse.choices[0].message.content!),
-      JSON.parse(anthropicResponse.content[0].text),
-      JSON.parse(geminiResponse.response.text())
-    ]);
-  }
-
-  private async analyzeStrategyAlignment(
-    valueMapping: any,
-    strategy: string,
-    input: CultureAnalysisInput
-  ): Promise<StrategyAlignment> {
-    const alignmentPrompt = `
-You are an expert in organizational culture and strategy alignment using the Mizan framework.
-
-Company Strategy: ${strategy}
-
-Current Culture Profile:
-${JSON.stringify(valueMapping, null, 2)}
-
-Employee Assessment Data:
-${JSON.stringify(input.employeeAssessments?.slice(0, 10), null, 2)}
-
-Analyze:
-1. Is this culture healthy to achieve/accelerate the strategy? (0-100 score)
-2. What cultural elements accelerate strategy achievement?
-3. What cultural gaps block strategy achievement?
-4. What specific changes would align culture with strategy?
-
-Consider:
-- Dominant cylinders vs strategy needs
-- Missing cylinders critical for strategy
-- Employee experience vs required culture
-- Enabling vs limiting value balance
-
-Return detailed JSON analysis with actionable recommendations.`;
-
-    // Use multiple AI providers for comprehensive analysis
-    const [openaiAnalysis, anthropicAnalysis, mistralAnalysis] = await Promise.all([
-      this.openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are an expert in organizational culture-strategy alignment with deep knowledge of the Mizan 7-cylinder framework."
-          },
-          { role: "user", content: alignmentPrompt }
-        ],
-        temperature: 0.3
-      }),
-      this.anthropic.messages.create({
-        model: "claude-3-opus-20240229",
-        messages: [{ role: "user", content: alignmentPrompt }],
-        max_tokens: 4000
-      }),
-      this.mistral.chat({
-        model: "mistral-large-latest",
-        messages: [{ role: "user", content: alignmentPrompt }]
-      })
-    ]);
-
-    // Synthesize insights from all providers
-    return this.synthesizeStrategyAlignment([
-      openaiAnalysis,
-      anthropicAnalysis,
-      mistralAnalysis
-    ]);
-  }
-
-  private async generateCultureReport(
-    input: CultureAnalysisInput,
-    valueMapping: any,
-    strategyAlignment: StrategyAlignment
-  ): Promise<any> {
-    const report = {
+    // Structure the output
+    const output: CultureAnalysisOutput = {
       companyId: input.companyId,
-      analysisDate: new Date().toISOString(),
-      
-      // Core question answered
-      strategyAlignmentScore: strategyAlignment.cultureFit,
-      isHealthyForStrategy: strategyAlignment.cultureFit >= 70,
-      
-      // Detailed mapping
-      valueMapping: valueMapping,
-      
-      // Strategy alignment
-      strategyAlignment: strategyAlignment,
-      
-      // Cylinder health analysis
-      cylinderHealth: await this.analyzeCylinderHealth(valueMapping),
-      
-      // Employee culture gap (if assessments provided)
-      employeeCultureGap: input.employeeAssessments 
-        ? await this.analyzeEmployeeCultureGap(input.employeeAssessments, valueMapping)
-        : null,
-      
-      // Entropy score
-      entropyScore: this.calculateCulturalEntropy(valueMapping, input.employeeAssessments),
-      
-      // Critical recommendations
-      recommendations: {
-        immediate: strategyAlignment.recommendations.slice(0, 3),
-        shortTerm: strategyAlignment.recommendations.slice(3, 6),
-        longTerm: strategyAlignment.recommendations.slice(6)
-      },
-      
-      // Triggers for other modules
-      triggers: this.identifyTriggers(strategyAlignment, valueMapping)
+      tenantId: input.tenantId,
+      analysisDate: new Date(),
+      strategyAlignmentScore: (result.finalOutput.strategyAlignmentScore as number) || 0,
+      isHealthyForStrategy: ((result.finalOutput.strategyAlignmentScore as number) || 0) >= 70,
+      valueMapping: result.finalOutput.valueMapping as CultureAnalysisOutput['valueMapping'],
+      strategyAlignment: result.finalOutput.strategyAlignment as CultureAnalysisOutput['strategyAlignment'],
+      cylinderHealth: result.finalOutput.cylinderHealth as CultureAnalysisOutput['cylinderHealth'],
+      employeeCultureGap: result.finalOutput.employeeCultureGap as CultureAnalysisOutput['employeeCultureGap'] || null,
+      entropyScore: (result.finalOutput.entropyScore as number) || 0,
+      recommendations: result.finalOutput.recommendations as CultureAnalysisOutput['recommendations'],
+      triggers: result.finalOutput.triggers as CultureAnalysisOutput['triggers'] || [],
+      confidence: result.overallConfidence,
+      processingTime: result.totalProcessingTime
     };
 
-    // Save to database
-    await this.saveAnalysisResults(report, input.tenantId);
-    
-    return report;
+    // Save analysis results
+    await this.saveAnalysisResults(output);
+
+    return output;
   }
 
-  private calculateCulturalEntropy(mapping: any, assessments?: any[]): number {
-    // Calculate the ratio of limiting values to total values
-    let totalEnabling = 0;
-    let totalLimiting = 0;
+  // ============================================================================
+  // THREE-ENGINE ARCHITECTURE IMPLEMENTATION
+  // ============================================================================
 
-    Object.values(mapping.cylinderDistribution).forEach((dist: any) => {
-      totalEnabling += dist.enabling;
-      totalLimiting += dist.limiting;
-    });
-
-    const baseEntropy = (totalLimiting / (totalEnabling + totalLimiting)) * 100;
-
-    // Factor in employee experience if available
-    if (assessments && assessments.length > 0) {
-      const avgEngagement = assessments.reduce((sum, a) => sum + a.engagementLevel, 0) / assessments.length;
-      const engagementFactor = (5 - avgEngagement) * 5; // Convert to 0-20 scale
-      
-      return Math.min(100, baseEntropy + engagementFactor);
-    }
-
-    return baseEntropy;
-  }
-
-  private aggregateMappingResults(results: any[]): any {
-    // Implement logic to combine insights from multiple AI providers
-    // This ensures accuracy and reduces individual model biases
-    
-    const aggregated = {
-      mappings: [],
-      cylinderDistribution: {},
-      dominantCylinders: [],
-      missingCylinders: []
-    };
-
-    // Aggregate mapping consensus
-    // ... implementation details ...
-
-    return aggregated;
-  }
-
-  private synthesizeStrategyAlignment(analyses: any[]): StrategyAlignment {
-    // Combine insights from multiple AI providers
-    // Take the most conservative estimates for alignment score
-    // Aggregate all unique recommendations
-    
-    // ... implementation details ...
-
+  protected async loadFrameworks(): Promise<Record<string, unknown>> {
     return {
-      strategy: "",
-      cultureFit: 75,
-      alignmentGaps: [],
-      accelerators: [],
-      blockers: [],
-      recommendations: []
+      mizanFramework: this.mizanFramework,
+      cultureTheories: {
+        scheinModel: {
+          description: 'Culture exists at three levels: artifacts, espoused values, and basic assumptions',
+          levels: ['Artifacts', 'Espoused Values', 'Basic Underlying Assumptions']
+        },
+        cameronQuinn: {
+          description: 'Competing Values Framework - four culture types',
+          types: ['Clan', 'Adhocracy', 'Market', 'Hierarchy']
+        },
+        denison: {
+          description: 'Culture effectiveness model',
+          dimensions: ['Adaptability', 'Mission', 'Involvement', 'Consistency']
+        }
+      },
+      valueMapping: {
+        enablingValues: 'Values that support organizational goals and employee wellbeing',
+        limitingValues: 'Values that create dysfunction, fear, or limitation',
+        balanceImportance: 'Healthy culture has predominantly enabling values with awareness of limiting values'
+      }
     };
   }
 
-  private identifyTriggers(alignment: StrategyAlignment, mapping: any): any[] {
-    const triggers = [];
-
-    // If culture-strategy alignment is low, trigger interventions
-    if (alignment.cultureFit < 70) {
-      triggers.push({
-        type: 'culture_intervention',
-        priority: 'high',
-        module: 'lxp',
-        reason: 'Low culture-strategy alignment'
-      });
-    }
-
-    // If missing critical cylinders for strategy
-    if (mapping.missingCylinders.length > 0) {
-      triggers.push({
-        type: 'values_development',
-        priority: 'medium',
-        module: 'training',
-        cylinders: mapping.missingCylinders
-      });
-    }
-
-    return triggers;
+  protected async processData(inputData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    // Data processing happens in Data Engine
+    return inputData;
   }
 
-  private async analyzeCylinderHealth(mapping: any): Promise<any> {
-    // Detailed analysis of each cylinder's health
-    const health: Record<number, { status: string; score: number; enabling?: number; limiting?: number }> = {};
+  protected getKnowledgeSystemPrompt(): string {
+    return `You are the Knowledge Engine for Mizan's Culture Agent. Your role is to provide expert knowledge about organizational culture using the Mizan 7-Cylinder Framework and established culture theories.
 
-    for (let i = 1; i <= 7; i++) {
-      const dist = mapping.cylinderDistribution[i] || { enabling: 0, limiting: 0 };
-      const total = dist.enabling + dist.limiting;
+You have deep expertise in:
+- Mizan 7-Cylinder Framework (values-based culture assessment)
+- Schein's Three Levels of Culture
+- Cameron & Quinn's Competing Values Framework
+- Denison's Culture Model
+- Culture-strategy alignment principles
+- Organizational development theories
 
-      if (total === 0) {
-        health[i] = { status: 'missing', score: 0 };
-      } else {
-        const ratio = dist.enabling / total;
-        health[i] = {
-          status: ratio > 0.7 ? 'healthy' : ratio > 0.4 ? 'moderate' : 'unhealthy',
-          score: ratio * 100,
-          enabling: dist.enabling,
-          limiting: dist.limiting
+Your task is to provide theoretical context and frameworks for understanding culture patterns and strategy alignment.`;
+  }
+
+  protected getDataSystemPrompt(): string {
+    return `You are the Data Engine for Mizan's Culture Agent. Your role is to process and analyze culture data using the Mizan 7-Cylinder Framework.
+
+Analyze the culture data in context of:
+1. Company values mapped to 7 cylinders
+2. Employee assessments (if provided)
+3. Company strategy
+4. Cylinder distribution (enabling vs limiting values)
+
+Identify:
+- Value mappings to cylinders
+- Cylinder health scores
+- Cultural strengths and gaps
+- Strategy-culture alignment
+- Employee experience vs espoused culture
+
+Be data-driven and evidence-based in your analysis.`;
+  }
+
+  protected getReasoningSystemPrompt(): string {
+    return `You are the Reasoning Engine for Mizan's Culture Agent. Your role is to synthesize knowledge and data to provide actionable culture insights.
+
+Generate:
+1. Strategy-culture alignment score and assessment
+2. Cylinder health analysis
+3. Cultural accelerators and blockers
+4. Entropy score (limiting values percentage)
+5. Employee culture gap analysis (if applicable)
+6. Actionable recommendations (immediate, short-term, long-term)
+7. Triggers for other modules (if needed)
+
+Be specific, actionable, and focused on cultural transformation.`;
+  }
+
+  protected buildKnowledgePrompt(inputData: Record<string, unknown>, frameworks: Record<string, unknown>): string {
+    return `Provide culture theory context for organizational analysis:
+
+Company Values: ${(inputData.companyValues as string[] || []).join(', ')}
+Strategy: ${inputData.strategy || 'Not provided'}
+Has Employee Assessments: ${inputData.employeeAssessments ? 'Yes' : 'No'}
+
+Mizan Framework: ${JSON.stringify(frameworks.mizanFramework, null, 2)}
+
+Based on culture theory and the Mizan framework:
+1. What do these company values indicate about cultural focus?
+2. How do these values map to the 7 cylinders?
+3. What culture type best describes this organization?
+4. What theories are most relevant for this culture?`;
+  }
+
+  protected buildDataPrompt(processedData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>): string {
+    return `Analyze culture data using Mizan 7-Cylinder Framework:
+
+Company Values: ${(processedData.companyValues as string[] || []).join(', ')}
+Strategy: ${processedData.strategy || 'Not provided'}
+Employee Assessments: ${processedData.employeeAssessments ? JSON.stringify((processedData.employeeAssessments as unknown[]).slice(0, 5)) : 'None'}
+
+Context from Knowledge Engine: ${JSON.stringify(knowledgeOutput)}
+
+Perform detailed analysis:
+1. Map each company value to a cylinder (1-7) and classify as enabling/limiting
+2. Calculate cylinder distribution
+3. Identify dominant cylinders
+4. Identify missing cylinders
+5. Calculate cultural entropy (% of limiting values)
+6. Analyze employee experience vs espoused culture (if assessments provided)
+
+Return structured JSON with:
+- valueMapping: { mappings: [], cylinderDistribution: {}, dominantCylinders: [], missingCylinders: [] }
+- cylinderHealth: { 1-7: { status, score, enabling, limiting } }
+- entropyScore: number
+- employeeCultureGap: { alignmentScore, gaps, insights } (if assessments exist)`;
+  }
+
+  protected buildReasoningPrompt(inputData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>, dataOutput: Record<string, unknown>): string {
+    return `Synthesize culture analysis and provide strategic recommendations:
+
+Data Analysis: ${JSON.stringify(dataOutput)}
+Theoretical Context: ${JSON.stringify(knowledgeOutput)}
+Strategy: ${inputData.strategy || 'Not provided'}
+
+Generate comprehensive output:
+1. strategyAlignmentScore: 0-100 score for culture-strategy fit
+2. strategyAlignment: { cultureFit, alignmentGaps[], accelerators[], blockers[], recommendations[] }
+3. recommendations: { immediate: [], shortTerm: [], longTerm: [] }
+4. triggers: Array of triggers for other modules (if cultural issues require interventions)
+
+Assess:
+- Is this culture healthy to achieve the strategy?
+- What needs to change?
+- What can be leveraged?
+- What interventions are needed?
+
+Return ONLY valid JSON. Be specific and actionable.`;
+  }
+
+  protected parseKnowledgeOutput(response: string): Record<string, unknown> {
+    try {
+      return JSON.parse(response) as Record<string, unknown>;
+    } catch {
+      return {
+        context: response,
+        frameworks: 'Culture theory applied',
+        source: 'knowledge_engine'
+      };
+    }
+  }
+
+  protected parseDataOutput(response: string): Record<string, unknown> {
+    try {
+      return JSON.parse(response) as Record<string, unknown>;
+    } catch (error) {
+      console.error('Failed to parse Data Engine output:', error);
+      return {
+        valueMapping: { mappings: [], cylinderDistribution: {}, dominantCylinders: [], missingCylinders: [] },
+        cylinderHealth: {},
+        entropyScore: 0,
+        error: 'Failed to parse data output'
+      };
+    }
+  }
+
+  protected parseReasoningOutput(response: string): Record<string, unknown> {
+    try {
+      return JSON.parse(response) as Record<string, unknown>;
+    } catch (error) {
+      console.error('Failed to parse Reasoning Engine output:', error);
+      return {
+        strategyAlignmentScore: 50,
+        strategyAlignment: {
+          cultureFit: 50,
+          alignmentGaps: [],
+          accelerators: [],
+          blockers: [],
+          recommendations: []
+        },
+        recommendations: {
+          immediate: [],
+          shortTerm: [],
+          longTerm: []
+        },
+        triggers: [],
+        error: 'Failed to parse reasoning output'
+      };
+    }
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  private async getCompanyStrategy(companyId: string, tenantId: string): Promise<string> {
+    // Using tenantId as the primary identifier for multi-tenant architecture
+    // companyId is kept for future company-specific strategies within tenants
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId)
+    });
+    return tenant?.strategy || '';
+  }
+
+  private async saveAnalysisResults(output: CultureAnalysisOutput): Promise<void> {
+    try {
+      // Save culture analysis report to database
+      await db.insert(cultureReports).values({
+        tenantId: output.tenantId,
+        analysisId: output.companyId,
+        reportType: 'company_analysis',
+        reportData: {
+          analysisDate: output.analysisDate,
+          strategyAlignmentScore: output.strategyAlignmentScore,
+          isHealthyForStrategy: output.isHealthyForStrategy,
+          valueMapping: output.valueMapping,
+          strategyAlignment: output.strategyAlignment,
+          cylinderHealth: output.cylinderHealth,
+          employeeCultureGap: output.employeeCultureGap,
+          entropyScore: output.entropyScore,
+          recommendations: output.recommendations,
+          triggers: output.triggers,
+          confidence: output.confidence,
+          processingTime: output.processingTime
+        }
+      });
+
+      // Save cylinder scores if present
+      if (output.cylinderHealth) {
+        const cylinderData = {
+          tenantId: output.tenantId,
+          targetType: 'company' as const,
+          targetId: output.companyId,
+          assessmentId: output.companyId,
+          cylinder1Safety: output.cylinderHealth[1]?.score || 0,
+          cylinder2Belonging: output.cylinderHealth[2]?.score || 0,
+          cylinder3Growth: output.cylinderHealth[3]?.score || 0,
+          cylinder4Meaning: output.cylinderHealth[4]?.score || 0,
+          cylinder5Integrity: output.cylinderHealth[5]?.score || 0,
+          cylinder6Wisdom: output.cylinderHealth[6]?.score || 0,
+          cylinder7Transcendence: output.cylinderHealth[7]?.score || 0,
+          enablingValues: {} as Record<string, number>,
+          limitingValues: {} as Record<string, number>,
+          overallScore: Math.round(output.strategyAlignmentScore),
+          culturalMaturity: this.calculateCulturalMaturity(output.cylinderHealth),
+          entropyScore: Math.round(output.entropyScore),
+          assessedBy: 'culture_agent',
+          metadata: { source: 'culture-agent-v2', confidence: output.confidence }
         };
+
+        // Extract enabling and limiting values from valueMapping
+        if (output.valueMapping?.mappings) {
+          for (const mapping of output.valueMapping.mappings) {
+            if (mapping.type === 'enabling') {
+              cylinderData.enablingValues[mapping.value] = mapping.strength;
+            } else {
+              cylinderData.limitingValues[mapping.value] = mapping.strength;
+            }
+          }
+        }
+
+        await db.insert(cylinderScores).values(cylinderData);
+      }
+
+      console.log('Culture analysis results saved successfully for tenant:', output.tenantId);
+    } catch (error) {
+      console.error('Failed to save culture analysis results:', error);
+      throw new Error(`Failed to save culture analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private calculateCulturalMaturity(cylinderHealth: Record<number, { status: string; score: number; }>): number {
+    // Find the highest cylinder with a score >= 70
+    let maturity = 1;
+    for (let i = 7; i >= 1; i--) {
+      if (cylinderHealth[i]?.score >= 70) {
+        maturity = i;
+        break;
       }
     }
-    
-    return health;
-  }
-
-  private async analyzeEmployeeCultureGap(assessments: any[], companyMapping: any): Promise<any> {
-    // Analyze gap between company stated values and employee experience
-    // This reveals the real vs aspirational culture
-    
-    // ... implementation ...
-    
-    return {
-      alignmentScore: 0,
-      gaps: [],
-      insights: []
-    };
-  }
-
-  private async saveAnalysisResults(report: any, tenantId: string): Promise<void> {
-    // Save comprehensive results to database
-    // ... implementation ...
+    return maturity;
   }
 }
+

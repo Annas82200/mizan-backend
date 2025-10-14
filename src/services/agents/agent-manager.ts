@@ -1,35 +1,142 @@
-import { CultureAgent } from './culture-agent.js';
-import { StructureAgent } from './structure-agent.js';
+import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent.js';
+import { StructureAgent, StructureAnalysisOutput } from './structure-agent.js';
 import { db } from '../../db/index.js';
-import { agentAnalyses, triggers } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { agentAnalyses, triggers, cultureAssessments } from '../../db/schema.js';
+import { eq, and, desc } from 'drizzle-orm';
+
+// Unified agent output type
+interface UnifiedAgentOutput {
+  results: Record<string, unknown>;
+  insights?: string[];
+  recommendations?: Array<{
+    id?: string;
+    priority: 'high' | 'medium' | 'low';
+    title: string;
+    description: string;
+    actionItems?: string[];
+    expectedImpact?: string;
+  }>;
+  triggers?: Array<{
+    name: string;
+    description?: string;
+    type: string;
+    targetModule: string;
+    eventType: string;
+    condition?: Record<string, unknown>;
+    action: string;
+    actionConfig?: Record<string, unknown>;
+    priority: number;
+  }>;
+  confidence?: number;
+  overallConfidence?: number;
+}
+
+interface Recommendation {
+  id: string;
+  source: 'culture' | 'structure' | 'skills' | 'performance';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  status: 'active' | 'completed' | 'dismissed';
+  createdAt: Date;
+}
+
+interface CultureRecommendation {
+  id?: string;
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+}
+
+interface CultureAnalysisResult {
+  recommendations?: CultureRecommendation[];
+}
+
+interface TriggerRecord {
+  name: string;
+  description?: string;
+  type: string;
+  targetModule: string;
+  eventType: string;
+  condition?: Record<string, unknown>;
+  action: string;
+  actionConfig?: Record<string, unknown>;
+  priority: number;
+}
+
+interface RecommendationRecord {
+  targetType: string;
+  targetId?: string | null;
+  category: string;
+  title: string;
+  description: string;
+  actionItems: string[];
+  expectedImpact?: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'open';
+  createdBy: string;
+}
+
+type SupportedAgentType = 'culture' | 'structure';
+
+interface AgentInputData {
+  tenantId: string;
+  userId?: string;
+  companyId?: string;
+  companyValues?: string[];
+  data?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  [key: string]: unknown;
+}
 
 export interface AgentAnalysisRequest {
   tenantId: string;
-  agentType: 'culture' | 'structure';
-  inputData: any;
+  agentType: SupportedAgentType;
+  inputData: AgentInputData;
   priority?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface AgentAnalysisResult {
   analysisId: string;
   agentType: string;
-  output: any;
+  output: UnifiedAgentOutput;
   confidence: number;
   processingTime: number;
-  triggers: any[];
-  recommendations: any[];
+  triggers: TriggerRecord[];
+  recommendations: RecommendationRecord[];
 }
 
+type AgentInstance = CultureAgentV2 | StructureAgent;
+
 export class AgentManager {
-  private agents: Map<string, any> = new Map();
+  private agents: Map<string, AgentInstance> = new Map();
 
   constructor() {
     this.initializeAgents();
   }
 
   private initializeAgents(): void {
-    this.agents.set('culture', new CultureAgent());
+    this.agents.set('culture', new CultureAgentV2('culture', {
+      knowledge: {
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        model: 'gpt-4',
+        temperature: 0.2,
+        maxTokens: 2000
+      },
+      data: {
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 3000
+      },
+      reasoning: {
+        providers: ['openai', 'anthropic', 'gemini', 'mistral'],
+        model: 'gpt-4',
+        temperature: 0.4,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.8
+    }));
     this.agents.set('structure', new StructureAgent());
   }
 
@@ -43,17 +150,44 @@ export class AgentManager {
       }
 
       // Run the agent analysis
-      let result: any;
+      let result: CultureAnalysisOutput | StructureAnalysisOutput;
       switch (request.agentType) {
-        case 'culture':
-          result = await agent.analyzeCompanyCulture(request.inputData);
+        case 'culture': {
+          const cultureAgent = agent as CultureAgentV2;
+          // Ensure required fields are present for culture analysis
+          const cultureInput = {
+            ...request.inputData,
+            companyId: request.inputData.companyId || request.inputData.tenantId,
+            companyValues: request.inputData.companyValues || []
+          };
+          result = await cultureAgent.analyzeCulture(cultureInput);
           break;
-        case 'structure':
-          result = await agent.analyzeOrganizationStructure(request.inputData);
+        }
+        case 'structure': {
+          const structureAgent = agent as StructureAgent;
+          result = await structureAgent.analyzeOrganizationStructure(request.inputData);
           break;
+        }
         default:
           throw new Error(`Analysis method not implemented for ${request.agentType}`);
       }
+
+      // Convert agent-specific output to unified format
+      const resultAsUnknown = result as unknown;
+      const resultAsRecord = resultAsUnknown as Record<string, unknown>;
+
+      const unifiedOutput: UnifiedAgentOutput = {
+        results: resultAsRecord,
+        insights: Array.isArray(resultAsRecord.insights) ? resultAsRecord.insights as string[] : [],
+        recommendations: Array.isArray(resultAsRecord.recommendations) ?
+          resultAsRecord.recommendations as UnifiedAgentOutput['recommendations'] : [],
+        triggers: Array.isArray(resultAsRecord.triggers) ?
+          resultAsRecord.triggers as UnifiedAgentOutput['triggers'] : [],
+        confidence: typeof resultAsRecord.confidence === 'number' ? resultAsRecord.confidence : 0.8,
+        overallConfidence: typeof resultAsRecord.overallConfidence === 'number' ?
+          resultAsRecord.overallConfidence :
+          (typeof resultAsRecord.confidence === 'number' ? resultAsRecord.confidence : 0.8)
+      };
 
       const processingTime = Date.now() - startTime;
 
@@ -63,8 +197,8 @@ export class AgentManager {
         agentType: request.agentType,
         results: {
           inputData: request.inputData,
-          output: result,
-          confidence: result.overallConfidence || 0.8,
+          output: unifiedOutput,
+          confidence: unifiedOutput.overallConfidence || 0.8,
           processingTime,
           status: 'completed'
         }
@@ -76,7 +210,7 @@ export class AgentManager {
       const triggersCreated = await this.processTriggers(
         request.tenantId,
         request.agentType,
-        result.triggers || [],
+        unifiedOutput.triggers || [],
         analysisId
       );
 
@@ -84,15 +218,15 @@ export class AgentManager {
       const recommendationsCreated = await this.processRecommendations(
         request.tenantId,
         request.agentType,
-        result.recommendations || [],
+        unifiedOutput.recommendations || [],
         analysisId
       );
 
       return {
         analysisId,
         agentType: request.agentType,
-        output: result,
-        confidence: result.overallConfidence || 0.8,
+        output: unifiedOutput,
+        confidence: unifiedOutput.overallConfidence || 0.8,
         processingTime,
         triggers: triggersCreated,
         recommendations: recommendationsCreated
@@ -120,14 +254,16 @@ export class AgentManager {
 
   async runMultiAgentAnalysis(
     tenantId: string,
-    agentTypes: string[],
-    inputData: any
+    agentTypes: SupportedAgentType[],
+    inputData: AgentInputData | Record<string, AgentInputData>
   ): Promise<AgentAnalysisResult[]> {
-    const promises = agentTypes.map(agentType => 
+    const promises = agentTypes.map(agentType =>
       this.runAnalysis({
         tenantId,
-        agentType: agentType as any,
-        inputData: inputData[agentType] || inputData
+        agentType: agentType,
+        inputData: typeof inputData === 'object' && agentType in inputData ?
+          (inputData as Record<string, AgentInputData>)[agentType] :
+          inputData as AgentInputData
       })
     );
 
@@ -144,8 +280,14 @@ export class AgentManager {
     tenantId: string,
     agentType?: string,
     limit: number = 10
-  ): Promise<any[]> {
-    const conditions: any[] = [eq(agentAnalyses.tenantId, tenantId)];
+  ): Promise<Array<{
+    id: string;
+    tenantId: string;
+    agentType: string;
+    results: Record<string, unknown>;
+    createdAt: Date;
+  }>> {
+    const conditions = [eq(agentAnalyses.tenantId, tenantId)];
 
     if (agentType) {
       conditions.push(eq(agentAnalyses.agentType, agentType));
@@ -159,9 +301,34 @@ export class AgentManager {
       .limit(limit);
   }
 
-  async getActiveRecommendations(tenantId: string): Promise<any[]> {
-    // TODO: Implement when recommendations table is added to schema
-    return [];
+  async getActiveRecommendations(tenantId: string): Promise<Recommendation[]> {
+    // Aggregate recommendations from all completed analyses
+    const recommendations: Recommendation[] = [];
+
+    // Get culture recommendations
+    const cultureAssessments = await db
+      .select()
+      .from(cultureAssessments)
+      .where(eq(cultureAssessments.tenantId, tenantId))
+      .orderBy(desc(cultureAssessments.createdAt))
+      .limit(1);
+
+    if (cultureAssessments.length > 0 && cultureAssessments[0].results) {
+      const results = cultureAssessments[0].results as CultureAnalysisResult;
+      if (results.recommendations) {
+        recommendations.push(...results.recommendations.map(rec => ({
+          id: `culture-${rec.id || Math.random().toString(36).substr(2, 9)}`,
+          source: 'culture' as const,
+          priority: rec.priority,
+          title: rec.title,
+          description: rec.description,
+          status: 'active' as const,
+          createdAt: cultureAssessments[0].createdAt
+        })));
+      }
+    }
+
+    return recommendations;
   }
 
   async getPendingTriggers(tenantId: string): Promise<any[]> {

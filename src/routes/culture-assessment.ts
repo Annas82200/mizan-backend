@@ -11,7 +11,7 @@ import {
   tenants,
   triggers
 } from '../../db/schema.js';
-import { CultureAgent } from '../services/agents/culture-agent.js';
+import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent.js';
 import { EngagementAgent } from '../services/agents/engagement/engagement-agent.js';
 import { RecognitionAgent } from '../services/agents/recognition/recognition-agent.js';
 import { authenticate, authorize } from '../middleware/auth.js';
@@ -19,6 +19,29 @@ import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 const router = Router();
+
+// Helper function to get default agent configuration
+const getDefaultAgentConfig = () => ({
+  knowledge: {
+    providers: ['anthropic'] as string[],
+    model: 'claude-3-opus-20240229',
+    temperature: 0.7,
+    maxTokens: 4000
+  },
+  data: {
+    providers: ['anthropic'] as string[],
+    model: 'claude-3-opus-20240229',
+    temperature: 0.3,
+    maxTokens: 4000
+  },
+  reasoning: {
+    providers: ['anthropic'] as string[],
+    model: 'claude-3-opus-20240229',
+    temperature: 0.5,
+    maxTokens: 4000
+  },
+  consensusThreshold: 0.7
+});
 
 // Schema for culture assessment submission
 const CultureAssessmentSchema = z.object({
@@ -35,7 +58,7 @@ const CultureAssessmentSchema = z.object({
  */
 router.get('/values/:tenantId', authenticate, async (req: Request, res: Response) => {
   try {
-    const agent = new CultureAgent();
+    const agent = new CultureAgent('culture', getDefaultAgentConfig());
     const frameworks = await agent['loadFrameworks']();
 
     const cylinders = frameworks.cylinders || [];
@@ -455,7 +478,7 @@ router.post('/map-values', authenticate, authorize(['clientAdmin', 'superadmin']
     }
 
     // Use Culture Agent to map values
-    const cultureAgent = new CultureAgent();
+    const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
     const mapping = await cultureAgent.mapTenantValuesToCylinders(tenantId, values);
 
     return res.json({
@@ -742,7 +765,7 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     console.log('🎯 COMPANY REPORT - Tenant:', companyName, 'Values:', tenantValues.length, 'Assessments:', assessments.length);
 
     // Use Culture Agent's rich AI analysis method
-    const cultureAgent = new CultureAgent();
+    const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
     console.log('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
     const report = await cultureAgent.analyzeOrganizationCulture({
       tenantId,
@@ -792,9 +815,9 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
 async function generateEmployeeReport(assessmentId: string, userId: string, tenantId: string) {
   setTimeout(async () => {
     try {
-      const cultureAgent = new CultureAgent();
-      const engagementAgent = new EngagementAgent();
-      const recognitionAgent = new RecognitionAgent();
+      const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
+      const engagementAgent = new EngagementAgent('engagement', getDefaultAgentConfig());
+      const recognitionAgent = new RecognitionAgent('recognition', getDefaultAgentConfig());
 
       // Get the assessment with user data
       const assessment = await db.query.cultureAssessments.findFirst({
@@ -817,25 +840,23 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
       });
 
       // Call Engagement Agent to analyze engagement score (4-AI consensus)
-      const engagementAnalysis = await engagementAgent.analyzeIndividual({
+      const engagementAnalysis = await engagementAgent.analyzeEngagement({
         tenantId,
-        employeeId: userId,
-        engagementScore: assessment.engagement || 0,
-        context: {
-          valuesAlignment: cultureAnalysis.alignmentScore || 0,
-          currentExperience: assessment.currentExperience as string[]
-        }
+        userId,
+        score: assessment.engagement || 0,
+        personalValues: assessment.personalValues as string[],
+        currentExperience: assessment.currentExperience as string[],
+        desiredExperience: assessment.desiredExperience as string[]
       });
 
       // Call Recognition Agent to analyze recognition score (4-AI consensus)
-      const recognitionAnalysis = await recognitionAgent.analyzeIndividual({
+      const recognitionAnalysis = await recognitionAgent.analyzeRecognition({
         tenantId,
-        employeeId: userId,
-        recognitionScore: assessment.recognition || 0,
-        context: {
-          valuesAlignment: cultureAnalysis.alignmentScore || 0,
-          engagement: assessment.engagement || 0
-        }
+        userId,
+        score: assessment.recognition || 0,
+        personalValues: assessment.personalValues as string[],
+        currentExperience: assessment.currentExperience as string[],
+        desiredExperience: assessment.desiredExperience as string[]
       });
 
       // Build comprehensive employee report with rich AI insights
@@ -1159,7 +1180,7 @@ async function generateTenantReport(
   reportType: 'department' | 'company',
   targetId?: string
 ): Promise<any> {
-  const agent = new CultureAgent();
+  const agent = new CultureAgent('culture', getDefaultAgentConfig());
   const frameworks = await agent['loadFrameworks']();
   const cylinders = frameworks.cylinders;
 
@@ -1621,7 +1642,7 @@ async function analyzeEngagementScore(
   riskLevel: string;
 }> {
   try {
-    const engagementAgent = new EngagementAgent();
+    const engagementAgent = new EngagementAgent('engagement', getDefaultAgentConfig());
 
     // Build context for engagement analysis
     const context = {
@@ -1706,7 +1727,7 @@ async function analyzeRecognitionScore(
   impactOnEngagement: string;
 }> {
   try {
-    const recognitionAgent = new RecognitionAgent();
+    const recognitionAgent = new RecognitionAgent('recognition', getDefaultAgentConfig());
 
     // Build context for recognition analysis
     const context = {

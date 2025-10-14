@@ -1,10 +1,21 @@
 import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent.js';
-import { db } from '../../db/index.js';
-import { organizationStructure, companyStrategies } from '../../db/schema.js';
+import { db } from '../../../db/index.js';
+import { organizationStructure, companyStrategies } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { invokeProvider } from '../ai-providers/router.js';
+import type {
+  StructureData,
+  StrategyData,
+  ProcessedStructureData,
+  OrganizationalFramework,
+  Role,
+  Department,
+  ReportingLine,
+  SpanMetrics,
+  LayerMetrics
+} from '../../types/structure-types.js';
 
-export interface StructureAnalysisInput {
+export interface StructureAnalysisInput extends Record<string, unknown> {
   tenantId: string;
   structureId?: string;
   strategyId?: string;
@@ -76,7 +87,7 @@ export class StructureAgent extends ThreeEngineAgent {
 
   async analyzeOrganizationStructure(input: StructureAnalysisInput): Promise<StructureAnalysisOutput> {
     const result = await this.analyze(input);
-    return result.finalOutput;
+    return result.finalOutput as unknown as StructureAnalysisOutput;
   }
 
   /**
@@ -87,10 +98,10 @@ export class StructureAgent extends ThreeEngineAgent {
   async generateRichStructureAnalysis(input: {
     tenantId: string;
     companyName: string;
-    structureData: any;
-    strategyData?: any;
+    structureData: StructureData;
+    strategyData?: StrategyData;
     useFastMode?: boolean;
-  }): Promise<any> {
+  }): Promise<StructureAnalysisOutput> {
     const prompt = `You are an organizational design expert helping a CEO understand if their structure will help them achieve their strategy. Write like you're sitting across from them having a frank conversation - professional but human, insightful but not academic.
 
 COMPANY: ${input.companyName}
@@ -260,7 +271,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     }
   }
 
-  protected async loadFrameworks(): Promise<any> {
+  protected async loadFrameworks(): Promise<OrganizationalFramework> {
     return {
       // PRIMARY: Strategy-Structure Alignment Frameworks
       galbraithStar: {
@@ -342,12 +353,15 @@ Return ONLY a valid JSON object with NO markdown formatting:
     };
   }
 
-  protected async processData(inputData: StructureAnalysisInput): Promise<any> {
+  protected async processData(inputData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const typedInput = inputData as StructureAnalysisInput;
+    const tenantId = typedInput.tenantId;
+
     // Get organization structure
     const structure = await db
       .select()
       .from(organizationStructure)
-      .where(eq(organizationStructure.tenantId, inputData.tenantId))
+      .where(eq(organizationStructure.tenantId, tenantId))
       .orderBy(organizationStructure.createdAt)
       .limit(1);
 
@@ -355,7 +369,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     const strategy = await db
       .select()
       .from(companyStrategies)
-      .where(eq(companyStrategies.tenantId, inputData.tenantId))
+      .where(eq(companyStrategies.tenantId, tenantId))
       // .where(eq(companyStrategies.status, 'active'))
       .limit(1);
 
@@ -363,7 +377,17 @@ Return ONLY a valid JSON object with NO markdown formatting:
       throw new Error('No organization structure found for tenant');
     }
 
-    const structureData = structure[0].structureData as Record<string, unknown>;
+    const rawStructureData = structure[0].structureData as Record<string, unknown>;
+
+    // Convert the raw structure data to StructureData type
+    const structureData: StructureData = {
+      departments: (rawStructureData.departments as Department[]) || [],
+      reportingLines: (rawStructureData.reportingLines as ReportingLine[]) || [],
+      roles: (rawStructureData.roles as Role[]) || [],
+      totalEmployees: (rawStructureData.totalEmployees as number) || 0,
+      organizationLevels: (rawStructureData.organizationLevels as number) || 0
+    };
+
     const strategyData = strategy.length > 0 ? strategy[0] : null;
 
     return {
@@ -445,7 +469,7 @@ Your output should be structured JSON containing:
 Connect theory with data to provide clear, actionable insights.`;
   }
 
-  protected buildKnowledgePrompt(inputData: StructureAnalysisInput, frameworks: any): string {
+  protected buildKnowledgePrompt(inputData: Record<string, unknown>, frameworks: Record<string, unknown>): string {
     return `Analyze the organizational design context:
 
 Analysis Type: Organization Structure Analysis
@@ -459,7 +483,7 @@ Please identify which organizational design frameworks are most applicable and p
 What design principles should guide this structural analysis?`;
   }
 
-  protected buildDataPrompt(processedData: any, knowledgeOutput: any): string {
+  protected buildDataPrompt(processedData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>): string {
     return `Analyze this organizational structure data:
 
 Structure Data:
@@ -478,7 +502,7 @@ Please analyze for:
 Provide quantitative metrics and identify specific issues.`;
   }
 
-  protected buildReasoningPrompt(inputData: StructureAnalysisInput, knowledgeOutput: any, dataOutput: any): string {
+  protected buildReasoningPrompt(inputData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>, dataOutput: Record<string, unknown>): string {
     return `Synthesize organizational design theory with structural analysis:
 
 Input Context:
@@ -500,7 +524,7 @@ Please provide:
 Ensure recommendations are practical and theory-based.`;
   }
 
-  protected parseKnowledgeOutput(response: string): any {
+  protected parseKnowledgeOutput(response: string): Record<string, unknown> {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -509,7 +533,7 @@ Ensure recommendations are practical and theory-based.`;
     }
   }
 
-  protected parseDataOutput(response: string): any {
+  protected parseDataOutput(response: string): Record<string, unknown> {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -518,7 +542,7 @@ Ensure recommendations are practical and theory-based.`;
     }
   }
 
-  protected parseReasoningOutput(response: string): any {
+  protected parseReasoningOutput(response: string): Record<string, unknown> {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -527,27 +551,24 @@ Ensure recommendations are practical and theory-based.`;
     }
   }
 
-  private analyzeStructureData(structureData: any): any {
+  private analyzeStructureData(structureData: StructureData): ProcessedStructureData['metrics'] {
     // Process org chart data to extract metrics
     const roles = this.extractRoles(structureData);
     const spanMetrics = this.calculateSpanMetrics(roles);
     const layerMetrics = this.calculateLayerMetrics(roles);
 
     return {
-      totalRoles: roles.length,
       spanMetrics,
       layerMetrics,
-      roles: roles.map(role => ({
-        id: role.id,
-        title: role.title,
-        level: role.level,
-        directReports: role.directReports?.length || 0,
-        reportsTo: role.reportsTo
-      }))
+      alignmentMetrics: {
+        strategyAlignmentScore: 0,
+        structureEfficiencyScore: 0,
+        communicationPathScore: 0
+      }
     };
   }
 
-  private extractRoles(structureData: any): any[] {
+  private extractRoles(structureData: StructureData): Role[] {
     // Extract roles from org chart structure
     // This would depend on the actual structure format
     if (Array.isArray(structureData)) {
@@ -562,39 +583,85 @@ Ensure recommendations are practical and theory-based.`;
     return [];
   }
 
-  private calculateSpanMetrics(roles: any[]): any {
+  private calculateSpanMetrics(roles: Role[]): SpanMetrics {
     const spans = roles.map(role => role.directReports?.length || 0);
     const nonZeroSpans = spans.filter(span => span > 0);
-    
+
     if (nonZeroSpans.length === 0) {
-      return { average: 0, distribution: {}, outliers: [] };
+      return {
+        averageSpan: 0,
+        maxSpan: 0,
+        minSpan: 0,
+        distribution: {},
+        outliers: []
+      };
     }
 
-    const average = nonZeroSpans.reduce((sum, span) => sum + span, 0) / nonZeroSpans.length;
-    const distribution: { [key: string]: number } = {};
-    
+    const averageSpan = nonZeroSpans.reduce((sum, span) => sum + span, 0) / nonZeroSpans.length;
+    const maxSpan = Math.max(...nonZeroSpans);
+    const minSpan = Math.min(...nonZeroSpans);
+    const distribution: Record<string, number> = {};
+
     spans.forEach(span => {
       distribution[span.toString()] = (distribution[span.toString()] || 0) + 1;
     });
 
-    const outliers = roles.filter(role => {
-      const span = role.directReports?.length || 0;
-      return span > 15 || (span > 0 && span < 3); // Potential outliers
-    });
+    const outliers = roles
+      .filter(role => {
+        const span = role.directReports?.length || 0;
+        return span > 15 || (span > 0 && span < 3); // Potential outliers
+      })
+      .map(role => ({
+        roleId: role.id,
+        span: role.directReports?.length || 0,
+        recommendation: role.directReports && role.directReports.length > 15
+          ? 'Consider splitting this role to reduce span of control'
+          : 'Consider consolidating with other roles to increase efficiency'
+      }));
 
-    return { average, distribution, outliers };
+    return { averageSpan, maxSpan, minSpan, distribution, outliers };
   }
 
-  private calculateLayerMetrics(roles: any[]): any {
+  private calculateLayerMetrics(roles: Role[]): LayerMetrics {
     const levels = roles.map(role => role.level || 0);
     const maxLevel = Math.max(...levels);
     const minLevel = Math.min(...levels);
-    
+
+    // Calculate average layers to bottom for each role
+    const layersToBottom = roles.map(role => maxLevel - (role.level || 0));
+    const averageLayersToBottom = layersToBottom.reduce((sum, layers) => sum + layers, 0) / layersToBottom.length;
+
+    // Identify bottlenecks (layers with too many or too few roles)
+    const layerCounts = new Map<number, string[]>();
+    roles.forEach(role => {
+      const level = role.level || 0;
+      if (!layerCounts.has(level)) {
+        layerCounts.set(level, []);
+      }
+      layerCounts.get(level)!.push(role.id);
+    });
+
+    const bottlenecks: Array<{layer: number; roles: string[]; issue: string}> = [];
+    layerCounts.forEach((roleIds, layer) => {
+      if (roleIds.length === 1 && layer !== minLevel && layer !== maxLevel) {
+        bottlenecks.push({
+          layer,
+          roles: roleIds,
+          issue: 'Single point of failure - only one role at this level'
+        });
+      } else if (roleIds.length > 10) {
+        bottlenecks.push({
+          layer,
+          roles: roleIds,
+          issue: 'Too many roles at this level - consider restructuring'
+        });
+      }
+    });
+
     return {
       totalLayers: maxLevel - minLevel + 1,
-      maxLevel,
-      minLevel,
-      averageLevel: levels.reduce((sum, level) => sum + level, 0) / levels.length
+      averageLayersToBottom,
+      bottlenecks
     };
   }
 }
