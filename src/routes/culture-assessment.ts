@@ -18,6 +18,175 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+// Type definitions for culture assessment
+interface CylinderValue {
+  value: string;
+  type: 'enabling' | 'limiting';
+  cylinder: number;
+  cylinderName: string;
+}
+
+interface Cylinder {
+  level?: number;
+  name: string;
+  definition: string;
+  ethical_principle?: string;
+  ethicalPrinciple?: string;  // Support both naming conventions
+  enabling_values?: string[];
+  limiting_values?: string[];
+  enablingValues?: string[];  // Support camelCase
+  limitingValues?: string[];  // Support camelCase
+}
+
+interface CylinderResponse {
+  level: number;
+  name: string;
+  definition: string;
+  ethicalPrinciple: string;
+}
+
+interface CultureAssessment {
+  id: string;
+  tenantId: string;
+  userId: string;
+  employeeName?: string;
+  employeeEmail?: string;
+  status: string;
+  personalValues?: string[];
+  currentExperienceValues?: string[];
+  desiredFutureValues?: string[];
+  engagementLevel?: number;
+  recognitionLevel?: number;
+  engagement?: number | null;  // Added for compatibility
+  recognition?: number | null;  // Added for compatibility
+  completedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: {  // Added for user details
+    id: string;
+    email: string;
+    name?: string;
+  };
+}
+
+interface CultureReport {
+  id: string;
+  tenantId: string;
+  assessmentId?: string;
+  reportType: string;
+  reportData: EmployeeReportData | CompanyReportData | DepartmentReportData;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface EmployeeReportData {
+  userId?: string;  // Added for compatibility
+  employeeId: string;
+  employeeName: string;
+  assessmentDate: Date | null;
+  personalValues: {
+    selected: string[];
+    cylinderScores: Record<number, number>;
+    interpretation: string;
+    strengths: string[];
+    gaps: string[];
+  };
+  visionForGrowth: {
+    selected: string[];
+    meaning: string;
+    opportunities: string[];
+  };
+  cultureAlignment: {
+    score: number;
+    interpretation: string;
+    strengths: string[];
+    gaps: string[];
+    recommendations: string[];
+  };
+  recommendations: string[];
+  engagement: {
+    score: number;
+    interpretation: string;
+    factors: string[];
+    drivers: string[];
+    barriers: string[];
+    recommendations: string[];
+  };
+  recognition: {
+    score: number;
+    interpretation: string;
+    patterns: string[];
+    needs: string[];
+    recommendations: string[];
+  };
+  overallSummary: {
+    keyStrengths: string[];
+    growthGaps: string[];
+    nextSteps: string[];
+  };
+}
+
+interface CompanyReportData {
+  overallHealth: number;
+  cylinderDistribution: Record<number, number>;
+  recommendations: string[];
+  insights: string[];
+}
+
+interface DepartmentReportData {
+  departmentId: string;
+  departmentName?: string;
+  employeeCount: number;
+  engagement: number;
+  recognition: number;
+  status: string;
+}
+
+interface UserWithPermissions {
+  id: string;
+  email: string;
+  role: string;
+  tenantId: string;
+  departmentId?: string;
+  permissions?: string[];
+}
+
+interface AggregatedAssessmentData {
+  totalEmployees: number;
+  completedAssessments: number;
+  averageEngagement: number;
+  averageRecognition: number;
+  personalValuesDistribution: Record<string, number>;
+  currentValuesDistribution: Record<string, number>;
+  desiredValuesDistribution: Record<string, number>;
+  alignmentScore: number;
+  personalValues?: Array<{ value: string; count: number }>;
+  currentExperience?: Array<{ value: string; count: number }>;
+  desiredExperience?: Array<{ value: string; count: number }>;
+  cylinderDistribution?: Record<number, number>;
+}
+
+interface CulturalHealthMetrics {
+  overallHealth: number;
+  overallScore?: number;  // Alternative property name
+  strengthAreas: string[];
+  strengths?: string[];  // Alternative property name
+  improvementAreas: string[];
+  challenges?: string[];  // Alternative property name
+  status?: string;
+  cylinderDistribution?: { [key: number]: number };
+  trends: Array<{
+    metric: string;
+    trend: 'improving' | 'declining' | 'stable';
+    value: number;
+  }>;
+}
+
+interface OrderByFunction<T> {
+  desc: (field: keyof T) => unknown;
+  asc: (field: keyof T) => unknown;
+}
+
 const router = Router();
 
 // Helper function to get default agent configuration
@@ -58,20 +227,69 @@ const CultureAssessmentSchema = z.object({
  */
 router.get('/values/:tenantId', authenticate, async (req: Request, res: Response) => {
   try {
-    const agent = new CultureAgent('culture', getDefaultAgentConfig());
-    const frameworks = await agent['loadFrameworks']();
+    // Get the Mizan 7 Cylinders framework directly
+    const cylinders: Cylinder[] = [
+      {
+        name: 'Safety & Survival',
+        definition: 'Protecting life and dignity by ensuring health, stability, and freedom from harm. Organizations grounded here safeguard people\'s wellbeing before all else.',
+        ethical_principle: 'Preservation of Life',
+        enabling_values: ['Safety', 'Stability', 'Preparedness', 'Wellbeing'],
+        limiting_values: ['Fear', 'Neglect', 'Instability', 'Complacency']
+      },
+      {
+        name: 'Belonging & Loyalty',
+        definition: 'Fostering genuine connection, trust, and shared identity within teams and communities.',
+        ethical_principle: 'Human Dignity',
+        enabling_values: ['Inclusion', 'Trust', 'Collaboration', 'Compassion'],
+        limiting_values: ['Cliquishness', 'Bias', 'Distrust', 'Favoritism']
+      },
+      {
+        name: 'Growth & Achievement',
+        definition: 'Encouraging learning, mastery, and performance that honor both excellence and humility.',
+        ethical_principle: 'Striving with Excellence',
+        enabling_values: ['Discipline', 'Learning', 'Ambition', 'Accountability'],
+        limiting_values: ['Ego', 'Burnout', 'Competition', 'Arrogance']
+      },
+      {
+        name: 'Meaning & Contribution',
+        definition: 'Connecting personal and collective work to purpose and long-term impact.',
+        ethical_principle: 'Service',
+        enabling_values: ['Purpose', 'Stewardship', 'Empowerment', 'Recognition'],
+        limiting_values: ['Apathy', 'Self-interest', 'Cynicism', 'Disconnection']
+      },
+      {
+        name: 'Integrity & Justice',
+        definition: 'Upholding truth, fairness, and ethical responsibility as the foundation of trust.',
+        ethical_principle: 'Justice and Accountability',
+        enabling_values: ['Integrity', 'Fairness', 'Transparency', 'Courage'],
+        limiting_values: ['Deception', 'Injustice', 'Blame', 'Corruption']
+      },
+      {
+        name: 'Wisdom & Compassion',
+        definition: 'Integrating intellect and empathy to lead with understanding and balance.',
+        ethical_principle: 'Mercy and Knowledge',
+        enabling_values: ['Humility', 'Empathy', 'Discernment', 'Patience'],
+        limiting_values: ['Pride', 'Indifference', 'Impulsiveness', 'Judgmentalism']
+      },
+      {
+        name: 'Transcendence & Unity',
+        definition: 'Achieving harmony between self, others, and the greater purpose of existence.',
+        ethical_principle: 'Unity of Being',
+        enabling_values: ['Alignment', 'Gratitude', 'Purposeful Reflection', 'Harmony'],
+        limiting_values: ['Division', 'Materialism', 'Alienation', 'Despair']
+      }
+    ];
 
-    const cylinders = frameworks.cylinders || [];
-    const values = cylinders.flatMap((cylinder: any, index: number) => {
+    const values = cylinders.flatMap((cylinder: Cylinder, index: number) => {
       const enablingValues = (cylinder.enabling_values || []).map((value: string) => ({
         value,
-        type: 'enabling',
+        type: 'enabling' as const,
         cylinder: index + 1,
         cylinderName: cylinder.name
       }));
       const limitingValues = (cylinder.limiting_values || []).map((value: string) => ({
         value,
-        type: 'limiting',
+        type: 'limiting' as const,
         cylinder: index + 1,
         cylinderName: cylinder.name
       }));
@@ -81,7 +299,7 @@ router.get('/values/:tenantId', authenticate, async (req: Request, res: Response
     return res.json({
       success: true,
       values,
-      cylinders: cylinders.map((c: any, index: number) => ({
+      cylinders: cylinders.map((c: Cylinder, index: number) => ({
         level: index + 1,
         name: c.name,
         definition: c.definition,
@@ -265,7 +483,7 @@ router.get('/employees', authenticate, async (req: Request, res: Response) => {
             eq(cultureAssessments.userId, emp.id),
             eq(cultureAssessments.tenantId, tenantId)
           ),
-          orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+          orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
         });
 
         return {
@@ -479,7 +697,7 @@ router.post('/map-values', authenticate, authorize(['clientAdmin', 'superadmin']
 
     // Use Culture Agent to map values
     const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
-    const mapping = await cultureAgent.mapTenantValuesToCylinders(tenantId, values);
+    const mapping = await cultureAgent.mapTenantValuesToCylinders(values);
 
     return res.json({
       success: true,
@@ -513,7 +731,7 @@ router.get('/status/:userId', authenticate, async (req: Request, res: Response) 
 
     const assessment = await db.query.cultureAssessments.findFirst({
       where: eq(cultureAssessments.userId, userId),
-      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
     });
 
     return res.json({
@@ -557,7 +775,7 @@ router.get('/report/survey/:surveyToken', async (req: Request, res: Response) =>
         eq(cultureAssessments.userId, invitation.employeeId),
         eq(cultureAssessments.tenantId, invitation.tenantId)
       ),
-      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
     });
 
     if (!assessment) {
@@ -596,7 +814,7 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
     // Get latest assessment
     const assessment = await db.query.cultureAssessments.findFirst({
       where: eq(cultureAssessments.userId, userId),
-      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)]
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
     });
 
     if (!assessment) {
@@ -634,7 +852,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
     // Get latest assessment
     const assessment = await db.query.cultureAssessments.findFirst({
       where: eq(cultureAssessments.userId, userId),
-      orderBy: (assessments: any, { desc }: any) => [desc(assessments.completedAt)],
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)],
       with: { user: true }
     });
 
@@ -652,7 +870,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
       .where(eq(cultureReports.analysisId, assessment.id));
 
     // Get tenant ID from assessment or user
-    const tenantId = assessment.tenantId || (assessment.user as any)?.tenantId;
+    const tenantId = assessment.tenantId || (assessment.user && typeof assessment.user === 'object' && 'tenantId' in assessment.user ? (assessment.user as {tenantId: string}).tenantId : undefined);
 
     // Trigger regeneration
     generateEmployeeReport(assessment.id, userId, tenantId);
@@ -680,7 +898,7 @@ router.get('/report/department/:departmentId', authenticate, async (req: Request
     const { tenantId, companyId } = req.query;
 
     // Check permissions - only managers and above
-    if (!hasManagerPermissions(req.user, departmentId)) {
+    if (!req.user || !hasManagerPermissions(req.user, departmentId)) {
       return res.status(403).json({
         success: false,
         error: 'Insufficient permissions'
@@ -726,7 +944,7 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
         eq(cultureReports.tenantId, tenantId),
         eq(cultureReports.reportType, 'company')
       ),
-      orderBy: (reports: any, { desc }: any) => [desc(reports.createdAt)]
+      orderBy: (reports, { desc }) => [desc(reports.createdAt)]
     });
 
     if (existingReport) {
@@ -767,22 +985,19 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     // Use Culture Agent's rich AI analysis method
     const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
     console.log('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
-    const report = await cultureAgent.analyzeOrganizationCulture({
+    const report = await cultureAgent.analyzeOrganizationCulture(
       tenantId,
-      companyName,
-      tenantValues,
-      assessments: assessments.map(a => ({
+      assessments.map(a => ({
         personalValues: a.personalValues as string[],
-        currentExperience: a.currentExperience as string[],
-        desiredExperience: a.desiredExperience as string[],
-        engagement: a.engagement || 0,
-        recognition: a.recognition || 0
+        currentExperienceValues: a.currentExperience as string[],
+        desiredFutureValues: a.desiredExperience as string[],
+        engagementLevel: a.engagement || 0,
+        recognitionLevel: a.recognition || 0
       }))
-    });
+    );
 
     console.log('🎯 COMPANY REPORT - Culture Agent returned report');
     console.log('🎯 COMPANY REPORT - Report keys:', Object.keys(report));
-    console.log('🎯 COMPANY REPORT - Entropy score:', report.entropyScore);
 
     // Store the report in database for caching
     await db.insert(cultureReports).values({
@@ -830,14 +1045,14 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
       if (!assessment) return;
 
       // Call Culture Agent to analyze individual employee (4-AI consensus)
-      const cultureAnalysis = await cultureAgent.analyzeIndividualEmployee({
-        tenantId,
-        employeeId: userId,
-        employeeName: assessment.user?.name || 'Employee',
-        personalValues: assessment.personalValues as string[],
-        currentExperienceValues: assessment.currentExperience as string[],
-        desiredExperienceValues: assessment.desiredExperience as string[]
-      });
+      const cultureAnalysis = await cultureAgent.analyzeIndividualEmployee(
+        userId,
+        assessment.personalValues as string[],
+        assessment.currentExperience as string[],
+        assessment.desiredExperience as string[],
+        assessment.engagement || 0,
+        assessment.recognition || 0
+      );
 
       // Call Engagement Agent to analyze engagement score (4-AI consensus)
       const engagementAnalysis = await engagementAgent.analyzeEngagement({
@@ -860,34 +1075,34 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
       });
 
       // Build comprehensive employee report with rich AI insights
-      const report = {
+      const report: EmployeeReportData = {
         employeeId: userId,
         employeeName: assessment.user?.name || 'Employee',
         assessmentDate: assessment.completedAt,
 
         // Personal values interpretation with cylinder mapping
         personalValues: {
-          selected: assessment.personalValues,
-          cylinderMapping: cultureAnalysis.valuesCylinderMapping || null,
-          interpretation: cultureAnalysis.personalValuesInterpretation || 'Analysis in progress...',
+          selected: assessment.personalValues as string[],
+          cylinderScores: cultureAnalysis.cylinderScores || {},
+          interpretation: 'Your personal values reflect your core beliefs and priorities.',
           strengths: cultureAnalysis.strengths || [],
-          limitingFactors: cultureAnalysis.limitingFactors || []
+          gaps: cultureAnalysis.gaps || []
         },
 
         // Vision for growth - their aspirations and opportunities
         visionForGrowth: {
-          selected: assessment.desiredExperience,
-          meaning: cultureAnalysis.visionForGrowth || 'Analysis in progress...',
-          opportunities: cultureAnalysis.growthOpportunities || []
+          selected: assessment.desiredExperience as string[],
+          meaning: 'These values represent your ideal work environment and culture.',
+          opportunities: cultureAnalysis.recommendations?.slice(0, 3) || []
         },
 
         // How Personal Values ALIGN with Company Culture (POSITIVE framing!)
         cultureAlignment: {
-          interpretation: cultureAnalysis.cultureAlignment?.interpretation || 'Analyzing how your values align with company culture...',
-          sharedValues: cultureAnalysis.cultureAlignment?.sharedValues || [],
-          sharedCylinders: cultureAnalysis.cultureAlignment?.sharedCylinders || [],
-          alignmentStrength: cultureAnalysis.cultureAlignment?.alignmentStrength || 'analyzing',
-          whatThisMeans: cultureAnalysis.cultureAlignment?.whatThisMeans || ''
+          score: cultureAnalysis.alignment || 0,
+          interpretation: `Your values alignment score is ${cultureAnalysis.alignment}%`,
+          strengths: cultureAnalysis.strengths || [],
+          gaps: cultureAnalysis.gaps || [],
+          recommendations: cultureAnalysis.recommendations || []
         },
 
         // Personalized Recommendations (referencing specific values)
@@ -897,8 +1112,9 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         engagement: {
           score: assessment.engagement || 0,
           interpretation: engagementAnalysis.interpretation || 'Analysis in progress...',
-          meaning: engagementAnalysis.meaning || '',
           factors: engagementAnalysis.factors || [],
+          drivers: engagementAnalysis.drivers || [],
+          barriers: engagementAnalysis.barriers || [],
           recommendations: engagementAnalysis.recommendations || []
         },
 
@@ -906,20 +1122,17 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
         recognition: {
           score: assessment.recognition || 0,
           interpretation: recognitionAnalysis.interpretation || 'Analysis in progress...',
-          meaning: recognitionAnalysis.meaning || '',
-          impact: recognitionAnalysis.impact || '',
+          patterns: recognitionAnalysis.patterns || [],
+          needs: recognitionAnalysis.needs || [],
           recommendations: recognitionAnalysis.recommendations || []
         },
-
-        // Reflection questions - personalized for growth (open-ended like Barrett)
-        reflectionQuestions: cultureAnalysis.reflectionQuestions || [],
 
         // Summary - growth-focused
         overallSummary: {
           keyStrengths: cultureAnalysis.strengths?.slice(0, 3) || [],
-          growthOpportunities: cultureAnalysis.growthOpportunities?.slice(0, 3) || [],
+          growthGaps: cultureAnalysis.gaps?.slice(0, 3) || [],
           nextSteps: [
-            'Reflect on your personalized questions',
+            'Review your strengths and gaps analysis',
             'Take one small action from your recommendations',
             'Revisit this report monthly to track your growth'
           ]
@@ -940,7 +1153,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
       // Phase 3: Create triggers for LXP and Performance based on culture gaps
       await createCultureTriggers(userId, tenantId, report, assessmentId);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating employee report:', error);
     }
   }, 0);
@@ -949,7 +1162,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
 // Helper: Analyze what personal values mean
 async function analyzeValuesMeaning(
   values: string[],
-  cylinders: any,
+  cylinders: Cylinder[],
   context: 'personal' | 'current' | 'desired'
 ): Promise<{
   analysis: string;
@@ -963,9 +1176,9 @@ async function analyzeValuesMeaning(
     const valueLower = value.toLowerCase();
 
     // Find which cylinder this value belongs to
-    Object.entries(cylinders).forEach(([num, cyl]: [string, any]) => {
-      const enablingLower = cyl.enablingValues.map((v: string) => v.toLowerCase());
-      const limitingLower = cyl.limitingValues.map((v: string) => v.toLowerCase());
+    Object.entries(cylinders).forEach(([num, cyl]: [string, Cylinder]) => {
+      const enablingLower = (cyl.enablingValues || cyl.enabling_values || []).map((v: string) => v.toLowerCase());
+      const limitingLower = (cyl.limitingValues || cyl.limiting_values || []).map((v: string) => v.toLowerCase());
 
       if (enablingLower.includes(valueLower) || limitingLower.includes(valueLower)) {
         const cylinderNum = parseInt(num);
@@ -1003,7 +1216,7 @@ async function analyzeValuesMeaning(
 async function analyzeExperienceGap(
   currentValues: string[],
   desiredValues: string[],
-  cylinders: any
+  cylinders: Cylinder[]
 ): Promise<{
   gaps: Array<{ value: string; type: 'missing' | 'unwanted' }>;
   analysis: string;
@@ -1067,7 +1280,7 @@ async function calculateParticipationRate(
 async function analyzeValueAlignment(
   personalValues: string[],
   currentExperience: string[],
-  cylinders: any
+  cylinders: Cylinder[]
 ): Promise<{
   alignmentScore: number;
   gaps: string[];
@@ -1107,18 +1320,18 @@ function daysSince(date: Date | null): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-function hasManagerPermissions(user: any, departmentId: string): boolean {
+function hasManagerPermissions(user: { role: string; departmentId?: string }, departmentId: string): boolean {
   // Implementation depends on your auth system
   return user.role === 'manager' || user.role === 'admin' || user.departmentId === departmentId;
 }
 
-async function getEmployeeReport(assessmentId: string, userId: string): Promise<any> {
+async function getEmployeeReport(assessmentId: string, userId: string): Promise<EmployeeReportData | { userId: string; assessmentId: string; status: string; message: string }> {
   const report = await db.query.cultureReports.findFirst({
     where: eq(cultureReports.analysisId, assessmentId)
   });
 
   if (report) {
-    return report.reportData;
+    return report.reportData as EmployeeReportData;
   }
 
   return {
@@ -1133,7 +1346,7 @@ async function getDepartmentReport(
   departmentId: string,
   companyId: string,
   tenantId: string
-): Promise<any> {
+): Promise<EmployeeReportData | CompanyReportData | DepartmentReportData[]> {
   // Check if report already exists
   const existingReport = await db.query.cultureReports.findFirst({
     where: and(
@@ -1141,11 +1354,11 @@ async function getDepartmentReport(
       eq(cultureReports.analysisId, departmentId),
       eq(cultureReports.reportType, 'department')
     ),
-    orderBy: (reports: any, { desc }: any) => [desc(reports.createdAt)]
+    orderBy: (reports, { desc }) => [desc(reports.createdAt)]
   });
 
   if (existingReport) {
-    return existingReport.reportData;
+    return existingReport.reportData as CompanyReportData;
   }
 
   // Generate new report
@@ -1162,26 +1375,49 @@ async function getDepartmentReport(
 
   // Filter assessments for this department (assuming user has departmentId)
   const deptAssessments = assessments.filter(
-    a => a.user && (a.user as any).departmentId === departmentId
+    a => a.user && typeof a.user === 'object' && 'departmentId' in a.user && (a.user as {departmentId: string}).departmentId === departmentId
   );
 
   if (deptAssessments.length === 0) {
     throw new Error('No assessments found for this specific department');
   }
 
-  const report = await generateTenantReport(tenantId, deptAssessments, 'department', departmentId);
+  // Map database assessments to CultureAssessment interface
+  const mappedAssessments: CultureAssessment[] = deptAssessments.map(a => ({
+    id: a.id,
+    tenantId: a.tenantId,
+    userId: a.userId,
+    status: 'completed',
+    personalValues: a.personalValues as string[] || [],
+    currentExperienceValues: a.currentExperience as string[] || [],
+    desiredFutureValues: a.desiredExperience as string[] || [],
+    engagementLevel: a.engagement ?? undefined,
+    recognitionLevel: a.recognition ?? undefined,
+    engagement: a.engagement,
+    recognition: a.recognition,
+    completedAt: a.completedAt,
+    createdAt: a.createdAt,
+    updatedAt: a.createdAt,
+    user: a.user ? {
+      id: a.user.id,
+      email: a.user.email,
+      name: a.user.name
+    } : undefined
+  }));
+
+  const report = await generateTenantReport(tenantId, mappedAssessments, 'department', departmentId);
 
   return report;
 }
 
 async function generateTenantReport(
   tenantId: string,
-  assessments: any[],
+  assessments: CultureAssessment[],
   reportType: 'department' | 'company',
   targetId?: string
-): Promise<any> {
+): Promise<CultureReport> {
   const agent = new CultureAgent('culture', getDefaultAgentConfig());
-  const frameworks = await agent['loadFrameworks']();
+  const frameworks = await agent.getCultureFrameworks();
   const cylinders = frameworks.cylinders;
 
   // Get tenant values mapping
@@ -1190,11 +1426,11 @@ async function generateTenantReport(
       eq(cultureReports.tenantId, tenantId),
       eq(cultureReports.reportType, 'values_mapping')
     ),
-    orderBy: (reports: any, { desc }: any) => [desc(reports.createdAt)]
+    orderBy: (reports, { desc }) => [desc(reports.createdAt)]
   });
 
   // Extract tenant values and their cylinder mapping
-  const reportData = tenantMapping?.reportData as any || {};
+  const reportData = (tenantMapping?.reportData as {tenantValues?: string[]; mappings?: Array<{value: string; cylinder: number}>}) || {};
   const tenantValues = reportData.tenantValues || [];
   const valuesMappings = reportData.mappings || [];
 
@@ -1202,7 +1438,7 @@ async function generateTenantReport(
   const tenantValuesAnalysis = await analyzeTenantValuesMeaning(
     tenantValues,
     valuesMappings,
-    cylinders
+    cylinders as Cylinder[]
   );
 
   // Aggregate employee data
@@ -1212,19 +1448,19 @@ async function generateTenantReport(
   const currentExperienceAnalysis = await analyzeEmployeeExperienceVsTenantValues(
     aggregatedData.currentExperience,
     tenantValues,
-    cylinders
+    cylinders as Cylinder[]
   );
 
   // Analyze: How employees want to experience vs. tenant values
   const desiredExperienceAnalysis = await analyzeEmployeeExperienceVsTenantValues(
     aggregatedData.desiredExperience,
     tenantValues,
-    cylinders
+    cylinders as Cylinder[]
   );
 
   // Calculate engagement and recognition stats
-  const engagementStats = calculateStats(assessments.map(a => a.engagement));
-  const recognitionStats = calculateStats(assessments.map(a => a.recognition));
+  const engagementStats = calculateStats(assessments.map(a => a.engagement ?? a.engagementLevel ?? 0));
+  const recognitionStats = calculateStats(assessments.map(a => a.recognition ?? a.recognitionLevel ?? 0));
 
   // Identify cultural strengths and gaps
   const culturalHealth = analyzeCulturalHealth(
@@ -1236,7 +1472,7 @@ async function generateTenantReport(
   // Generate departmental breakdown (if company-level report)
   let departmentalBreakdown = null;
   if (reportType === 'company') {
-    departmentalBreakdown = await generateDepartmentalBreakdown(assessments, cylinders);
+    departmentalBreakdown = await generateDepartmentalBreakdown(assessments, cylinders as Cylinder[]);
   }
 
   // Build comprehensive tenant report
@@ -1311,25 +1547,39 @@ async function generateTenantReport(
   };
 
   // Store the report
+  const reportId = randomUUID();
+  const createdAt = new Date();
+  const updatedAt = new Date();
+
   await db.insert(cultureReports).values({
-    id: randomUUID(),
+    id: reportId,
     tenantId,
     analysisId: targetId || tenantId,
     reportType,
     reportData: report,
-    createdAt: new Date()
+    createdAt
   });
 
   console.log(`✅ ${reportType} report generated for tenant:`, tenantId);
 
-  return report;
+  // Return CultureReport structure
+  const cultureReport: CultureReport = {
+    id: reportId,
+    tenantId,
+    reportType,
+    reportData: report as EmployeeReportData | CompanyReportData | DepartmentReportData,
+    createdAt,
+    updatedAt
+  };
+
+  return cultureReport;
 }
 
 // Helper: Analyze what tenant values mean using 7 Cylinders
 function analyzeTenantValuesMeaning(
   tenantValues: string[],
-  mappings: any[],
-  cylinders: any
+  mappings: Array<{ value: string; cylinder: number }>,
+  cylinders: Cylinder[]
 ): {
   analysis: string;
   dominantCylinders: Array<{ cylinder: number; name: string; count: number }>;
@@ -1367,16 +1617,16 @@ function analyzeTenantValuesMeaning(
 }
 
 // Helper: Aggregate all employee assessments
-function aggregateEmployeeAssessments(assessments: any[]): {
+function aggregateEmployeeAssessments(assessments: CultureAssessment[]): {
   personalValues: Array<{ value: string; count: number }>;
   currentExperience: Array<{ value: string; count: number }>;
   desiredExperience: Array<{ value: string; count: number }>;
 } {
-  const aggregate = (field: string) => {
+  const aggregate = (field: keyof Pick<CultureAssessment, 'personalValues' | 'currentExperienceValues' | 'desiredFutureValues'>) => {
     const counts: { [key: string]: number } = {};
 
     assessments.forEach(assessment => {
-      const values = assessment[field] as string[];
+      const values = assessment[field] as string[] | undefined;
       if (Array.isArray(values)) {
         values.forEach(value => {
           const v = value.toLowerCase();
@@ -1392,8 +1642,8 @@ function aggregateEmployeeAssessments(assessments: any[]): {
 
   return {
     personalValues: aggregate('personalValues'),
-    currentExperience: aggregate('currentExperience'),
-    desiredExperience: aggregate('desiredExperience')
+    currentExperience: aggregate('currentExperienceValues'),
+    desiredExperience: aggregate('desiredFutureValues')
   };
 }
 
@@ -1401,7 +1651,7 @@ function aggregateEmployeeAssessments(assessments: any[]): {
 async function analyzeEmployeeExperienceVsTenantValues(
   employeeValues: Array<{ value: string; count: number }>,
   tenantValues: string[],
-  cylinders: any
+  cylinders: Cylinder[]
 ): Promise<{
   analysis: string;
   alignment: number;
@@ -1457,9 +1707,9 @@ function calculateStats(values: number[]): {
 
 // Helper: Analyze overall cultural health
 function analyzeCulturalHealth(
-  aggregatedData: any,
+  aggregatedData: AggregatedAssessmentData,
   tenantValues: string[],
-  cylinders: any
+  cylinders: Cylinder[]
 ): {
   overallScore: number;
   status: string;
@@ -1467,7 +1717,7 @@ function analyzeCulturalHealth(
   challenges: string[];
   cylinderDistribution: { [key: number]: number };
 } {
-  const currentValues = aggregatedData.currentExperience;
+  const currentValues = aggregatedData.currentExperience || [];
 
   // Map current experience to cylinders
   const cylinderDistribution: { [key: number]: number } = {};
@@ -1475,8 +1725,8 @@ function analyzeCulturalHealth(
   currentValues.forEach((item: { value: string; count: number }) => {
     const valueLower = item.value.toLowerCase();
 
-    Object.entries(cylinders).forEach(([num, cyl]: [string, any]) => {
-      const enablingLower = cyl.enablingValues.map((v: string) => v.toLowerCase());
+    Object.entries(cylinders).forEach(([num, cyl]: [string, Cylinder]) => {
+      const enablingLower = (cyl.enablingValues || cyl.enabling_values || []).map((v: string) => v.toLowerCase());
       if (enablingLower.includes(valueLower)) {
         const cylinderNum = parseInt(num);
         cylinderDistribution[cylinderNum] = (cylinderDistribution[cylinderNum] || 0) + item.count;
@@ -1503,28 +1753,32 @@ function analyzeCulturalHealth(
   // Identify cylinders with low representation as challenges
   const challenges = Object.entries(cylinders)
     .filter(([num]) => !cylinderDistribution[parseInt(num)] || cylinderDistribution[parseInt(num)] < 5)
-    .map(([, cyl]: [string, any]) => cyl.name)
+    .map(([, cyl]) => (cyl as Cylinder).name)
     .slice(0, 3);
 
   return {
     overallScore,
+    overallHealth: overallScore,  // Add required property
     status,
     strengths,
+    strengthAreas: strengths,  // Add required property
     challenges,
-    cylinderDistribution
+    improvementAreas: challenges,  // Add required property
+    cylinderDistribution,
+    trends: []  // Add required property with empty array
   };
 }
 
 // Helper: Generate departmental breakdown
 async function generateDepartmentalBreakdown(
-  assessments: any[],
-  cylinders: any
-): Promise<any> {
+  assessments: CultureAssessment[],
+  cylinders: Cylinder[]
+): Promise<DepartmentReportData[]> {
   // Group assessments by department
-  const departmentGroups: { [key: string]: any[] } = {};
+  const departmentGroups: { [key: string]: CultureAssessment[] } = {};
 
   assessments.forEach(assessment => {
-    const deptId = (assessment.user as any)?.departmentId || 'unknown';
+    const deptId = (assessment.user && typeof assessment.user === 'object' && 'departmentId' in assessment.user ? (assessment.user as {departmentId: string}).departmentId : undefined) || 'unknown';
     if (!departmentGroups[deptId]) {
       departmentGroups[deptId] = [];
     }
@@ -1533,8 +1787,8 @@ async function generateDepartmentalBreakdown(
 
   // Analyze each department
   const breakdown = Object.entries(departmentGroups).map(([deptId, deptAssessments]) => {
-    const engagementAvg = deptAssessments.reduce((sum, a) => sum + (a.engagement || 0), 0) / deptAssessments.length;
-    const recognitionAvg = deptAssessments.reduce((sum, a) => sum + (a.recognition || 0), 0) / deptAssessments.length;
+    const engagementAvg = deptAssessments.reduce((sum, a) => sum + (a.engagement ?? a.engagementLevel ?? 0), 0) / deptAssessments.length;
+    const recognitionAvg = deptAssessments.reduce((sum, a) => sum + (a.recognition ?? a.recognitionLevel ?? 0), 0) / deptAssessments.length;
 
     return {
       departmentId: deptId,
@@ -1550,11 +1804,11 @@ async function generateDepartmentalBreakdown(
 
 // Helper: Generate organizational recommendations
 function generateOrganizationalRecommendations(
-  culturalHealth: any,
-  currentAnalysis: any,
-  desiredAnalysis: any,
-  engagementStats: any,
-  recognitionStats: any
+  culturalHealth: CulturalHealthMetrics,
+  currentAnalysis: { analysis: string; alignment: number; gaps: string[]; dominantCylinders: Array<{ cylinder: number; name: string; count: number }> },
+  desiredAnalysis: { analysis: string; alignment: number; gaps: string[]; dominantCylinders: Array<{ cylinder: number; name: string; count: number }> },
+  engagementStats: { average: number; distribution: Record<number, number> },
+  recognitionStats: { average: number; distribution: Record<number, number> }
 ): Array<{
   category: string;
   priority: string;
@@ -1804,15 +2058,15 @@ async function analyzeRecognitionScore(
 async function createCultureTriggers(
   employeeId: string,
   tenantId: string,
-  report: any,
+  report: EmployeeReportData,
   assessmentId: string
 ): Promise<void> {
   try {
     const triggersToCreate = [];
 
     // Trigger 1: LXP culture learning if alignment is low or gaps exist
-    const alignmentScore = report.alignment?.personalVsCurrent || 0;
-    const culturalFit = report.overallSummary?.culturalFit;
+    const alignmentScore = report.cultureAlignment?.score || 0;
+    const culturalFit = alignmentScore >= 70 ? 'Strong' : alignmentScore >= 50 ? 'Moderate' : 'Needs Attention';
 
     if (alignmentScore < 70 || culturalFit === 'Needs Attention') {
       // Create LXP trigger for culture learning
@@ -1828,18 +2082,18 @@ async function createCultureTriggers(
           assessmentId,
           alignmentScore,
           culturalFit,
-          gaps: report.alignment?.gaps || []
+          gaps: report.cultureAlignment?.gaps || []
         },
         targetModule: 'lxp',
         action: 'assign_culture_learning_path',
         actionConfig: {
           employeeId,
-          gaps: report.alignment?.gaps || [],
+          gaps: report.cultureAlignment?.gaps || [],
           personalValues: report.personalValues?.selected || [],
-          currentExperience: report.experienceGap?.current || [],
-          desiredExperience: report.experienceGap?.desired || [],
-          dominantCylinders: report.personalValues?.dominantCylinders || [],
-          recommendations: report.alignment?.recommendations || []
+          currentExperience: report.visionForGrowth?.selected || [],
+          desiredExperience: report.visionForGrowth?.selected || [],
+          cylinderScores: report.personalValues?.cylinderScores || {},
+          recommendations: report.cultureAlignment?.recommendations || []
         },
         isActive: true,
         priority: alignmentScore < 50 ? 9 : 7,
@@ -1866,16 +2120,16 @@ async function createCultureTriggers(
           assessmentId,
           alignmentScore,
           culturalFit,
-          experienceGaps: report.experienceGap?.gaps || []
+          experienceGaps: report.cultureAlignment?.gaps || []
         },
         targetModule: 'performance',
         action: 'create_culture_goals',
         actionConfig: {
           employeeId,
-          experienceGaps: report.experienceGap?.gaps || [],
-          priorities: report.experienceGap?.priorities || [],
-          desiredValues: report.experienceGap?.desired || [],
-          recommendations: report.alignment?.recommendations || [],
+          experienceGaps: report.cultureAlignment?.gaps || [],
+          priorities: report.cultureAlignment?.gaps?.slice(0, 3) || [],
+          desiredValues: report.visionForGrowth?.selected || [],
+          recommendations: report.cultureAlignment?.recommendations || [],
           culturalOrientation: report.personalValues?.interpretation || ''
         },
         isActive: true,
@@ -1891,7 +2145,7 @@ async function createCultureTriggers(
 
     // Trigger 3: Engagement intervention if engagement is low
     const engagementScore = report.engagement?.score || 0;
-    const engagementRiskLevel = report.engagement?.riskLevel;
+    const engagementRiskLevel = engagementScore <= 2 ? 'high' : engagementScore === 3 ? 'medium' : 'low';
 
     if (engagementScore <= 3 || engagementRiskLevel === 'high') {
       triggersToCreate.push({
@@ -1914,7 +2168,7 @@ async function createCultureTriggers(
           employeeId,
           engagementScore,
           riskLevel: engagementRiskLevel,
-          insights: report.engagement?.insights || [],
+          insights: report.engagement?.factors || [],
           recommendations: report.engagement?.recommendations || [],
           culturalAlignment: alignmentScore
         },
@@ -1931,6 +2185,7 @@ async function createCultureTriggers(
 
     // Trigger 4: Recognition program if recognition is low
     const recognitionScore = report.recognition?.score || 0;
+    const recognitionPatterns = report.recognition?.patterns || [];
 
     if (recognitionScore <= 3) {
       triggersToCreate.push({
@@ -1944,14 +2199,14 @@ async function createCultureTriggers(
           source: 'culture_assessment',
           assessmentId,
           recognitionScore,
-          impactOnEngagement: report.recognition?.impactOnEngagement
+          impactOnEngagement: recognitionScore <= 2 ? 'high' : 'medium'
         },
         targetModule: 'performance',
         action: 'enhance_recognition',
         actionConfig: {
           employeeId,
           recognitionScore,
-          insights: report.recognition?.insights || [],
+          insights: recognitionPatterns,
           recommendations: report.recognition?.recommendations || [],
           managerNotification: true
         },

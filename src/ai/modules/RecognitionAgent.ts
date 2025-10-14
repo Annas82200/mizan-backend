@@ -1,4 +1,4 @@
-import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../../services/agents/base/three-engine-agent.js';
 
 // ============================================================================
 // RECOGNITION AGENT - Analyzes employee recognition needs and patterns
@@ -20,6 +20,8 @@ export interface RecognitionInput extends Record<string, unknown> {
 export interface RecognitionAnalysis {
   score: number;                    // Input score
   interpretation: string;           // Detailed interpretation of what score means
+  meaning: string;                  // Meaning and significance of the recognition level
+  impact: string;                   // Impact of recognition on employee experience
   patterns: string[];               // Recognition patterns identified
   needs: string[];                  // Specific recognition needs
   correlations: {
@@ -63,10 +65,12 @@ export class RecognitionAgent extends ThreeEngineAgent {
   async analyzeRecognition(input: RecognitionInput): Promise<RecognitionAnalysis> {
     const result = await this.analyze(input);
     const output = result.finalOutput;
-    
+
     return {
       score: input.score,
       interpretation: (output.interpretation as string) || '',
+      meaning: (output.meaning as string) || this.getRecognitionMeaning(input.score),
+      impact: (output.impact as string) || this.getRecognitionImpact(input.score),
       patterns: (Array.isArray(output.patterns) ? output.patterns : []) as string[],
       needs: (Array.isArray(output.needs) ? output.needs : []) as string[],
       correlations: (output.correlations as { withPersonalValues: string; withCultureGaps: string; withDesiredExperience: string; }) || {
@@ -83,6 +87,27 @@ export class RecognitionAgent extends ThreeEngineAgent {
         processingTime: result.totalProcessingTime
       }
     };
+  }
+
+  /**
+   * Get recognition meaning based on score
+   */
+  private getRecognitionMeaning(score: number): string {
+    if (score <= 1) return 'Severely lacking recognition - critical need for intervention';
+    if (score <= 2) return 'Insufficient recognition - significant improvement needed';
+    if (score <= 3) return 'Moderate recognition - opportunities for enhancement';
+    if (score <= 4) return 'Good recognition - positive with room for optimization';
+    return 'Excellent recognition - maintain and share best practices';
+  }
+
+  /**
+   * Get recognition impact based on score
+   */
+  private getRecognitionImpact(score: number): string {
+    if (score <= 2) return 'Negatively impacting motivation, retention risk';
+    if (score <= 3) return 'Neutral impact, potential for improvement';
+    if (score <= 4) return 'Positive impact on engagement and satisfaction';
+    return 'Strong positive impact, driving excellence and loyalty';
   }
 
   /**

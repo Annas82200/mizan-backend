@@ -68,7 +68,9 @@ export interface Role {
 
 // Framework Cylinder Interface
 export interface FrameworkCylinder {
+  name: string;
   level: number;
+  ethicalPrinciple: string;
   positiveValues: Array<{
     name: string;
     description?: string;
@@ -81,11 +83,7 @@ export interface FrameworkCylinder {
 
 // Cylinder Scores Interface
 export interface CylinderScores {
-  [key: number]: {
-    enablingRatio: number;
-    limitingRatio: number;
-    score: number;
-  };
+  [key: string]: number;
 }
 
 // Employee Report Interface
@@ -117,3 +115,164 @@ export interface DepartmentBreakdown {
   entropy: number;
   employeeCount: number;
 }
+
+// Helper Function Return Types
+export interface FrameworkMapping {
+  cylinderName: string;
+  matchingValues: string[];
+  score: number;
+}
+
+export interface PersonalityInsights {
+  primaryCylinder: CylinderAffinity;
+  secondaryCylinder: CylinderAffinity;
+  insights: string[];
+}
+
+export interface CylinderAffinity {
+  name: string;
+  ethicalPrinciple: string;
+  affinity: number;
+  matchingValues: string[];
+}
+
+export interface AggregatedResponses {
+  topValues: string[];
+  valueCounts: Record<string, number>;
+}
+
+export interface DepartmentCultureAnalysis {
+  departments: unknown[];
+  crossDepartmentAlignment: number;
+  culturalConsistency: number;
+}
+
+export interface OrganizationalEntropyAnalysis {
+  overallEntropy: number;
+  entropyByDepartment: Record<string, number>;
+  trends: string;
+  level?: string;
+  risks?: string[];
+}
+
+export interface CultureStrategyAlignment {
+  visionAlignment: number;
+  missionAlignment: number;
+  strategicConsistency: number;
+}
+
+export interface CultureActionItem {
+  priority: string;
+  action: string;
+  timeline: string;
+}
+
+export interface AdminReport {
+  organizationalOverview: {
+    totalResponses: number;
+    responseRate: string;
+    analysisCompleteness: string;
+  };
+  valuesAlignment: {
+    companyValues: string[];
+    employeeValues: string[];
+    alignmentScore: number;
+    gaps: string[];
+  };
+  cultureHealth: {
+    overallHealth: number;
+    cylinderHealth: Record<string, unknown>;
+    entropyLevel: string;
+    riskAreas: string[];
+  };
+  strategyAlignment: {
+    cultureSupportsStrategy: CultureStrategyAlignment;
+    alignmentScore: number;
+    recommendations: string[];
+  };
+  departmentAnalysis: DepartmentCultureAnalysis;
+  actionItems: CultureActionItem[];
+}
+
+export interface PersonalValuesAnalysis {
+  selectedValues: string[];
+  frameworkMapping: FrameworkMapping[];
+  personalityInsights: PersonalityInsights;
+}
+
+export interface CultureAlignmentAnalysis {
+  currentVsPersonal: number;
+  desiredVsPersonal: number;
+  currentVsDesired: number;
+  recommendations: string[];
+}
+
+export interface RecognitionAnalysis {
+  score: number;
+  benchmarkComparison: string;
+  recommendations: string[];
+}
+
+export interface EngagementAnalysis {
+  score: number;
+  benchmarkComparison: string;
+  recommendations: string[];
+}
+
+export interface EmployeeReportDetailed {
+  employeeId: string;
+  personalValuesAnalysis: PersonalValuesAnalysis;
+  cultureAlignment: CultureAlignmentAnalysis;
+  recognitionAnalysis: RecognitionAnalysis;
+  engagementAnalysis: EngagementAnalysis;
+}
+
+// Analysis Result Types for Client Endpoints
+export interface CultureAnalysisResult {
+  success: boolean;
+  analysisId: string;
+  clientId: string;
+  analysisType: 'culture';
+  scores: {
+    alignment: number;
+    engagement: number;
+    satisfaction: number;
+    recognition: number;
+  };
+  insights: string[];
+  recommendations: string[];
+  generatedAt: string;
+}
+
+export interface StructureAnalysisResult {
+  success: boolean;
+  analysisId: string;
+  clientId: string;
+  analysisType: 'structure';
+  efficiency: number;
+  insights: string[];
+  recommendations: string[];
+  generatedAt: string;
+}
+
+export interface SkillsAnalysisResult {
+  success: boolean;
+  analysisId: string;
+  clientId: string;
+  analysisType: 'skills';
+  gaps: Array<{
+    skill: string;
+    gap: string;
+    priority: string;
+    affectedEmployees: number;
+  }>;
+  insights: string[];
+  recommendations: string[];
+  generatedAt: string;
+}
+
+export type AnalysisResults = {
+  culture: CultureAnalysisResult;
+  structure: StructureAnalysisResult;
+  skills: SkillsAnalysisResult;
+};

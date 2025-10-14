@@ -509,5 +509,296 @@ Return ONLY valid JSON. Be specific and actionable.`;
     }
     return maturity;
   }
+
+  /**
+   * Map tenant values to cylinders - Used for value mapping functionality
+   * Implements Three-Engine Architecture for value analysis
+   */
+  async mapTenantValuesToCylinders(
+    tenantValues: string[]
+  ): Promise<Array<{ value: string; cylinder: number; type: 'enabling' | 'limiting'; rationale: string }>> {
+    const input = {
+      companyValues: tenantValues,
+      tenantId: '',
+      companyId: ''
+    };
+
+    // Use three-engine to analyze values
+    const result = await this.analyze(input);
+    const valueMapping = result.finalOutput.valueMapping as CultureAnalysisOutput['valueMapping'];
+
+    if (valueMapping?.mappings) {
+      return valueMapping.mappings.map(m => ({
+        value: m.value,
+        cylinder: m.cylinder,
+        type: m.type,
+        rationale: m.rationale
+      }));
+    }
+
+    // Fallback mapping if analysis fails
+    const mappings: Array<{ value: string; cylinder: number; type: 'enabling' | 'limiting'; rationale: string }> = [];
+
+    for (const value of tenantValues) {
+      const valueLower = value.toLowerCase();
+      let cylinder = 3; // Default to Growth
+      let type: 'enabling' | 'limiting' = 'enabling';
+      let rationale = 'Default mapping';
+
+      // Map based on keywords (simplified version)
+      if (valueLower.includes('safety') || valueLower.includes('security')) {
+        cylinder = 1;
+        rationale = 'Relates to safety and survival';
+      } else if (valueLower.includes('team') || valueLower.includes('belonging')) {
+        cylinder = 2;
+        rationale = 'Relates to belonging and loyalty';
+      } else if (valueLower.includes('growth') || valueLower.includes('achievement')) {
+        cylinder = 3;
+        rationale = 'Relates to growth and achievement';
+      } else if (valueLower.includes('purpose') || valueLower.includes('meaning')) {
+        cylinder = 4;
+        rationale = 'Relates to meaning and contribution';
+      } else if (valueLower.includes('integrity') || valueLower.includes('justice')) {
+        cylinder = 5;
+        rationale = 'Relates to integrity and justice';
+      } else if (valueLower.includes('wisdom') || valueLower.includes('compassion')) {
+        cylinder = 6;
+        rationale = 'Relates to wisdom and compassion';
+      } else if (valueLower.includes('unity') || valueLower.includes('harmony')) {
+        cylinder = 7;
+        rationale = 'Relates to transcendence and unity';
+      }
+
+      // Detect limiting values
+      if (valueLower.includes('fear') || valueLower.includes('control') ||
+          valueLower.includes('blame') || valueLower.includes('ego')) {
+        type = 'limiting';
+      }
+
+      mappings.push({ value, cylinder, type, rationale });
+    }
+
+    return mappings;
+  }
+
+  /**
+   * Analyze organization culture - Comprehensive organizational culture analysis
+   * Implements full Three-Engine Architecture analysis
+   */
+  async analyzeOrganizationCulture(
+    tenantId: string,
+    assessments: Array<{
+      personalValues: string[];
+      currentExperienceValues: string[];
+      desiredFutureValues: string[];
+      engagementLevel?: number;
+      recognitionLevel?: number;
+    }>
+  ): Promise<{
+    overallHealth: number;
+    cylinderDistribution: Record<number, number>;
+    recommendations: string[];
+    insights: string[];
+  }> {
+    // Aggregate all values from assessments
+    const allPersonalValues: string[] = [];
+    const allCurrentValues: string[] = [];
+    const allDesiredValues: string[] = [];
+    let totalEngagement = 0;
+    let totalRecognition = 0;
+    let count = 0;
+
+    for (const assessment of assessments) {
+      allPersonalValues.push(...(assessment.personalValues || []));
+      allCurrentValues.push(...(assessment.currentExperienceValues || []));
+      allDesiredValues.push(...(assessment.desiredFutureValues || []));
+
+      if (assessment.engagementLevel) {
+        totalEngagement += assessment.engagementLevel;
+        count++;
+      }
+      if (assessment.recognitionLevel) {
+        totalRecognition += assessment.recognitionLevel;
+      }
+    }
+
+    const avgEngagement = count > 0 ? totalEngagement / count : 50;
+    const avgRecognition = count > 0 ? totalRecognition / count : 50;
+
+    // Perform culture analysis
+    const input: CultureAnalysisInput = {
+      tenantId,
+      companyId: tenantId,
+      companyValues: [...new Set([...allPersonalValues, ...allCurrentValues])],
+      employeeAssessments: assessments.map((a, i) => ({
+        employeeId: `emp-${i}`,
+        personalValues: a.personalValues || [],
+        currentExperienceValues: a.currentExperienceValues || [],
+        desiredFutureValues: a.desiredFutureValues || [],
+        engagementLevel: a.engagementLevel || avgEngagement,
+        recognitionLevel: a.recognitionLevel || avgRecognition
+      }))
+    };
+
+    const analysis = await this.analyzeCulture(input);
+
+    // Calculate cylinder distribution
+    const cylinderDistribution: Record<number, number> = {};
+    for (let i = 1; i <= 7; i++) {
+      cylinderDistribution[i] = analysis.cylinderHealth[i]?.score || 0;
+    }
+
+    return {
+      overallHealth: analysis.strategyAlignmentScore,
+      cylinderDistribution,
+      recommendations: [
+        ...analysis.recommendations.immediate,
+        ...analysis.recommendations.shortTerm
+      ],
+      insights: analysis.employeeCultureGap?.insights || []
+    };
+  }
+
+  /**
+   * Analyze individual employee culture - Individual employee culture analysis
+   * Implements Three-Engine Architecture for individual assessment
+   */
+  async analyzeIndividualEmployee(
+    employeeId: string,
+    personalValues: string[],
+    currentExperienceValues: string[],
+    desiredFutureValues: string[],
+    engagementLevel?: number,
+    recognitionLevel?: number
+  ): Promise<{
+    alignment: number;
+    gaps: string[];
+    strengths: string[];
+    recommendations: string[];
+    cylinderScores: Record<number, number>;
+  }> {
+    // Map values to cylinders
+    const personalMapping = await this.mapTenantValuesToCylinders(personalValues);
+    const currentMapping = await this.mapTenantValuesToCylinders(currentExperienceValues);
+    const desiredMapping = await this.mapTenantValuesToCylinders(desiredFutureValues);
+
+    // Calculate cylinder scores based on value distribution
+    const cylinderScores: Record<number, number> = {};
+    for (let i = 1; i <= 7; i++) {
+      const personalCount = personalMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+      const currentCount = currentMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+      const desiredCount = desiredMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+
+      // Weight: 40% personal, 30% current, 30% desired
+      cylinderScores[i] = Math.round(
+        (personalCount * 0.4 + currentCount * 0.3 + desiredCount * 0.3) * 20
+      );
+    }
+
+    // Calculate alignment score
+    let alignment = 0;
+    const gaps: string[] = [];
+    const strengths: string[] = [];
+    const recommendations: string[] = [];
+
+    // Analyze gaps between current and desired
+    const currentCylinders = new Set(currentMapping.map(m => m.cylinder));
+    const desiredCylinders = new Set(desiredMapping.map(m => m.cylinder));
+
+    for (const cylinder of desiredCylinders) {
+      if (!currentCylinders.has(cylinder)) {
+        const cylinderInfo = this.mizanFramework[cylinder - 1];
+        gaps.push(`Gap in ${cylinderInfo.name}: Desired but not experienced`);
+        recommendations.push(`Focus on developing ${cylinderInfo.name} through ${cylinderInfo.enablingValues.join(', ')}`);
+      }
+    }
+
+    // Identify strengths
+    for (const cylinder of currentCylinders) {
+      if (desiredCylinders.has(cylinder)) {
+        const cylinderInfo = this.mizanFramework[cylinder - 1];
+        strengths.push(`Strong alignment in ${cylinderInfo.name}`);
+        alignment += 10;
+      }
+    }
+
+    // Add engagement and recognition factors
+    if (engagementLevel && engagementLevel > 70) {
+      strengths.push('High engagement level');
+      alignment += 10;
+    } else if (engagementLevel && engagementLevel < 40) {
+      gaps.push('Low engagement level');
+      recommendations.push('Improve engagement through recognition and meaningful work');
+    }
+
+    if (recognitionLevel && recognitionLevel > 70) {
+      strengths.push('Good recognition experience');
+      alignment += 10;
+    } else if (recognitionLevel && recognitionLevel < 40) {
+      gaps.push('Insufficient recognition');
+      recommendations.push('Implement better recognition practices');
+    }
+
+    // Normalize alignment score
+    alignment = Math.min(100, Math.max(0, alignment + 50));
+
+    return {
+      alignment,
+      gaps,
+      strengths,
+      recommendations,
+      cylinderScores
+    };
+  }
+
+  /**
+   * Get agent domain for Three-Engine Architecture
+   */
+  protected getAgentDomain(): string {
+    return 'Organizational Culture Analysis using Mizan 7-Cylinder Framework';
+  }
+
+  /**
+   * Get knowledge base for Three-Engine Architecture
+   */
+  protected getKnowledgeBase(): Record<string, unknown> {
+    return {
+      mizanFramework: this.mizanFramework,
+      cultureTheories: {
+        schein: 'Three levels of culture',
+        cameronQuinn: 'Competing Values Framework',
+        denison: 'Culture effectiveness model'
+      },
+      valueCategories: {
+        enabling: 'Values that support growth and health',
+        limiting: 'Values that create dysfunction'
+      }
+    };
+  }
+
+  /**
+   * Public method to get the Mizan Framework cylinders
+   * Used by routes and other services to access framework data
+   */
+  public getMizanFramework(): MizanCylinder[] {
+    return this.mizanFramework;
+  }
+
+  /**
+   * Public method to get culture frameworks and theories
+   * Provides access to all culture knowledge base
+   */
+  public async getCultureFrameworks(): Promise<{
+    cylinders: MizanCylinder[];
+    theories: Record<string, unknown>;
+    valueCategories: Record<string, unknown>;
+  }> {
+    const frameworks = await this.loadFrameworks();
+    return {
+      cylinders: this.mizanFramework,
+      theories: frameworks.cultureTheories as Record<string, unknown>,
+      valueCategories: frameworks.valueMapping as Record<string, unknown>
+    };
+  }
 }
 

@@ -1,4 +1,4 @@
-import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../../services/agents/base/three-engine-agent.js';
 
 // ============================================================================
 // ENGAGEMENT AGENT - Analyzes employee engagement levels and factors
@@ -20,6 +20,7 @@ export interface EngagementInput extends Record<string, unknown> {
 export interface EngagementAnalysis {
   score: number;                    // Input score
   interpretation: string;           // Detailed interpretation of what score means
+  meaning: string;                  // Meaning and significance of the engagement level
   factors: string[];                // Engagement factors identified
   drivers: string[];                // Key engagement drivers
   barriers: string[];               // Engagement barriers
@@ -65,10 +66,11 @@ export class EngagementAgent extends ThreeEngineAgent {
   async analyzeEngagement(input: EngagementInput): Promise<EngagementAnalysis> {
     const result = await this.analyze(input);
     const output = result.finalOutput;
-    
+
     return {
       score: input.score,
       interpretation: (output.interpretation as string) || '',
+      meaning: (output.meaning as string) || this.getEngagementMeaning(input.score),
       factors: (Array.isArray(output.factors) ? output.factors : []) as string[],
       drivers: (Array.isArray(output.drivers) ? output.drivers : []) as string[],
       barriers: (Array.isArray(output.barriers) ? output.barriers : []) as string[],
@@ -86,6 +88,17 @@ export class EngagementAgent extends ThreeEngineAgent {
         processingTime: result.totalProcessingTime
       }
     };
+  }
+
+  /**
+   * Get engagement meaning based on score
+   */
+  private getEngagementMeaning(score: number): string {
+    if (score <= 1) return 'Critically disengaged - immediate intervention needed';
+    if (score <= 2) return 'Disengaged - significant improvement required';
+    if (score <= 3) return 'Neutral engagement - room for improvement';
+    if (score <= 4) return 'Engaged - positive but can be enhanced';
+    return 'Highly engaged - maintain and leverage';
   }
 
   /**

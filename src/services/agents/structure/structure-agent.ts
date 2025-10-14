@@ -5,7 +5,11 @@ import { db } from '../../../db/index.js';
 import { tenants, departments, users } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
-interface StructureAnalysisInput {
+// ============================================================================
+// INTERFACES - THREE-ENGINE ARCHITECTURE
+// ============================================================================
+
+interface StructureAnalysisInput extends Record<string, unknown> {
   companyId: string;
   tenantId: string;
   orgChart: {
@@ -53,6 +57,148 @@ interface StructureAnalysisResult {
   }>;
 }
 
+interface HiringNeed {
+  role: string;
+  department: string;
+  urgency: 'critical' | 'high' | 'medium';
+  reason: string;
+}
+
+interface DepartmentData {
+  id: string;
+  name: string;
+  level?: number;
+  users?: Array<{ id: string; name?: string }>;
+  parentId?: string;
+}
+
+interface OrganizationalStructure {
+  type: string;
+  departments: Array<{
+    id: string;
+    name: string;
+    size: number;
+    level: number;
+  }>;
+  levels: number;
+  totalEmployees: number;
+}
+
+interface StructureType {
+  functional: {
+    characteristics: string[];
+    bestFor: string[];
+    limitations: string[];
+  };
+  divisional: {
+    characteristics: string[];
+    bestFor: string[];
+    limitations: string[];
+  };
+  matrix: {
+    characteristics: string[];
+    bestFor: string[];
+    limitations: string[];
+  };
+  network: {
+    characteristics: string[];
+    bestFor: string[];
+    limitations: string[];
+  };
+  holacracy: {
+    characteristics: string[];
+    bestFor: string[];
+    limitations: string[];
+  };
+}
+
+interface DesignPrinciples {
+  spanOfControl: {
+    optimal: string;
+    factors: string[];
+    tooWide: string;
+    tooNarrow: string;
+  };
+  chainOfCommand: {
+    principles: string[];
+    violations: string[];
+  };
+  centralization: {
+    centralized: string[];
+    decentralized: string[];
+    factors: string[];
+  };
+  formalization: {
+    high: string[];
+    low: string[];
+    balance: string;
+  };
+}
+
+interface AnalysisFrameworks {
+  galbraithStar: {
+    elements: string[];
+    alignment: string;
+  };
+  mintzbergParts: {
+    parts: string[];
+    configurations: string[];
+  };
+  nadlerTushman: {
+    components: string[];
+    fit: string;
+  };
+}
+
+interface StrategyStructureAlignment {
+  costLeadership: string[];
+  differentiation: string[];
+  focusStrategy: string[];
+  digitalTransformation: string[];
+}
+
+interface KnowledgeBase extends Record<string, unknown> {
+  structureTypes: StructureType;
+  designPrinciples: DesignPrinciples;
+  analysisFrameworks: AnalysisFrameworks;
+  strategyStructureAlignment: StrategyStructureAlignment;
+}
+
+interface KnowledgeEngineOutput extends Record<string, unknown> {
+  context?: string;
+  frameworks?: string;
+  source?: string;
+  structureType?: string;
+  designPrinciples?: string[];
+  strategyAlignment?: string;
+}
+
+interface DataEngineOutput extends Record<string, unknown> {
+  spanOfControl?: Record<string, number>;
+  structureType?: string;
+  organizationalLevels?: number;
+  reportingAnomalies?: string[];
+  departmentRelationships?: string[];
+  missingRoles?: string[];
+  roleClarity?: string;
+}
+
+interface ReasoningEngineOutput extends Record<string, unknown> {
+  isOptimalForStrategy?: boolean;
+  structureType?: string;
+  healthScore?: number;
+  strengths?: string[];
+  weaknesses?: string[];
+  gaps?: Array<{
+    type: 'role' | 'department' | 'reporting' | 'span';
+    description: string;
+    impact: 'high' | 'medium' | 'low';
+    recommendation: string;
+  }>;
+  recommendations?: string[];
+  hiringNeeds?: HiringNeed[];
+}
+
 /**
  * Structure Agent using Three-Engine Architecture
  * Trained on organizational design theories and best practices
@@ -64,12 +210,13 @@ export class StructureAgentV2 extends ThreeEngineAgent {
   }
 
   // Required abstract method implementations
-  protected async loadFrameworks(): Promise<void> {
+  protected async loadFrameworks(): Promise<Record<string, unknown>> {
     // Frameworks are loaded in getKnowledgeBase() method
     // No additional async loading required for static organizational design frameworks
+    return this.getKnowledgeBase();
   }
 
-  protected async processData(inputData: any): Promise<any> {
+  protected async processData(inputData: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Data processing is handled by the three-engine pipeline
     // Input validation and transformation occurs in the Data Engine
     return inputData;
@@ -87,31 +234,95 @@ export class StructureAgentV2 extends ThreeEngineAgent {
     return 'Reasoning system prompt for structure analysis';
   }
 
-  protected parseKnowledgeOutput(output: any): any {
-    return output;
+  protected parseKnowledgeOutput(output: string): KnowledgeEngineOutput {
+    try {
+      return JSON.parse(output) as KnowledgeEngineOutput;
+    } catch {
+      return {
+        context: output,
+        frameworks: 'Organizational design theory applied',
+        source: 'knowledge_engine'
+      };
+    }
   }
 
-  protected parseDataOutput(output: any): any {
-    return output;
+  protected parseDataOutput(output: string): DataEngineOutput {
+    try {
+      return JSON.parse(output) as DataEngineOutput;
+    } catch (error) {
+      console.error('Failed to parse Data Engine output:', error);
+      return {
+        spanOfControl: {},
+        structureType: 'unknown',
+        organizationalLevels: 0,
+        reportingAnomalies: [],
+        departmentRelationships: [],
+        missingRoles: [],
+        roleClarity: 'Unable to determine',
+        error: 'Failed to parse data output'
+      };
+    }
   }
 
-  protected parseReasoningOutput(output: any): any {
-    return output;
+  protected parseReasoningOutput(output: string): ReasoningEngineOutput {
+    try {
+      return JSON.parse(output) as ReasoningEngineOutput;
+    } catch (error) {
+      console.error('Failed to parse Reasoning Engine output:', error);
+      return {
+        isOptimalForStrategy: false,
+        structureType: 'unknown',
+        healthScore: 0,
+        strengths: [],
+        weaknesses: [],
+        gaps: [],
+        recommendations: [],
+        hiringNeeds: [],
+        error: 'Failed to parse reasoning output'
+      };
+    }
   }
 
-  protected buildKnowledgePrompt(inputData: any): string {
-    return 'Knowledge prompt';
+  protected buildKnowledgePrompt(inputData: Record<string, unknown>, frameworks: Record<string, unknown>): string {
+    const input = inputData as StructureAnalysisInput;
+    return `Using organizational design theory:
+1. What structure type best fits this organization based on the org chart?
+2. What are the design principles being followed or violated?
+3. How should structure align with strategy: "${input.strategy || 'Not provided'}"?
+4. What are best practices for span of control and reporting relationships?
+5. What organizational capabilities does this structure enable or constrain?
+
+Frameworks available: ${JSON.stringify(frameworks)}`;
   }
 
-  protected buildDataPrompt(inputData: any): string {
-    return 'Data prompt';
+  protected buildDataPrompt(processedData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>): string {
+    return `Extract and analyze from the organizational data:
+1. Count reporting relationships and calculate span of control for each manager
+2. Identify the structure type (functional, divisional, matrix, etc.)
+3. Map department relationships and interdependencies
+4. Calculate organizational levels and hierarchical depth
+5. Identify missing roles or departments based on size and industry
+6. Find reporting anomalies (orphaned roles, circular reporting, etc.)
+7. Assess role clarity and potential overlaps
+
+Context from Knowledge Engine: ${JSON.stringify(knowledgeOutput)}`;
   }
 
-  protected buildReasoningPrompt(inputData: any): string {
-    return 'Reasoning prompt';
+  protected buildReasoningPrompt(inputData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>, dataOutput: Record<string, unknown>): string {
+    const input = inputData as StructureAnalysisInput;
+    return `Determine if the organizational structure is optimal for achieving the strategy.
+Analyze: structure-strategy fit, design principle adherence, organizational health, capability gaps.
+Identify specific hiring needs and structural improvements required.
+Base ALL conclusions on the actual org chart data and established organizational design principles.
+
+Data Analysis: ${JSON.stringify(dataOutput)}
+Theoretical Context: ${JSON.stringify(knowledgeOutput)}
+Strategy: ${input.strategy || 'Not provided'}
+
+Return structured JSON with: isOptimalForStrategy, structureType, healthScore, strengths, weaknesses, gaps, recommendations, hiringNeeds`;
   }
-  
-  protected getKnowledgeBase(): any {
+
+  protected getKnowledgeBase(): KnowledgeBase {
     return {
       // Organizational structure types
       structureTypes: {
@@ -191,34 +402,7 @@ export class StructureAgentV2 extends ThreeEngineAgent {
       }
     };
   }
-  
-  protected generateKnowledgeQuery(input: StructureAnalysisInput): string {
-    return `Using organizational design theory:
-1. What structure type best fits this organization based on the org chart?
-2. What are the design principles being followed or violated?
-3. How should structure align with strategy: "${input.strategy || 'Not provided'}"?
-4. What are best practices for span of control and reporting relationships?
-5. What organizational capabilities does this structure enable or constrain?`;
-  }
-  
-  protected generateDataTask(input: StructureAnalysisInput): string {
-    return `Extract and analyze from the organizational data:
-1. Count reporting relationships and calculate span of control for each manager
-2. Identify the structure type (functional, divisional, matrix, etc.)
-3. Map department relationships and interdependencies  
-4. Calculate organizational levels and hierarchical depth
-5. Identify missing roles or departments based on size and industry
-6. Find reporting anomalies (orphaned roles, circular reporting, etc.)
-7. Assess role clarity and potential overlaps`;
-  }
-  
-  protected generateAnalysisGoal(input: StructureAnalysisInput): string {
-    return `Determine if the organizational structure is optimal for achieving the strategy.
-Analyze: structure-strategy fit, design principle adherence, organizational health, capability gaps.
-Identify specific hiring needs and structural improvements required.
-Base ALL conclusions on the actual org chart data and established organizational design principles.`;
-  }
-  
+
   /**
    * Main analysis method
    */
@@ -228,28 +412,38 @@ Base ALL conclusions on the actual org chart data and established organizational
       const strategy = await this.getCompanyStrategy(input.companyId);
       input.strategy = strategy;
     }
-    
+
     // Execute three-engine analysis
     const result = await this.analyze(input);
-    
-    // Structure the result
-    const analysis: StructureAnalysisResult = result.finalOutput as StructureAnalysisResult;
-    
+
+    // Structure the result - safely parse the finalOutput
+    const finalOutput = result.finalOutput as ReasoningEngineOutput;
+    const analysis: StructureAnalysisResult = {
+      isOptimalForStrategy: finalOutput.isOptimalForStrategy || false,
+      structureType: finalOutput.structureType || 'unknown',
+      healthScore: finalOutput.healthScore || 0,
+      strengths: finalOutput.strengths || [],
+      weaknesses: finalOutput.weaknesses || [],
+      gaps: finalOutput.gaps || [],
+      recommendations: finalOutput.recommendations || [],
+      hiringNeeds: finalOutput.hiringNeeds || []
+    };
+
     // Trigger hiring module if critical needs identified
     if (analysis.hiringNeeds.some(need => need.urgency === 'critical')) {
       await this.triggerHiringModule(analysis.hiringNeeds, input.companyId);
     }
-    
+
     // Save analysis results
     await this.saveStructureAnalysis(analysis, input);
-    
+
     return analysis;
   }
   
   /**
    * Get organizational structure for other agents
    */
-  async getOrganizationalStructure(companyId: string, tenantId: string): Promise<any> {
+  async getOrganizationalStructure(companyId: string, tenantId: string): Promise<OrganizationalStructure> {
     // Fetch from database
     const departmentsData = await db.query.departments.findMany({
       where: eq(departments.tenantId, tenantId),
@@ -258,37 +452,46 @@ Base ALL conclusions on the actual org chart data and established organizational
       }
     });
 
-    const structure = {
-      type: await this.identifyStructureType(departmentsData),
-      departments: departmentsData.map((d: any) => ({
+    // Type the departments data properly
+    const typedDepartments: DepartmentData[] = departmentsData.map((d: { id: string; name: string; level?: number | null; users?: Array<{ id: string; name?: string }> | null; parentId?: string | null }) => ({
+      id: d.id,
+      name: d.name,
+      level: d.level || 1,
+      users: d.users || [],
+      parentId: d.parentId || undefined
+    }));
+
+    const structure: OrganizationalStructure = {
+      type: await this.identifyStructureType(typedDepartments),
+      departments: typedDepartments.map((d) => ({
         id: d.id,
         name: d.name,
         size: d.users?.length || 0,
-        level: d.level
+        level: d.level || 1
       })),
-      levels: this.calculateOrganizationalLevels(departmentsData),
-      totalEmployees: departmentsData.reduce((sum: number, d: any) => sum + (d.users?.length || 0), 0)
+      levels: this.calculateOrganizationalLevels(typedDepartments),
+      totalEmployees: typedDepartments.reduce((sum: number, d) => sum + (d.users?.length || 0), 0)
     };
-    
+
     return structure;
   }
-  
-  private async identifyStructureType(departments: any[]): Promise<string> {
+
+  private async identifyStructureType(departments: DepartmentData[]): Promise<string> {
     // Simple logic - in reality would use the three-engine analysis
-    const hasFunctionalDepts = departments.some(d => 
+    const hasFunctionalDepts = departments.some(d =>
       ['HR', 'Finance', 'IT', 'Marketing'].includes(d.name)
     );
-    const hasProductDivisions = departments.some(d => 
+    const hasProductDivisions = departments.some(d =>
       d.name.includes('Division') || d.name.includes('Product')
     );
-    
+
     if (hasProductDivisions) return 'divisional';
     if (hasFunctionalDepts) return 'functional';
     return 'hybrid';
   }
-  
-  private calculateOrganizationalLevels(departments: any[]): number {
-    return Math.max(...departments.map((d: any) => d.level || 1));
+
+  private calculateOrganizationalLevels(departments: DepartmentData[]): number {
+    return Math.max(...departments.map((d) => d.level || 1));
   }
   
   private async getCompanyStrategy(companyId: string): Promise<string> {
@@ -300,9 +503,8 @@ Base ALL conclusions on the actual org chart data and established organizational
     return tenant?.strategy || '';
   }
   
-  private async triggerHiringModule(hiringNeeds: any[], tenantId: string): Promise<void> {
+  private async triggerHiringModule(hiringNeeds: HiringNeed[], tenantId: string): Promise<void> {
     const { triggers } = await import('../../../db/schema.js');
-    const { randomUUID } = await import('node:crypto');
 
     // Create trigger for each critical/high priority hiring need
     const urgentNeeds = hiringNeeds.filter(n =>
@@ -336,7 +538,7 @@ Base ALL conclusions on the actual org chart data and established organizational
       });
     }
 
-    console.log(`✅ Created ${urgentNeeds.length} hiring triggers`);
+    console.log(`Created ${urgentNeeds.length} hiring triggers`);
   }
   
   private async saveStructureAnalysis(analysis: StructureAnalysisResult, input: StructureAnalysisInput): Promise<void> {

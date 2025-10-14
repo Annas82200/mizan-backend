@@ -7,12 +7,13 @@ import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { lxpModule } from '../modules/lxp/lxp-module.js';
 import { hiringModule } from '../modules/hiring/hiring-module.js';
+import { TriggerConfig, TriggerResultData } from '../../types/trigger-types.js';
 
 export interface Trigger {
   id: string;
   name: string;
   type: string;
-  config: any;
+  config: TriggerConfig;
   status: 'active' | 'inactive' | 'paused';
   tenantId: string;
 }
@@ -23,7 +24,7 @@ export interface TriggerResult {
   reason: string;
   action: string;
   priority: 'high' | 'medium' | 'low';
-  data: any;
+  data: TriggerResultData;
   executed: boolean;
 }
 
@@ -107,7 +108,7 @@ async function initializeModules(tenantId: string): Promise<void> {
   }
 }
 
-async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Promise<TriggerResult | null> {
+async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults): Promise<TriggerResult | null> {
   const { type, config } = trigger;
   
   // ============================================================================
@@ -406,7 +407,7 @@ async function processTrigger(trigger: any, unifiedResults: UnifiedResults): Pro
 }
 
 
-function processSkillGapsTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processSkillGapsTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const skillsData = results.detailed_analysis.skills;
   const criticalGaps = skillsData.weaknesses.filter(
     weakness => weakness.toLowerCase().includes('critical') || weakness.toLowerCase().includes('urgent')
@@ -431,7 +432,7 @@ function processSkillGapsTrigger(trigger: any, results: UnifiedResults, config: 
   return null;
 }
 
-function processHiringNeedsTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processHiringNeedsTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const urgentHiring = results.recommendations.filter(
     rec => rec.category === 'structure' && rec.title.toLowerCase().includes('hiring')
   );
@@ -454,7 +455,7 @@ function processHiringNeedsTrigger(trigger: any, results: UnifiedResults, config
   return null;
 }
 
-function processCultureLearningTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processCultureLearningTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const cultureData = results.detailed_analysis.culture;
   
   // Check if culture analysis indicates employees need to learn or adapt to values
@@ -498,7 +499,7 @@ function processCultureLearningTrigger(trigger: any, results: UnifiedResults, co
   return null;
 }
 
-function processEmployeeSkillGapTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processEmployeeSkillGapTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const skillsData = results.detailed_analysis.skills;
   
   // Check if there are individual employee skill gaps that require LXP
@@ -554,7 +555,7 @@ function processEmployeeSkillGapTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
-function processCultureAlignmentTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processCultureAlignmentTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const cultureData = results.detailed_analysis.culture;
   const alignmentThreshold = config.alignmentThreshold || 0.8; // 80% alignment threshold
   
@@ -618,7 +619,7 @@ function processCultureAlignmentTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
-function processStructureOptimalTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processStructureOptimalTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const structureData = results.detailed_analysis.structure;
   const optimalThreshold = config.optimalThreshold || 0.75; // 75% structure health threshold
   
@@ -695,7 +696,7 @@ function processStructureOptimalTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
-function processStructureInflatedTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processStructureInflatedTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   const structureData = results.detailed_analysis.structure;
   const inflationThreshold = config.inflationThreshold || 0.3; // 30% structure efficiency threshold
   
@@ -784,7 +785,7 @@ function processStructureInflatedTrigger(trigger: any, results: UnifiedResults, 
   return null;
 }
 
-function processCandidateHiredTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processCandidateHiredTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by hiring module events, not analysis results
   // It would be triggered when a candidate is successfully hired through the hiring module
   
@@ -860,7 +861,7 @@ function processCandidateHiredTrigger(trigger: any, results: UnifiedResults, con
   return null;
 }
 
-function processLXPCompletedTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processLXPCompletedTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by LXP module events when training plans are completed
   // It would be triggered when LXP training plans are finished and performance evaluation is needed
   
@@ -954,7 +955,7 @@ function processLXPCompletedTrigger(trigger: any, results: UnifiedResults, confi
   return null;
 }
 
-function processPerformanceRewardTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processPerformanceRewardTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by performance management module events
   // It would be triggered when performance management results show 100%+ performance
   
@@ -1052,7 +1053,7 @@ function processPerformanceRewardTrigger(trigger: any, results: UnifiedResults, 
   return null;
 }
 
-function processPerformanceLXPTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processPerformanceLXPTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by performance management module events
   // It would be triggered when performance management results show exactly 100% performance for continued learning
   
@@ -1150,7 +1151,7 @@ function processPerformanceLXPTrigger(trigger: any, results: UnifiedResults, con
   return null;
 }
 
-function processPerformanceTalentSuccessionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processPerformanceTalentSuccessionTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by performance management module events
   // It would be triggered when performance management results show 105%+ performance for talent management and succession planning
   
@@ -1268,7 +1269,7 @@ function processPerformanceTalentSuccessionTrigger(trigger: any, results: Unifie
   return null;
 }
 
-function processPerformanceImprovementLXPTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processPerformanceImprovementLXPTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by performance management module events
   // It would be triggered when performance management results show below 100% performance for improvement
   
@@ -1387,7 +1388,7 @@ function processPerformanceImprovementLXPTrigger(trigger: any, results: UnifiedR
   return null;
 }
 
-function processAnnualPerformanceReviewTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processAnnualPerformanceReviewTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when annual performance reviews are due based on employee hire dates or review cycles
   
@@ -1514,7 +1515,7 @@ function processAnnualPerformanceReviewTrigger(trigger: any, results: UnifiedRes
   return null;
 }
 
-function processQuarterlyCheckinTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processQuarterlyCheckinTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when quarterly check-ins are due based on employee review cycles
   
@@ -1665,7 +1666,7 @@ function processQuarterlyCheckinTrigger(trigger: any, results: UnifiedResults, c
   return null;
 }
 
-function processProbationPeriodEndingTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processProbationPeriodEndingTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when an employee's probation period is ending based on their hire date
   
@@ -1829,7 +1830,7 @@ function processProbationPeriodEndingTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
-function processComplianceTrainingDueTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processComplianceTrainingDueTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when compliance training is due based on regulatory requirements, expiration dates, or policy updates
   
@@ -1995,7 +1996,7 @@ function processComplianceTrainingDueTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
-function processSafetyTrainingExpiredTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processSafetyTrainingExpiredTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when safety training has expired based on certification dates, regulatory requirements, or policy updates
   
@@ -2179,7 +2180,7 @@ function processSafetyTrainingExpiredTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
-function processCertificationExpiringTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processCertificationExpiringTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by time-based events (scheduled jobs, calendar events)
   // It would be triggered when professional certifications are expiring based on certification dates, renewal requirements, or continuing education needs
   
@@ -2363,7 +2364,7 @@ function processCertificationExpiringTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
-function processLegalRequirementChangeTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processLegalRequirementChangeTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by external events (legal updates, regulatory changes, policy notifications)
   // It would be triggered when legal requirements change, requiring policy updates and subsequent LXP training
   
@@ -2568,7 +2569,7 @@ function processLegalRequirementChangeTrigger(trigger: any, results: UnifiedResu
   return null;
 }
 
-function processTeamSizeChangesTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processTeamSizeChangesTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by operational events (hiring, layoffs, restructuring, organizational changes)
   // It would be triggered when team sizes change significantly, requiring team restructuring (Enterprise tier only)
   
@@ -2773,7 +2774,7 @@ function processTeamSizeChangesTrigger(trigger: any, results: UnifiedResults, co
   return null;
 }
 
-function processOnboardingCompletionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processOnboardingCompletionTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is typically activated by onboarding module completion events
   // It would be triggered when an employee completes their onboarding process, requiring performance baseline establishment
   
@@ -2977,7 +2978,7 @@ function processOnboardingCompletionTrigger(trigger: any, results: UnifiedResult
   return null;
 }
 
-function processTrainingCompletionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processTrainingCompletionTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is activated when LXP training is completed
   // It triggers the Performance Assessment part of the Performance Management Module
   
@@ -3203,7 +3204,7 @@ function processTrainingCompletionTrigger(trigger: any, results: UnifiedResults,
   return null;
 }
 
-function processSuccessionPlanActivationTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processSuccessionPlanActivationTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is activated when succession planning is triggered
   // It activates the Leadership Transition Module (part of Onboarding Module)
   
@@ -3428,7 +3429,7 @@ function processSuccessionPlanActivationTrigger(trigger: any, results: UnifiedRe
   return null;
 }
 
-function processFlightRiskPredictionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processFlightRiskPredictionTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is activated when flight risk prediction indicates high risk of employee departure
   // It activates the Retention Intervention Module to prevent employee turnover
   
@@ -3671,7 +3672,7 @@ function processFlightRiskPredictionTrigger(trigger: any, results: UnifiedResult
   return null;
 }
 
-function processSkillObsolescenceRiskTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processSkillObsolescenceRiskTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is activated when skills are at risk of becoming obsolete
   // It activates the Proactive Training Module (part of LXP) to prevent skill obsolescence
   
@@ -3917,7 +3918,7 @@ function processSkillObsolescenceRiskTrigger(trigger: any, results: UnifiedResul
   return null;
 }
 
-function processLeadershipGapPredictionTrigger(trigger: any, results: UnifiedResults, config: any): TriggerResult | null {
+function processLeadershipGapPredictionTrigger(trigger: Trigger, results: UnifiedResults, config: TriggerConfig): TriggerResult | null {
   // This trigger is activated when leadership gaps are predicted
   // It activates the Succession Acceleration Module (part of Succession Planning Module) to accelerate leadership development
   
@@ -4164,7 +4165,7 @@ function processLeadershipGapPredictionTrigger(trigger: any, results: UnifiedRes
 }
 
 
-async function logTriggeredAction(trigger: any, result: TriggerResult, unifiedResults: UnifiedResults & { tenantId: string }): Promise<void> {
+async function logTriggeredAction(trigger: Trigger, result: TriggerResult, unifiedResults: UnifiedResults & { tenantId: string }): Promise<void> {
   try {
     await db.insert(triggerExecutions).values({
       id: randomUUID(),
@@ -4612,7 +4613,7 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
         eventType: trigger.type,
         targetModule: 'performance',
         action: 'notify'
-      } as any);
+      } as typeof triggers.$inferInsert);
     }
 
     console.log(`Created ${defaultTriggers.length} default triggers for tenant ${tenantId}`);

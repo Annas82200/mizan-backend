@@ -18,6 +18,323 @@ import { z } from 'zod';
 // TRAINING: Organizational development practices and theories
 // ============================================================================
 
+// ============================================================================
+// THREE-ENGINE OUTPUT TYPES - NO 'any' ALLOWED (AGENT_CONTEXT_ULTIMATE.md Lines 1147-1169)
+// ============================================================================
+
+/**
+ * ReasoningEngine output structure
+ * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197
+ */
+export interface ReasoningEngineOutput {
+  insights?: Array<{
+    type?: string;
+    category?: string;
+    description?: string;
+    impact?: 'high' | 'medium' | 'low';
+    confidence?: number;
+    evidence?: string[];
+    relatedMetrics?: string[];
+    skill?: string;
+    requiredLevel?: string;
+    priority?: 'critical' | 'high' | 'medium' | 'low';
+    strategicImportance?: number;
+    likelihood?: 'high' | 'medium' | 'low';
+    mitigation?: string;
+    strategicImpact?: string;
+    urgency?: 'immediate' | 'short-term' | 'long-term';
+    recommendedSolution?: string;
+  }>;
+  recommendations?: Array<{
+    priority?: 'critical' | 'high' | 'medium' | 'low';
+    category?: string;
+    action?: string;
+    rationale?: string;
+    expectedImpact?: string;
+    timeframe?: 'immediate' | 'short-term' | 'medium-term' | 'long-term';
+    resources?: string[];
+    dependencies?: string[];
+    successMetrics?: string[];
+    description?: string;
+    type?: 'training' | 'hiring' | 'structural' | 'investment';
+    area?: string;
+    estimatedCost?: number;
+    expectedROI?: number;
+    timeline?: string;
+  }>;
+  confidence?: number;
+  risks?: Array<{
+    risk?: string;
+    impact?: 'high' | 'medium' | 'low';
+    likelihood?: 'high' | 'medium' | 'low';
+    mitigation?: string;
+  }>;
+  opportunities?: Array<{
+    opportunity: string;
+    potential: 'high' | 'medium' | 'low';
+    effort: 'high' | 'medium' | 'low';
+    timeToValue: string;
+  }>;
+  metrics?: {
+    overallScore?: number;
+    dimensionScores?: Record<string, number>;
+    benchmarkComparison?: Record<string, 'above' | 'at' | 'below'>;
+    trendDirection?: 'improving' | 'stable' | 'declining';
+    averageGap?: number;
+    strategicAlignment?: number;
+  };
+}
+
+/**
+ * DataEngine processed output structure
+ * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197
+ */
+export interface DataEngineOutput {
+  structured?: {
+    dimensions?: string[];
+    metrics?: Record<string, number | string>;
+    categories?: Record<string, string[]>;
+    relationships?: Array<{ type: string; from: string; to: string; strength: number }>;
+    patterns?: Array<{ pattern: string; frequency: number; significance: number }>;
+  };
+  cleaned?: Record<string, unknown>;
+  normalized?: Record<string, number>;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Type definitions according to AGENT_CONTEXT_ULTIMATE.md Lines 180-226
+// ============================================================================
+export interface SkillLevel {
+  level: 'none' | 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  value: number;
+}
+
+export interface RequiredSkill {
+  category: 'technical' | 'leadership' | 'communication' | 'analytical';
+  skill: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  strategicAlignment: number;
+}
+
+export interface ExtractedSkill {
+  skill: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  evidence?: string;
+}
+
+export interface SkillGap {
+  skill: string;
+  currentLevel: string;
+  requiredLevel: string;
+  gap: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+}
+
+export interface DepartmentAggregation {
+  departmentId: string;
+  departmentName: string;
+  overallSkillsScore: number;
+  criticalGaps: number;
+  strengthAreas: string[];
+}
+
+export interface InvestmentRecommendation {
+  area: string;
+  amount: number;
+  roi: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  timeline: string;
+}
+
+export interface RiskFactor {
+  risk: string;
+  impact: 'high' | 'medium' | 'low';
+  likelihood: 'high' | 'medium' | 'low';
+  mitigation: string;
+}
+
+export interface LearningPath {
+  skill: string;
+  currentLevel: string;
+  targetLevel: string;
+  suggestedCourses: string[];
+  estimatedDuration: string;
+}
+
+export interface DevelopmentPlan {
+  immediateActions: Recommendation[];
+  shortTermGoals: Recommendation[];
+  longTermGoals: Recommendation[];
+}
+
+export interface Recommendation {
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  action: string;
+  rationale: string;
+  expectedImpact: string;
+  timeframe: 'immediate' | 'short-term' | 'medium-term' | 'long-term';
+  resources: string[];
+  dependencies: string[];
+  successMetrics: string[];
+  // Skills-specific extensions
+  description?: string;
+  type?: 'training' | 'hiring' | 'structural' | 'investment';
+  area?: string;
+  estimatedCost?: number;
+  expectedROI?: number;
+  timeline?: string;
+}
+
+export interface CollectiveNeeds {
+  trainingPrograms: Recommendation[];
+  hiringNeeds: Recommendation[];
+  structuralChanges: Recommendation[];
+}
+
+export interface StrategicRequirements {
+  coreCompetencies: string[];
+  strategicCapabilities: string[];
+  growthAreas: string[];
+  transformationGoals: string[];
+}
+
+export interface NotificationData {
+  to: string;
+  subject: string;
+  gaps?: SkillGap[];
+  developmentPlan?: DevelopmentPlan;
+  summary?: IndividualGapAnalysis;
+  actionItems?: string[];
+}
+
+export interface FrameworkInsight {
+  type: 'strength' | 'weakness' | 'opportunity' | 'threat' | 'trend' | 'gap' | 'required_skill' | 'technical' | 'soft' | 'risk';
+  category: string;
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+  confidence: number;
+  evidence: string[];
+  relatedMetrics: string[];
+  // Skills-specific additional fields
+  skill?: string;
+  requiredLevel?: string;
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  strategicImportance?: number;
+  likelihood?: 'high' | 'medium' | 'low';
+  mitigation?: string;
+  strategicImpact?: string;
+  urgency?: 'immediate' | 'short-term' | 'long-term';
+  recommendedSolution?: string;
+}
+
+export interface AnalysisMetrics {
+  overallScore: number;
+  dimensionScores: Record<string, number>;
+  benchmarkComparison: Record<string, 'above' | 'at' | 'below'>;
+  trendDirection: 'improving' | 'stable' | 'declining';
+  // Skills-specific additional metrics
+  averageGap?: number;
+  strategicAlignment?: number;
+}
+
+export interface FrameworkAnalysis {
+  insights: FrameworkInsight[];
+  recommendations: Recommendation[];
+  confidence: number;
+  risks: RiskFactor[];
+  opportunities: Array<{
+    opportunity: string;
+    potential: 'high' | 'medium' | 'low';
+    effort: 'high' | 'medium' | 'low';
+    timeToValue: string;
+  }>;
+  metrics: AnalysisMetrics;
+}
+
+export interface ProcessedEmployeeData {
+  structured: {
+    dimensions?: string[];
+    metrics?: Record<string, number>;
+    categories?: Record<string, string[]>;
+    relationships?: Array<{ type: string; from: string; to: string; strength: number }>;
+    patterns?: Array<{ pattern: string; frequency: number; significance: number }>;
+    // Skills-specific data
+    skills?: ExtractedSkill[];
+    skillLevels?: Record<string, string>;
+    evidence?: string[];
+  };
+  cleaned?: Record<string, unknown>;
+  normalized?: Record<string, number>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ClientStrategy {
+  coreCompetencies?: string[];
+  capabilities?: string[];
+  growthAreas?: string[];
+  transformationGoals?: string[];
+}
+
+export interface EmployeeProfile {
+  employeeId: string;
+  extractedSkills: ExtractedSkill[];
+  skillLevels: Record<string, string>;
+  evidence: string[];
+}
+
+export interface IndividualGapAnalysis {
+  employeeId: string;
+  gaps: SkillGap[];
+  developmentPlan: DevelopmentPlan;
+  priority: string;
+  timeToClose: string;
+  employeeProfile?: EmployeeProfile;
+}
+
+export interface DepartmentAnalysis {
+  departmentId: string;
+  overallSkillsScore: number;
+  commonGaps: Array<{ skill: string; frequency: number }>;
+  strengths: string[];
+  collectiveNeeds: CollectiveNeeds;
+}
+
+export interface OrganizationAssessment {
+  strategicReadiness: 'ready' | 'partially-ready' | 'not-ready';
+  strategicAlignment: number;
+  criticalGaps: Array<{
+    skill: string;
+    impact: string;
+    urgency: string;
+    solution: string;
+  }>;
+  investmentRecommendations: InvestmentRecommendation[];
+  timeToReadiness: string;
+  riskFactors: RiskFactor[];
+}
+
+export interface SkillsFramework {
+  requiredSkills: RequiredSkill[];
+  technicalSkills: string[];
+  softSkills: string[];
+  prioritization: FrameworkInsight[];
+}
+
+export interface LXPTrigger {
+  trigger: string;
+  gaps: SkillGap[];
+  learningPaths: LearningPath[];
+  priority: string;
+}
+
+export interface NotificationPackage {
+  employeeNotification: NotificationData;
+  supervisorNotification: NotificationData;
+}
+
 // Input schemas as per AGENT_CONTEXT_ULTIMATE.md Lines 195-226
 export const SkillsWorkflowSchema = z.object({
   analysisId: z.string(),
@@ -32,7 +349,7 @@ export const SkillsWorkflowSchema = z.object({
   }),
   employeeProfiles: z.array(z.object({
     employeeId: z.string(),
-    resumeData: z.record(z.any()).optional(),
+    resumeData: z.record(z.unknown()).optional(),
     extractedSkills: z.array(z.object({
       skill: z.string(),
       level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
@@ -56,13 +373,41 @@ export const SkillsWorkflowSchema = z.object({
   organizationAssessment: z.object({
     strategicReadiness: z.enum(['ready', 'partially-ready', 'not-ready']),
     strategicAlignment: z.number(),
-    criticalGaps: z.array(z.any()),
-    investmentRecommendations: z.array(z.any()),
+    criticalGaps: z.array(z.object({
+      skill: z.string(),
+      impact: z.string(),
+      urgency: z.string(),
+      solution: z.string()
+    })),
+    investmentRecommendations: z.array(z.object({
+      area: z.string(),
+      amount: z.number(),
+      roi: z.number(),
+      priority: z.enum(['critical', 'high', 'medium', 'low']),
+      timeline: z.string()
+    })),
     timeToReadiness: z.string()
   }).optional(),
-  lxpTriggers: z.array(z.any()).optional(),
-  talentTriggers: z.array(z.any()).optional(),
-  bonusTriggers: z.array(z.any()).optional(),
+  lxpTriggers: z.array(z.object({
+    trigger: z.string(),
+    gaps: z.array(z.object({
+      skill: z.string(),
+      currentLevel: z.string(),
+      requiredLevel: z.string(),
+      gap: z.number(),
+      priority: z.enum(['critical', 'high', 'medium', 'low'])
+    })),
+    learningPaths: z.array(z.object({
+      skill: z.string(),
+      currentLevel: z.string(),
+      targetLevel: z.string(),
+      suggestedCourses: z.array(z.string()),
+      estimatedDuration: z.string()
+    })),
+    priority: z.string()
+  })).optional(),
+  talentTriggers: z.array(z.unknown()).optional(),
+  bonusTriggers: z.array(z.unknown()).optional(),
   status: z.enum(['collecting', 'analyzing', 'completed'])
 });
 
@@ -81,13 +426,153 @@ export class SkillsModule {
   }
 
   /**
+   * Map AnalysisResult from ReasoningEngine to FrameworkAnalysis for skills domain
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197 - NO 'any' TYPES
+   */
+  private mapToFrameworkAnalysis(result: ReasoningEngineOutput): FrameworkAnalysis {
+    return {
+      insights: (result.insights || []).map((insight): FrameworkInsight => ({
+        type: (insight.type as FrameworkInsight['type']) || 'gap',
+        category: insight.category || '',
+        description: insight.description || '',
+        impact: insight.impact || 'medium',
+        confidence: insight.confidence || 0.5,
+        evidence: insight.evidence || [],
+        relatedMetrics: insight.relatedMetrics || [],
+        // Map skills-specific fields if present
+        skill: insight.skill,
+        requiredLevel: insight.requiredLevel,
+        priority: insight.priority,
+        strategicImportance: insight.strategicImportance,
+        likelihood: insight.likelihood,
+        mitigation: insight.mitigation,
+        strategicImpact: insight.strategicImpact,
+        urgency: insight.urgency,
+        recommendedSolution: insight.recommendedSolution
+      })),
+      recommendations: (result.recommendations || []).map((rec): Recommendation => ({
+        priority: rec.priority || 'medium',
+        category: rec.category || '',
+        action: rec.action || '',
+        rationale: rec.rationale || '',
+        expectedImpact: rec.expectedImpact || '',
+        timeframe: rec.timeframe || 'medium-term',
+        resources: rec.resources || [],
+        dependencies: rec.dependencies || [],
+        successMetrics: rec.successMetrics || [],
+        // Map skills-specific fields
+        description: rec.description || rec.action,
+        type: rec.type,
+        area: rec.area,
+        estimatedCost: rec.estimatedCost,
+        expectedROI: rec.expectedROI,
+        timeline: rec.timeline
+      })),
+      confidence: result.confidence || 0.5,
+      risks: (result.risks || []).map((risk): RiskFactor => ({
+        risk: risk.risk || '',
+        impact: risk.impact || 'medium',
+        likelihood: risk.likelihood || 'medium',
+        mitigation: risk.mitigation || ''
+      })),
+      opportunities: result.opportunities || [],
+      metrics: {
+        overallScore: result.metrics?.overallScore || 0,
+        dimensionScores: result.metrics?.dimensionScores || {},
+        benchmarkComparison: result.metrics?.benchmarkComparison || {},
+        trendDirection: result.metrics?.trendDirection || 'stable',
+        averageGap: result.metrics?.averageGap,
+        strategicAlignment: result.metrics?.strategicAlignment
+      }
+    };
+  }
+
+  /**
+   * Map ProcessedData to ProcessedEmployeeData for skills domain
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197 - NO 'any' TYPES
+   */
+  private mapToProcessedEmployeeData(data: DataEngineOutput): ProcessedEmployeeData {
+    return {
+      structured: {
+        dimensions: data.structured?.dimensions,
+        metrics: data.structured?.metrics as Record<string, number> | undefined,
+        categories: data.structured?.categories,
+        relationships: data.structured?.relationships,
+        patterns: data.structured?.patterns,
+        // Extract skills-specific data
+        skills: this.extractSkillsFromStructuredData(data.structured),
+        skillLevels: this.extractSkillLevelsFromStructuredData(data.structured),
+        evidence: this.extractEvidenceFromStructuredData(data.structured)
+      },
+      cleaned: data.cleaned,
+      normalized: data.normalized,
+      metadata: data.metadata
+    };
+  }
+
+  /**
+   * Extract skills from structured data
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197 - NO 'any' TYPES
+   */
+  private extractSkillsFromStructuredData(structured: DataEngineOutput['structured']): ExtractedSkill[] {
+    const skills: ExtractedSkill[] = [];
+    if (structured?.categories?.skills) {
+      for (const skillName of structured.categories.skills) {
+        const skillLevel = structured.metrics?.[`${skillName}_level`];
+        skills.push({
+          skill: skillName,
+          level: (typeof skillLevel === 'string' ? skillLevel : 'beginner') as ExtractedSkill['level'],
+          evidence: structured.categories?.[`${skillName}_evidence`]?.join(', ')
+        });
+      }
+    }
+    return skills;
+  }
+
+  /**
+   * Extract skill levels from structured data
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197 - NO 'any' TYPES
+   */
+  private extractSkillLevelsFromStructuredData(structured: DataEngineOutput['structured']): Record<string, string> {
+    const levels: Record<string, string> = {};
+    if (structured?.metrics) {
+      for (const [key, value] of Object.entries(structured.metrics)) {
+        if (key.endsWith('_level')) {
+          const skillName = key.replace('_level', '');
+          levels[skillName] = String(value);
+        }
+      }
+    }
+    return levels;
+  }
+
+  /**
+   * Extract evidence from structured data
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1197 - NO 'any' TYPES
+   */
+  private extractEvidenceFromStructuredData(structured: DataEngineOutput['structured']): string[] {
+    const evidence: string[] = [];
+    if (structured?.categories?.evidence) {
+      evidence.push(...structured.categories.evidence);
+    }
+    if (structured?.patterns) {
+      for (const pattern of structured.patterns) {
+        if (pattern.pattern) {
+          evidence.push(pattern.pattern);
+        }
+      }
+    }
+    return evidence;
+  }
+
+  /**
    * Step 1: Strategic Skills Framework Development
    * As per AGENT_CONTEXT_ULTIMATE.md Lines 67-71
    */
   async developStrategicFramework(
-    clientStrategy: any,
+    clientStrategy: ClientStrategy,
     industryContext: string
-  ): Promise<any> {
+  ): Promise<SkillsFramework> {
     // Get knowledge context for skills domain
     const context = await this.knowledgeEngine.getContext('skills');
     const industryData = await this.knowledgeEngine.getIndustryContext(industryContext);
@@ -99,10 +584,13 @@ export class SkillsModule {
     }, context);
 
     // Generate strategic skills framework
-    const framework = await this.reasoningEngine.analyze(processedData, {
+    const analysisResult = await this.reasoningEngine.analyze(processedData, {
       ...context,
       industryBenchmarks: industryData.benchmarks
     });
+
+    // Map AnalysisResult to FrameworkAnalysis
+    const framework: FrameworkAnalysis = this.mapToFrameworkAnalysis(analysisResult);
 
     return {
       requiredSkills: this.extractRequiredSkills(framework),
@@ -118,17 +606,20 @@ export class SkillsModule {
    */
   async collectEmployeeSkills(
     employeeId: string,
-    resumeData?: any,
-    csvData?: any
-  ): Promise<any> {
+    resumeData?: Record<string, unknown>,
+    csvData?: Record<string, unknown>
+  ): Promise<EmployeeProfile> {
     const context = await this.knowledgeEngine.getContext('skills');
 
     // Process employee data through Data Engine
-    const processedData = await this.dataEngine.process({
+    const rawProcessedData = await this.dataEngine.process({
       employeeId,
       resume: resumeData,
       csvImport: csvData
     }, context);
+
+    // Map to skills-specific processed data
+    const processedData = this.mapToProcessedEmployeeData(rawProcessedData);
 
     // Extract and categorize skills
     return {
@@ -144,9 +635,9 @@ export class SkillsModule {
    * As per AGENT_CONTEXT_ULTIMATE.md Lines 78-83
    */
   async analyzeIndividualGaps(
-    strategicFramework: any,
-    employeeProfile: any
-  ): Promise<any> {
+    strategicFramework: SkillsFramework,
+    employeeProfile: EmployeeProfile
+  ): Promise<IndividualGapAnalysis> {
     const context = await this.knowledgeEngine.getContext('skills');
 
     // Process gap analysis
@@ -156,7 +647,8 @@ export class SkillsModule {
     }, context);
 
     // Generate gap analysis through reasoning
-    const analysis = await this.reasoningEngine.analyze(processedData, context);
+    const analysisResult = await this.reasoningEngine.analyze(processedData, context);
+    const analysis = this.mapToFrameworkAnalysis(analysisResult);
 
     return {
       employeeId: employeeProfile.employeeId,
@@ -171,7 +663,7 @@ export class SkillsModule {
    * Step 4: LXP Trigger & Learning Path Creation
    * As per AGENT_CONTEXT_ULTIMATE.md Lines 84-89
    */
-  async triggerLXP(skillsGaps: any[]): Promise<any> {
+  async triggerLXP(skillsGaps: SkillGap[]): Promise<LXPTrigger> {
     // Integration point for LXP Module
     return {
       trigger: 'skills_gap_identified',
@@ -186,10 +678,10 @@ export class SkillsModule {
    * As per AGENT_CONTEXT_ULTIMATE.md Lines 90-95
    */
   async notifyStakeholders(
-    gapAnalysis: any,
+    gapAnalysis: IndividualGapAnalysis,
     employeeId: string,
     supervisorId: string
-  ): Promise<any> {
+  ): Promise<NotificationPackage> {
     return {
       employeeNotification: {
         to: employeeId,
@@ -212,8 +704,8 @@ export class SkillsModule {
    */
   async aggregateDepartmentSkills(
     departmentId: string,
-    individualAnalyses: any[]
-  ): Promise<any> {
+    individualAnalyses: IndividualGapAnalysis[]
+  ): Promise<DepartmentAnalysis> {
     const context = await this.knowledgeEngine.getContext('skills');
 
     // Process department data
@@ -223,7 +715,8 @@ export class SkillsModule {
     }, context);
 
     // Generate department insights
-    const departmentAnalysis = await this.reasoningEngine.analyze(processedData, context);
+    const analysisResult = await this.reasoningEngine.analyze(processedData, context);
+    const departmentAnalysis = this.mapToFrameworkAnalysis(analysisResult);
 
     return {
       departmentId,
@@ -240,10 +733,10 @@ export class SkillsModule {
    * Key Question: "Can we achieve our strategy with current skills?"
    */
   async assessStrategicCapability(
-    organizationData: any,
-    departmentAnalyses: any[],
-    clientStrategy: any
-  ): Promise<any> {
+    organizationData: Record<string, unknown>,
+    departmentAnalyses: DepartmentAnalysis[],
+    clientStrategy: ClientStrategy
+  ): Promise<OrganizationAssessment> {
     const context = await this.knowledgeEngine.getContext('skills');
 
     // Process organization-level data
@@ -253,11 +746,21 @@ export class SkillsModule {
       strategy: clientStrategy
     }, context);
 
+    // Extract strategic requirements and convert to string array for context
+    const strategicReqs = await this.extractStrategicRequirements(clientStrategy);
+    const strategicRequirements = [
+      ...strategicReqs.coreCompetencies,
+      ...strategicReqs.strategicCapabilities,
+      ...strategicReqs.growthAreas,
+      ...strategicReqs.transformationGoals
+    ];
+
     // Strategic capability reasoning
-    const strategicAssessment = await this.reasoningEngine.analyze(processedData, {
+    const analysisResult = await this.reasoningEngine.analyze(processedData, {
       ...context,
-      strategicRequirements: await this.extractStrategicRequirements(clientStrategy)
+      strategicRequirements
     });
+    const strategicAssessment = this.mapToFrameworkAnalysis(analysisResult);
 
     // Answer the key question
     const canAchieveStrategy = this.evaluateStrategicReadiness(strategicAssessment);
@@ -273,58 +776,61 @@ export class SkillsModule {
   }
 
   // Private helper methods - NO MOCK DATA
-  private extractRequiredSkills(framework: any): any[] {
+  private extractRequiredSkills(framework: FrameworkAnalysis): RequiredSkill[] {
     // Real implementation - extract from framework analysis
     return framework.insights
-      .filter((i: any) => i.category === 'required_skill')
-      .map((i: any) => ({
-        skill: i.skill,
-        level: i.requiredLevel,
-        priority: i.priority
+      .filter((i: FrameworkInsight) => i.type === 'required_skill' && i.skill)
+      .map((i: FrameworkInsight): RequiredSkill => ({
+        skill: i.skill || i.description,
+        level: (i.requiredLevel as 'beginner' | 'intermediate' | 'advanced' | 'expert') || 'intermediate',
+        priority: i.priority || 'medium',
+        category: 'technical',
+        strategicAlignment: i.strategicImportance || 50
       }));
   }
 
-  private categorizeTechnicalSkills(framework: any): any[] {
+  private categorizeTechnicalSkills(framework: FrameworkAnalysis): string[] {
     // Real categorization based on framework
     return framework.insights
-      .filter((i: any) => i.type === 'technical')
-      .map((i: any) => i.skill);
+      .filter((i: FrameworkInsight) => i.type === 'technical' && i.skill)
+      .map((i: FrameworkInsight) => i.skill as string);
   }
 
-  private categorizeSoftSkills(framework: any): any[] {
+  private categorizeSoftSkills(framework: FrameworkAnalysis): string[] {
     // Real categorization based on framework
     return framework.insights
-      .filter((i: any) => i.type === 'soft')
-      .map((i: any) => i.skill);
+      .filter((i: FrameworkInsight) => i.type === 'soft' && i.skill)
+      .map((i: FrameworkInsight) => i.skill as string);
   }
 
-  private prioritizeSkills(framework: any): any[] {
+  private prioritizeSkills(framework: FrameworkAnalysis): FrameworkInsight[] {
     // Real prioritization based on strategic importance
     return framework.insights
-      .sort((a: any, b: any) => b.strategicImportance - a.strategicImportance)
+      .filter(i => i.strategicImportance !== undefined)
+      .sort((a: FrameworkInsight, b: FrameworkInsight) => (b.strategicImportance || 0) - (a.strategicImportance || 0))
       .slice(0, 10);
   }
 
-  private extractSkillsFromData(processedData: any): any[] {
+  private extractSkillsFromData(processedData: ProcessedEmployeeData): ExtractedSkill[] {
     // Real skill extraction from processed data
     return processedData.structured.skills || [];
   }
 
-  private assessSkillLevels(processedData: any): any {
+  private assessSkillLevels(processedData: ProcessedEmployeeData): Record<string, string> {
     // Real skill level assessment
     return processedData.structured.skillLevels || {};
   }
 
-  private gatherEvidence(processedData: any): any[] {
+  private gatherEvidence(processedData: ProcessedEmployeeData): string[] {
     // Real evidence gathering
     return processedData.structured.evidence || [];
   }
 
-  private calculateGaps(framework: any, profile: any): any[] {
+  private calculateGaps(framework: SkillsFramework, profile: EmployeeProfile): SkillGap[] {
     // Real gap calculation
-    const gaps = [];
+    const gaps: SkillGap[] = [];
     for (const required of framework.requiredSkills) {
-      const current = profile.extractedSkills.find((s: any) => s.skill === required.skill);
+      const current = profile.extractedSkills.find((s: ExtractedSkill) => s.skill === required.skill);
       if (!current || this.getSkillLevel(current.level) < this.getSkillLevel(required.level)) {
         gaps.push({
           skill: required.skill,
@@ -349,30 +855,30 @@ export class SkillsModule {
     return levels[level] || 0;
   }
 
-  private generateDevelopmentPlan(analysis: any): any {
+  private generateDevelopmentPlan(analysis: FrameworkAnalysis): DevelopmentPlan {
     // Real development plan generation
     return {
-      immediateActions: analysis.recommendations.filter((r: any) => r.priority === 'critical'),
-      shortTermGoals: analysis.recommendations.filter((r: any) => r.priority === 'high'),
-      longTermGoals: analysis.recommendations.filter((r: any) => r.priority === 'medium')
+      immediateActions: analysis.recommendations.filter((r: Recommendation) => r.priority === 'critical'),
+      shortTermGoals: analysis.recommendations.filter((r: Recommendation) => r.priority === 'high'),
+      longTermGoals: analysis.recommendations.filter((r: Recommendation) => r.priority === 'medium')
     };
   }
 
-  private prioritizeGaps(analysis: any): string {
+  private prioritizeGaps(analysis: FrameworkAnalysis): string {
     // Real prioritization logic
-    const criticalCount = analysis.insights.filter((i: any) => i.priority === 'critical').length;
+    const criticalCount = analysis.insights.filter((i: FrameworkInsight) => i.priority === 'critical').length;
     return criticalCount > 3 ? 'critical' : criticalCount > 0 ? 'high' : 'medium';
   }
 
-  private estimateTimeToClose(analysis: any): string {
+  private estimateTimeToClose(analysis: FrameworkAnalysis): string {
     // Real time estimation
     const avgGap = analysis.metrics?.averageGap || 2;
     return avgGap > 3 ? '12+ months' : avgGap > 2 ? '6-12 months' : '3-6 months';
   }
 
-  private generateLearningPaths(gaps: any[]): any[] {
+  private generateLearningPaths(gaps: SkillGap[]): LearningPath[] {
     // Real learning path generation
-    return gaps.map(gap => ({
+    return gaps.map((gap: SkillGap): LearningPath => ({
       skill: gap.skill,
       currentLevel: gap.currentLevel,
       targetLevel: gap.requiredLevel,
@@ -381,30 +887,30 @@ export class SkillsModule {
     }));
   }
 
-  private suggestCourses(gap: any): string[] {
+  private suggestCourses(gap: SkillGap): string[] {
     // Real course suggestions based on gap
-    const courses = [];
+    const courses: string[] = [];
     if (gap.gap > 2) courses.push(`Advanced ${gap.skill} Certification`);
     if (gap.gap > 1) courses.push(`Intermediate ${gap.skill} Training`);
     courses.push(`${gap.skill} Fundamentals`);
     return courses;
   }
 
-  private estimateLearningDuration(gap: any): string {
+  private estimateLearningDuration(gap: SkillGap): string {
     // Real duration estimation
     const months = gap.gap * 3; // Rough estimate: 3 months per level
     return `${months} months`;
   }
 
-  private determineLearningPriority(gaps: any[]): string {
+  private determineLearningPriority(gaps: SkillGap[]): string {
     // Real priority determination
-    const criticalGaps = gaps.filter(g => g.priority === 'critical');
+    const criticalGaps = gaps.filter((g: SkillGap) => g.priority === 'critical');
     return criticalGaps.length > 0 ? 'immediate' : 'planned';
   }
 
-  private generateSupervisorActions(analysis: any): string[] {
+  private generateSupervisorActions(analysis: IndividualGapAnalysis): string[] {
     // Real action generation for supervisors
-    const actions = [];
+    const actions: string[] = [];
     if (analysis.priority === 'critical') {
       actions.push('Schedule immediate skills discussion');
       actions.push('Allocate training budget');
@@ -414,23 +920,23 @@ export class SkillsModule {
     return actions;
   }
 
-  private calculateDepartmentScore(analyses: any[]): number {
+  private calculateDepartmentScore(analyses: IndividualGapAnalysis[]): number {
     // Real department score calculation
-    const totalScore = analyses.reduce((sum, a) => {
+    const totalScore = analyses.reduce((sum: number, a: IndividualGapAnalysis) => {
       const gaps = a.gaps || [];
       const avgGap = gaps.length > 0
-        ? gaps.reduce((s: number, g: any) => s + g.gap, 0) / gaps.length
+        ? gaps.reduce((s: number, g: SkillGap) => s + g.gap, 0) / gaps.length
         : 0;
       return sum + (100 - avgGap * 25); // Convert gap to score
     }, 0);
     return Math.round(totalScore / Math.max(1, analyses.length));
   }
 
-  private identifyCommonGaps(analyses: any[]): any[] {
+  private identifyCommonGaps(analyses: IndividualGapAnalysis[]): Array<{ skill: string; frequency: number }> {
     // Real common gap identification
     const gapFrequency: Record<string, number> = {};
-    analyses.forEach(a => {
-      (a.gaps || []).forEach((gap: any) => {
+    analyses.forEach((a: IndividualGapAnalysis) => {
+      (a.gaps || []).forEach((gap: SkillGap) => {
         gapFrequency[gap.skill] = (gapFrequency[gap.skill] || 0) + 1;
       });
     });
@@ -440,28 +946,28 @@ export class SkillsModule {
       .map(([skill, count]) => ({ skill, frequency: count }));
   }
 
-  private identifyStrengths(analyses: any[]): string[] {
+  private identifyStrengths(analyses: IndividualGapAnalysis[]): string[] {
     // Real strength identification
     const strengths = new Set<string>();
-    analyses.forEach(a => {
-      const profile = a.employeeProfile || {};
+    analyses.forEach((a: IndividualGapAnalysis) => {
+      const profile = a.employeeProfile || {} as EmployeeProfile;
       (profile.extractedSkills || [])
-        .filter((s: any) => s.level === 'expert' || s.level === 'advanced')
-        .forEach((s: any) => strengths.add(s.skill));
+        .filter((s: ExtractedSkill) => s.level === 'expert' || s.level === 'advanced')
+        .forEach((s: ExtractedSkill) => strengths.add(s.skill));
     });
     return Array.from(strengths);
   }
 
-  private determineCollectiveNeeds(analysis: any): any {
+  private determineCollectiveNeeds(analysis: FrameworkAnalysis): CollectiveNeeds {
     // Real collective needs determination
     return {
-      trainingPrograms: analysis.recommendations.filter((r: any) => r.type === 'training'),
-      hiringNeeds: analysis.recommendations.filter((r: any) => r.type === 'hiring'),
-      structuralChanges: analysis.recommendations.filter((r: any) => r.type === 'structural')
+      trainingPrograms: analysis.recommendations.filter((r: Recommendation) => r.type === 'training'),
+      hiringNeeds: analysis.recommendations.filter((r: Recommendation) => r.type === 'hiring'),
+      structuralChanges: analysis.recommendations.filter((r: Recommendation) => r.type === 'structural')
     };
   }
 
-  private async extractStrategicRequirements(strategy: any): Promise<any> {
+  private async extractStrategicRequirements(strategy: ClientStrategy): Promise<StrategicRequirements> {
     // Real strategic requirement extraction
     return {
       coreCompetencies: strategy.coreCompetencies || [],
@@ -471,49 +977,54 @@ export class SkillsModule {
     };
   }
 
-  private evaluateStrategicReadiness(assessment: any): boolean {
+  private evaluateStrategicReadiness(assessment: FrameworkAnalysis): boolean {
     // Real readiness evaluation
-    const criticalGaps = assessment.insights.filter((i: any) =>
+    const criticalGaps = assessment.insights.filter((i: FrameworkInsight) =>
       i.priority === 'critical' && i.type === 'gap'
     );
     const readinessScore = assessment.metrics?.strategicAlignment || 0;
     return criticalGaps.length === 0 && readinessScore > 70;
   }
 
-  private calculateAlignment(assessment: any): number {
+  private calculateAlignment(assessment: FrameworkAnalysis): number {
     // Real alignment calculation
     return assessment.metrics?.strategicAlignment || 0;
   }
 
-  private identifyCriticalGaps(assessment: any): any[] {
+  private identifyCriticalGaps(assessment: FrameworkAnalysis): Array<{
+    skill: string;
+    impact: string;
+    urgency: string;
+    solution: string;
+  }> {
     // Real critical gap identification
     return assessment.insights
-      .filter((i: any) => i.priority === 'critical' && i.type === 'gap')
-      .map((i: any) => ({
-        skill: i.skill,
-        impact: i.strategicImpact,
-        urgency: i.urgency,
-        solution: i.recommendedSolution
+      .filter((i: FrameworkInsight) => i.priority === 'critical' && i.type === 'gap' && i.skill)
+      .map((i: FrameworkInsight) => ({
+        skill: i.skill || i.description,
+        impact: i.strategicImpact || 'high',
+        urgency: i.urgency || 'immediate',
+        solution: i.recommendedSolution || 'Training required'
       }));
   }
 
-  private generateInvestmentRecommendations(assessment: any): any[] {
+  private generateInvestmentRecommendations(assessment: FrameworkAnalysis): InvestmentRecommendation[] {
     // Real investment recommendations
     return assessment.recommendations
-      .filter((r: any) => r.type === 'investment')
-      .map((r: any) => ({
-        area: r.area,
-        amount: r.estimatedCost,
-        roi: r.expectedROI,
+      .filter((r: Recommendation) => r.type === 'investment')
+      .map((r: Recommendation): InvestmentRecommendation => ({
+        area: r.area || 'Skills Development',
+        amount: r.estimatedCost || 0,
+        roi: r.expectedROI || 0,
         priority: r.priority,
-        timeline: r.timeline
+        timeline: r.timeline || '6 months'
       }));
   }
 
-  private estimateReadinessTimeline(assessment: any): string {
+  private estimateReadinessTimeline(assessment: FrameworkAnalysis): string {
     // Real timeline estimation
-    const criticalGaps = assessment.insights.filter((i: any) => i.priority === 'critical').length;
-    const highGaps = assessment.insights.filter((i: any) => i.priority === 'high').length;
+    const criticalGaps = assessment.insights.filter((i: FrameworkInsight) => i.priority === 'critical').length;
+    const highGaps = assessment.insights.filter((i: FrameworkInsight) => i.priority === 'high').length;
 
     if (criticalGaps > 5) return '18-24 months';
     if (criticalGaps > 2 || highGaps > 10) return '12-18 months';
@@ -521,15 +1032,15 @@ export class SkillsModule {
     return '3-6 months';
   }
 
-  private identifyRiskFactors(assessment: any): any[] {
+  private identifyRiskFactors(assessment: FrameworkAnalysis): RiskFactor[] {
     // Real risk identification
     return assessment.insights
-      .filter((i: any) => i.type === 'risk')
-      .map((i: any) => ({
-        risk: i.description,
-        impact: i.impact,
-        likelihood: i.likelihood,
-        mitigation: i.mitigation
+      .filter((i: FrameworkInsight) => i.type === 'risk')
+      .map((i: FrameworkInsight): RiskFactor => ({
+        risk: i.description || 'Skill gap risk',
+        impact: i.impact || 'medium',
+        likelihood: i.likelihood || 'medium',
+        mitigation: i.mitigation || 'Implement training program'
       }));
   }
 }
