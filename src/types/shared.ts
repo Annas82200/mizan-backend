@@ -12,12 +12,12 @@ import {
   employeeProfiles,
   departments,
   companies
-} from '../db/schema/core.js';
+} from '../../db/schema/core.js';
 
 import {
   triggers,
   triggerExecutions
-} from '../db/schema/triggers.js';
+} from '../../db/schema/triggers.js';
 
 // ============================================================================
 // DATABASE INFERRED TYPES
