@@ -1,8 +1,8 @@
 // server/services/orchestrator/architect-ai.ts
 
 import { StructureAgentV2 } from '../agents/structure/structure-agent.js';
-import { CultureAgent } from '../agents/culture-agent.js';
-import { SkillsAgent } from '../agents/skills-agent.js';
+import { CultureAgentV2 } from '../agents/culture/culture-agent.js';
+import { SkillsAgent } from '../agents/skills/skills-agent.js';
 import { db } from '../../db/index.js';
 import { companies, users, departments } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -53,8 +53,8 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
       consensusThreshold: 0.7
     };
     const structureAgent = new StructureAgentV2('structure', agentConfig);
-    const cultureAgent = new CultureAgent();
-    const skillsAgent = new SkillsAgent();
+    const cultureAgent = new CultureAgentV2('culture', agentConfig);
+    const skillsAgent = new SkillsAgent('skills', agentConfig);
     
     // Run analyses in parallel
     const [structureResult, cultureResult, skillsResult] = await Promise.allSettled([
@@ -129,24 +129,25 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
   }
 }
 
-async function runCultureAnalysis(agent: CultureAgent, input: ArchitectAIInput): Promise<any> {
+async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput): Promise<any> {
   try {
     const analysisInput = {
       tenantId: input.tenantId,
-      targetType: 'company' as const,
-      targetId: input.companyId
+      companyId: input.companyId,
+      companyValues: input.companyValues || [],
+      strategy: input.strategy
     };
 
-    const result = await agent.analyzeCompanyCulture(analysisInput);
+    const result = await agent.analyzeCulture(analysisInput);
 
     return {
-      healthScore: 1 - result.entropyScore, // Convert entropy to health score
-      alignmentScore: 1 - result.entropyScore,
-      isHealthy: result.entropyScore < 0.3,
+      healthScore: result.strategyAlignmentScore / 100, // Normalize to 0-1
+      alignmentScore: result.strategyAlignmentScore / 100,
+      isHealthy: result.isHealthyForStrategy,
       culturalEntropy: result.entropyScore,
       focusCylinder: Object.keys(result.cylinderHealth)[0] || '',
-      interventions: result.recommendations,
-      recommendations: result.recommendations
+      interventions: [...result.recommendations.immediate, ...result.recommendations.shortTerm],
+      recommendations: [...result.recommendations.immediate, ...result.recommendations.shortTerm, ...result.recommendations.longTerm]
     };
   } catch (error) {
     console.error('Culture analysis failed:', error);
@@ -156,21 +157,29 @@ async function runCultureAnalysis(agent: CultureAgent, input: ArchitectAIInput):
 
 async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): Promise<any> {
   try {
+    // Get company data for industry and name
+    const company = await db.query.companies.findFirst({
+      where: eq(companies.id, input.companyId)
+    });
+
     const analysisInput = {
       tenantId: input.tenantId,
-      targetType: 'company' as const,
-      targetId: input.companyId
+      companyId: input.companyId,
+      industry: company?.industry || 'General',
+      organizationName: company?.name || 'Organization',
+      strategy: input.strategy,
+      employeeData: input.employeeData || []
     };
 
     const result = await agent.analyzeSkills(analysisInput);
 
     return {
-      healthScore: result.overallCoverage,
-      coverageScore: result.overallCoverage,
-      hasRightSkills: result.overallCoverage > 0.7,
-      criticalGaps: result.skillGaps.filter(g => g.priority === 'critical' || g.priority === 'high'),
-      trainingNeeds: result.trainingTriggers,
-      recommendations: result.recommendations
+      healthScore: result.skillsCoverage,
+      coverageScore: result.skillsCoverage,
+      hasRightSkills: result.skillsCoverage > 0.7,
+      criticalGaps: result.criticalGaps,
+      trainingNeeds: result.lxpTriggers || [],
+      recommendations: result.recommendations.map(r => r.description)
     };
   } catch (error) {
     console.error('Skills analysis failed:', error);
