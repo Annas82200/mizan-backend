@@ -7,7 +7,20 @@ import { db } from '../../db/index.js';
 import { orgInputs, structureAnalysisResults } from '../../db/schema.js';
 import { StructureAgent } from '../services/agents/structure-agent.js';
 import { eq } from 'drizzle-orm';
-// PDF report generation will be imported when implemented
+// Import proper types - COMPLIANT with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1180
+import type {
+  EmployeeResponse,
+  ProcessedResponse,
+  DepartmentData,
+  DepartmentAnalysis,
+  DepartmentPerformance,
+  Role,
+  FrameworkCylinder,
+  CylinderScores,
+  EmployeeReport,
+  CultureAnalysisParams,
+  DepartmentBreakdown
+} from '../types/entry-types.js';
 
 const router = Router();
 
@@ -202,7 +215,7 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
     console.log('📋 Framework loaded with', frameworkData.length, 'cylinders');
 
     // Process employee survey responses
-    const processedResponses = employeeResponses?.map((response: any) => ({
+    const processedResponses = employeeResponses?.map((response: EmployeeResponse) => ({
       personalValues: response.personalValues || [],
       currentExperience: response.currentExperience || [],
       desiredExperience: response.desiredExperience || [],
@@ -238,8 +251,8 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
         totalResponses: processedResponses.length,
         responseQuality: processedResponses.length > 0 ? 'High' : 'No Data',
         valuesAlignment: valuesAlignment,
-        averageRecognition: processedResponses.reduce((sum: number, r: any) => sum + r.recognition, 0) / Math.max(processedResponses.length, 1),
-        averageEngagement: processedResponses.reduce((sum: number, r: any) => sum + r.engagement, 0) / Math.max(processedResponses.length, 1)
+        averageRecognition: processedResponses.reduce((sum: number, r: ProcessedResponse) => sum + r.recognition, 0) / Math.max(processedResponses.length, 1),
+        averageEngagement: processedResponses.reduce((sum: number, r: ProcessedResponse) => sum + r.engagement, 0) / Math.max(processedResponses.length, 1)
       },
       
       // Dual reports
@@ -335,7 +348,7 @@ router.post('/analyze-culture', async (req: Request, res: Response) => {
           ]
         }
       ],
-      departmentBreakdown: assessmentData?.departments?.map((dept: any) => ({
+      departmentBreakdown: assessmentData?.departments?.map((dept: DepartmentData) => ({
         name: dept.name,
         scores: {
           purpose: Math.floor(Math.random() * 20) + 70,
@@ -393,7 +406,7 @@ router.post('/analyze-skills', async (req: Request, res: Response) => {
     console.log('🎯 Starting skills gap analysis for:', orgName);
 
     // Use SkillsModule with Three-Engine Architecture (AGENT_CONTEXT_ULTIMATE.md compliant)
-    const { SkillsModule } = await import('../../ai/modules/SkillsModule.js');
+    const { SkillsModule } = await import('../ai/modules/SkillsModule.js');
     const skillsModule = new SkillsModule();
 
     // Develop strategic framework based on client data
@@ -460,7 +473,7 @@ router.post('/analyze-skills', async (req: Request, res: Response) => {
       },
 
       // Department-specific analysis
-      departmentAnalysis: departments?.map((dept: any) => ({
+      departmentAnalysis: departments?.map((dept: DepartmentData) => ({
         name: dept.name,
         overallScore: Math.floor(Math.random() * 30) + 60,
         criticalSkills: Math.floor(Math.random() * 5) + 2,
@@ -527,7 +540,7 @@ router.post('/analyze-skills', async (req: Request, res: Response) => {
 
       // Skills matrix visualization data
       skillsMatrix: {
-        roles: roles?.map((role: any) => role.title) || ["Software Engineer", "Product Manager", "Data Analyst"],
+        roles: roles?.map((role: Role) => role.title) || ["Software Engineer", "Product Manager", "Data Analyst"],
         skills: ["JavaScript", "Python", "Leadership", "Analytics", "Communication"],
         matrix: [
           [85, 60, 40, 70, 75], // Software Engineer
@@ -596,9 +609,9 @@ router.post('/analyze-performance', async (req: Request, res: Response) => {
     console.log('📈 Starting performance analysis for:', orgName);
 
     // Use Three-Engine Architecture for performance analysis (AGENT_CONTEXT_ULTIMATE.md compliant)
-    const { KnowledgeEngine } = await import('../../ai/engines/KnowledgeEngine.js');
-    const { DataEngine } = await import('../../ai/engines/DataEngine.js');
-    const { ReasoningEngine } = await import('../../ai/engines/ReasoningEngine.js');
+    const { KnowledgeEngine } = await import('../ai/engines/KnowledgeEngine.js');
+    const { DataEngine } = await import('../ai/engines/DataEngine.js');
+    const { ReasoningEngine } = await import('../ai/engines/ReasoningEngine.js');
 
     const knowledgeEngine = new KnowledgeEngine();
     const dataEngine = new DataEngine();
@@ -756,7 +769,7 @@ router.post('/analyze-performance', async (req: Request, res: Response) => {
       },
 
       // Department-specific performance
-      departmentPerformance: departments?.map((dept: any) => ({
+      departmentPerformance: departments?.map((dept: DepartmentData) => ({
         name: dept.name,
         overallScore: Math.floor(Math.random() * 25) + 65,
         goalProgress: Math.floor(Math.random() * 30) + 60,
@@ -1055,19 +1068,19 @@ router.post('/analyze-comprehensive', async (req: Request, res: Response) => {
 });
 
 // Helper functions for culture analysis
-function analyzeValuesAlignment(responses: any[], framework: any): number {
+function analyzeValuesAlignment(responses: EmployeeResponse[], framework: FrameworkCylinder[]): number {
   if (!responses || responses.length === 0) return 75; // Default score
 
   // Calculate alignment between personal values and current experience
   let totalAlignment = 0;
   let responseCount = 0;
 
-  responses.forEach((response: any) => {
+  responses.forEach((response: EmployeeResponse) => {
     const personalValues = response.personalValues || [];
     const currentExperience = response.currentExperience || [];
     
     if (personalValues.length > 0 && currentExperience.length > 0) {
-      const overlap = personalValues.filter((value: any) => currentExperience.includes(value)).length;
+      const overlap = personalValues.filter((value: string) => currentExperience.includes(value)).length;
       const alignment = (overlap / personalValues.length) * 100;
       totalAlignment += alignment;
       responseCount++;
@@ -1077,19 +1090,19 @@ function analyzeValuesAlignment(responses: any[], framework: any): number {
   return responseCount > 0 ? Math.round(totalAlignment / responseCount) : 75;
 }
 
-function calculateCulturalEntropy(responses: any[], framework: any): number {
+function calculateCulturalEntropy(responses: EmployeeResponse[], framework: FrameworkCylinder[]): number {
   if (!responses || responses.length === 0) return 25; // Default entropy
 
   // Calculate entropy based on variance in responses
   let totalVariance = 0;
   let responseCount = 0;
 
-  responses.forEach((response: any) => {
+  responses.forEach((response: EmployeeResponse) => {
     const currentExp = response.currentExperience || [];
     const desiredExp = response.desiredExperience || [];
     
     if (currentExp.length > 0 && desiredExp.length > 0) {
-      const gap = desiredExp.filter((value: any) => !currentExp.includes(value)).length;
+      const gap = desiredExp.filter((value: string) => !currentExp.includes(value)).length;
       const variance = (gap / desiredExp.length) * 100;
       totalVariance += variance;
       responseCount++;
@@ -1100,7 +1113,7 @@ function calculateCulturalEntropy(responses: any[], framework: any): number {
   return Math.min(Math.round(avgVariance), 100);
 }
 
-function calculateCylinderScores(responses: any[], framework: any): any {
+function calculateCylinderScores(responses: EmployeeResponse[], framework: FrameworkCylinder[]): CylinderScores {
   // Map framework cylinders to scores based on employee responses
   const cylinderMapping: Record<string, string> = {
     'Safety & Survival': 'wellbeing',
@@ -1114,17 +1127,17 @@ function calculateCylinderScores(responses: any[], framework: any): any {
   
   const scores: Record<string, number> = {};
 
-  framework.forEach((cylinder: any) => {
+  framework.forEach((cylinder: FrameworkCylinder) => {
     const cylinderKey = cylinderMapping[cylinder.name] || 'general';
-    const cylinderValues = cylinder.positiveValues.map((v: any) => v.name);
+    const cylinderValues = cylinder.positiveValues.map((v: { name: string }) => v.name);
     
     // Calculate score based on how often cylinder values appear in responses
     let cylinderScore = 0;
     let responseCount = 0;
-    
-    responses.forEach((response: any) => {
+
+    responses.forEach((response: EmployeeResponse) => {
       const currentExp = response.currentExperience || [];
-      const matches = currentExp.filter((value: any) => cylinderValues.includes(value)).length;
+      const matches = currentExp.filter((value: string) => cylinderValues.includes(value)).length;
       if (currentExp.length > 0) {
         cylinderScore += (matches / currentExp.length) * 100;
         responseCount++;
@@ -1137,8 +1150,8 @@ function calculateCylinderScores(responses: any[], framework: any): any {
   return scores;
 }
 
-function generateEmployeeReports(responses: any[], framework: any, companyValues: any): any[] {
-  return responses.map((response: any, index: number) => ({
+function generateEmployeeReports(responses: EmployeeResponse[], framework: FrameworkCylinder[], companyValues: string[]): EmployeeReport[] {
+  return responses.map((response: EmployeeResponse, index: number) => ({
     employeeId: `emp_${index + 1}`,
     personalValuesAnalysis: {
       selectedValues: response.personalValues,

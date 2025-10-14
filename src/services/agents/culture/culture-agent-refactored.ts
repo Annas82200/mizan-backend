@@ -7,9 +7,9 @@
 // TRAINING: Organizational culture theories, Mizan framework, culture-strategy alignment
 // ============================================================================
 
-import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent.js';
-import { db } from '../../../db/index.js';
-import { tenants, cultureAssessments } from '../../../db/schema.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
+import { db } from '../../../../db/index.js';
+import { tenants, cultureReports, cylinderScores } from '../../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 // ============================================================================
@@ -423,6 +423,8 @@ Return ONLY valid JSON. Be specific and actionable.`;
   // ============================================================================
 
   private async getCompanyStrategy(companyId: string, tenantId: string): Promise<string> {
+    // Using tenantId as the primary identifier for multi-tenant architecture
+    // companyId is kept for future company-specific strategies within tenants
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, tenantId)
     });
@@ -430,9 +432,82 @@ Return ONLY valid JSON. Be specific and actionable.`;
   }
 
   private async saveAnalysisResults(output: CultureAnalysisOutput): Promise<void> {
-    // Save to database - implementation depends on schema
-    console.log('Saving culture analysis results for tenant:', output.tenantId);
-    // TODO: Implement database save once cultureReports table is confirmed
+    try {
+      // Save culture analysis report to database
+      await db.insert(cultureReports).values({
+        tenantId: output.tenantId,
+        analysisId: output.companyId,
+        reportType: 'company_analysis',
+        reportData: {
+          analysisDate: output.analysisDate,
+          strategyAlignmentScore: output.strategyAlignmentScore,
+          isHealthyForStrategy: output.isHealthyForStrategy,
+          valueMapping: output.valueMapping,
+          strategyAlignment: output.strategyAlignment,
+          cylinderHealth: output.cylinderHealth,
+          employeeCultureGap: output.employeeCultureGap,
+          entropyScore: output.entropyScore,
+          recommendations: output.recommendations,
+          triggers: output.triggers,
+          confidence: output.confidence,
+          processingTime: output.processingTime
+        }
+      });
+
+      // Save cylinder scores if present
+      if (output.cylinderHealth) {
+        const cylinderData = {
+          tenantId: output.tenantId,
+          targetType: 'company' as const,
+          targetId: output.companyId,
+          assessmentId: output.companyId,
+          cylinder1Safety: output.cylinderHealth[1]?.score || 0,
+          cylinder2Belonging: output.cylinderHealth[2]?.score || 0,
+          cylinder3Growth: output.cylinderHealth[3]?.score || 0,
+          cylinder4Meaning: output.cylinderHealth[4]?.score || 0,
+          cylinder5Integrity: output.cylinderHealth[5]?.score || 0,
+          cylinder6Wisdom: output.cylinderHealth[6]?.score || 0,
+          cylinder7Transcendence: output.cylinderHealth[7]?.score || 0,
+          enablingValues: {} as Record<string, number>,
+          limitingValues: {} as Record<string, number>,
+          overallScore: Math.round(output.strategyAlignmentScore),
+          culturalMaturity: this.calculateCulturalMaturity(output.cylinderHealth),
+          entropyScore: Math.round(output.entropyScore),
+          assessedBy: 'culture_agent',
+          metadata: { source: 'culture-agent-v2', confidence: output.confidence }
+        };
+
+        // Extract enabling and limiting values from valueMapping
+        if (output.valueMapping?.mappings) {
+          for (const mapping of output.valueMapping.mappings) {
+            if (mapping.type === 'enabling') {
+              cylinderData.enablingValues[mapping.value] = mapping.strength;
+            } else {
+              cylinderData.limitingValues[mapping.value] = mapping.strength;
+            }
+          }
+        }
+
+        await db.insert(cylinderScores).values(cylinderData);
+      }
+
+      console.log('Culture analysis results saved successfully for tenant:', output.tenantId);
+    } catch (error) {
+      console.error('Failed to save culture analysis results:', error);
+      throw new Error(`Failed to save culture analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private calculateCulturalMaturity(cylinderHealth: Record<number, { status: string; score: number; }>): number {
+    // Find the highest cylinder with a score >= 70
+    let maturity = 1;
+    for (let i = 7; i >= 1; i--) {
+      if (cylinderHealth[i]?.score >= 70) {
+        maturity = i;
+        break;
+      }
+    }
+    return maturity;
   }
 }
 

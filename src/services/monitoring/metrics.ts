@@ -108,9 +108,9 @@ export class MetricsCollector {
 
   private startMetricsCollection(): void {
     // Collect metrics every 30 seconds
-    this.metricsInterval = setInterval(() => {
+    this.metricsInterval = setInterval(async () => {
       this.collectSystemMetrics();
-      this.collectBusinessMetrics();
+      await this.collectBusinessMetrics();
     }, 30000);
 
     logger.info('Metrics collection started');
@@ -161,14 +161,36 @@ export class MetricsCollector {
     }
   }
 
-  private collectBusinessMetrics(): void {
+  private async collectBusinessMetrics(): Promise<void> {
     try {
-      // This would typically query the database for business metrics
-      // For now, we'll use placeholder values
-      
-      // Example: Count active users
-      // const activeUsers = await db.select().from(users).where(eq(users.status, 'active'));
-      // businessMetrics.usersActive.set(activeUsers.length);
+      // Import database components dynamically to avoid circular dependencies
+      const { db } = await import('../../../db/index.js');
+      const { users, tenants, analyses } = await import('../../../db/schema.js');
+      const { eq, and, gte, sql } = await import('drizzle-orm');
+
+      // Count active users
+      const activeUsers = await db.select({ count: sql`count(*)` })
+        .from(users)
+        .where(eq(users.isActive, true));
+      businessMetrics.usersActive.set(Number(activeUsers[0]?.count || 0));
+
+      // Count active tenants
+      const activeTenants = await db.select({ count: sql`count(*)` })
+        .from(tenants)
+        .where(eq(tenants.status, 'active'));
+      businessMetrics.tenantsActive.set(Number(activeTenants[0]?.count || 0));
+
+      // Count analyses completed in the last 24 hours
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentAnalyses = await db.select({ count: sql`count(*)` })
+        .from(analyses)
+        .where(
+          and(
+            eq(analyses.status, 'completed'),
+            gte(analyses.createdAt, yesterday)
+          )
+        );
+      businessMetrics.analysesCompleted.set(Number(recentAnalyses[0]?.count || 0));
 
     } catch (error) {
       logger.error('Error collecting business metrics:', error);

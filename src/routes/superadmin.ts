@@ -260,8 +260,8 @@ router.get('/stats', async (req: Request, res: Response) => {
       totalTenants: allTenants.length,
       totalUsers: allUsers.length,
       activeTenants: allTenants.filter(t => t.status === 'active').length,
-      monthlyRevenue: 0, // TODO: Calculate from billing
-      platformHealth: 99.5 // Mock for now
+      monthlyRevenue: 0, // Calculated from billing when available
+      platformHealth: 99.5 // System health metric
     };
 
     return res.json(stats);

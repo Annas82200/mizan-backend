@@ -1,16 +1,89 @@
 import { randomUUID } from "node:crypto";
-// Import types from local schema instead of non-existent @mizan/shared/schema
-type Tenant = any; // TODO: Define proper types based on schema
-type User = any;
-type ActionModule = any;
-type AssessmentRecord = any;
-type EmployeeProgress = any;
-type LearningExperience = any;
-type OrgSnapshotRecord = any;
-type PipelineAgentStatus = any;
-type TenantSnapshot = any;
-type TriggeredAction = any;
-type TenantFeatureToggles = any;
+// Type definitions for data store - COMPLIANT with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1180
+interface Tenant {
+  id: string;
+  name: string;
+  plan: string;
+  status: 'active' | 'inactive' | 'suspended';
+  createdAt: Date;
+  updatedAt: Date;
+  aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }>;
+  features?: Record<string, boolean>;
+  integrations?: Record<string, unknown>;
+  valuesFramework?: Record<string, unknown>;
+}
+
+interface User {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+interface ActionModule {
+  id: string;
+  name: string;
+  status: string;
+  data: Record<string, unknown>;
+  triggerTags?: string[];
+}
+
+interface AssessmentRecord {
+  id: string;
+  tenantId: string;
+  type: string;
+  data: Record<string, unknown>;
+}
+
+interface EmployeeProgress {
+  id: string;
+  employeeId: string;
+  tenantId?: string;
+  progress: number;
+  completedAt?: Date;
+  assignments?: unknown[];
+}
+
+interface LearningExperience {
+  id: string;
+  name: string;
+  type: string;
+  content: Record<string, unknown>;
+  tags?: string[];
+}
+
+interface OrgSnapshotRecord {
+  id: string;
+  tenantId: string;
+  timestamp: Date;
+  data: Record<string, unknown>;
+  overallHealthScore?: number;
+  createdAt?: Date;
+}
+
+interface PipelineAgentStatus {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  progress: number;
+}
+interface TenantSnapshot {
+  id: string;
+  tenantId: string;
+  data: Record<string, unknown>;
+  healthScore?: number;
+  lastAnalysis?: Date;
+}
+interface TriggeredAction {
+  id: string;
+  tenantId?: string;
+  action: string;
+  status: string;
+}
+interface TenantFeatureToggles {
+  tenantId: string;
+  features: Record<string, boolean>;
+}
 import {
   actionModules as actionModuleSeed,
   assessments as assessmentSeed,

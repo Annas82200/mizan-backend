@@ -3,7 +3,7 @@
  * Monitors application health and dependencies
  */
 
-import { db } from '../../db/index.js';
+import { db } from '../../../db/index.js';
 import { sql } from 'drizzle-orm';
 import { metricsCollector } from './metrics.js';
 import { logger } from '../../utils/logger.js';
@@ -12,7 +12,7 @@ export interface HealthCheckResult {
   service: string;
   status: 'healthy' | 'unhealthy' | 'degraded';
   responseTime: number;
-  details?: any;
+  details?: Record<string, unknown>;
   error?: string;
 }
 
@@ -79,25 +79,43 @@ export class HealthCheckService {
 
   public async checkRedis(): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+
     try {
-      // TODO: Implement Redis health check when Redis is available
-      // const redis = getRedisClient();
-      // await redis.ping();
-      
+      // Create a Redis client using the same connection config as BullMQ
+      const ioredis = await import('ioredis');
+      const redis = new ioredis.default({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        password: process.env.REDIS_PASSWORD,
+        maxRetriesPerRequest: 1,
+        retryStrategy: () => null
+      });
+
+      // Ping Redis to check connectivity
+      const pingResult = await redis.ping();
+
+      // Get Redis info for additional health metrics
+      const info = await redis.info('memory');
+      const memoryLines = info.split('\r\n');
+      const usedMemory = memoryLines.find((line: string) => line.startsWith('used_memory_human:'))?.split(':')[1] || 'unknown';
+
+      // Clean up connection
+      await redis.quit();
+
       const responseTime = Date.now() - startTime;
-      
+
       const result: HealthCheckResult = {
         service: 'redis',
-        status: 'healthy',
+        status: pingResult === 'PONG' ? 'healthy' : 'unhealthy',
         responseTime,
         details: {
           connection: 'active',
-          memory: 'available'
+          memory: usedMemory,
+          ping: pingResult
         }
       };
 
-      metricsCollector.updateHealthStatus('redis', true);
+      metricsCollector.updateHealthStatus('redis', result.status === 'healthy');
       return result;
 
     } catch (error) {
@@ -164,25 +182,45 @@ export class HealthCheckService {
 
   public async checkDisk(): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+
     try {
-      // TODO: Implement disk space check
-      // const fs = require('fs');
-      // const stats = fs.statSync('.');
-      
+      // Use Node.js built-in fs module to check disk space
+      const { statfsSync } = await import('fs');
+      const os = await import('os');
+
+      // Get disk space for the temp directory (cross-platform)
+      const tempDir = os.tmpdir();
+      const stats = statfsSync(tempDir);
+
+      // Calculate disk usage
+      const totalSpace = stats.blocks * stats.bsize;
+      const freeSpace = stats.bavail * stats.bsize;
+      const usedSpace = totalSpace - freeSpace;
+      const usagePercent = (usedSpace / totalSpace) * 100;
+
+      // Determine health status based on usage
+      let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+      if (usagePercent > 90) {
+        status = 'unhealthy';
+      } else if (usagePercent > 80) {
+        status = 'degraded';
+      }
+
       const responseTime = Date.now() - startTime;
-      
+
       const result: HealthCheckResult = {
         service: 'disk',
-        status: 'healthy',
+        status,
         responseTime,
         details: {
-          available: 'sufficient',
-          usage: 'normal'
+          totalGB: Math.round(totalSpace / 1024 / 1024 / 1024),
+          freeGB: Math.round(freeSpace / 1024 / 1024 / 1024),
+          usedGB: Math.round(usedSpace / 1024 / 1024 / 1024),
+          usagePercent: Math.round(usagePercent)
         }
       };
 
-      metricsCollector.updateHealthStatus('disk', true);
+      metricsCollector.updateHealthStatus('disk', status === 'healthy');
       return result;
 
     } catch (error) {
@@ -202,23 +240,67 @@ export class HealthCheckService {
 
   public async checkExternalServices(): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+    const serviceStatuses: Record<string, string> = {};
+
     try {
-      // TODO: Check external services like email, SMS, etc.
-      
+      // Check SendGrid email service if configured
+      if (process.env.SENDGRID_API_KEY) {
+        try {
+          // Make a lightweight API call to SendGrid to verify connectivity
+          const response = await fetch('https://api.sendgrid.com/v3/scopes', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+          });
+
+          serviceStatuses.email = response.ok ? 'operational' : 'degraded';
+        } catch (emailError) {
+          serviceStatuses.email = 'unavailable';
+          logger.warn('SendGrid health check failed:', emailError);
+        }
+      } else {
+        serviceStatuses.email = 'not_configured';
+      }
+
+      // Check AI providers if configured
+      if (process.env.OPENAI_API_KEY) {
+        serviceStatuses.openai = 'configured';
+      }
+      if (process.env.ANTHROPIC_API_KEY) {
+        serviceStatuses.anthropic = 'configured';
+      }
+
+      // Check LinkedIn OAuth if configured
+      if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+        serviceStatuses.linkedin = 'configured';
+      } else {
+        serviceStatuses.linkedin = 'not_configured';
+      }
+
+      // Determine overall status
+      const hasUnavailable = Object.values(serviceStatuses).includes('unavailable');
+      const hasDegraded = Object.values(serviceStatuses).includes('degraded');
+      let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+
+      if (hasUnavailable) {
+        status = 'unhealthy';
+      } else if (hasDegraded) {
+        status = 'degraded';
+      }
+
       const responseTime = Date.now() - startTime;
-      
+
       const result: HealthCheckResult = {
         service: 'external_services',
-        status: 'healthy',
+        status,
         responseTime,
-        details: {
-          email: 'available',
-          sms: 'available'
-        }
+        details: serviceStatuses
       };
 
-      metricsCollector.updateHealthStatus('external_services', true);
+      metricsCollector.updateHealthStatus('external_services', status === 'healthy');
       return result;
 
     } catch (error) {

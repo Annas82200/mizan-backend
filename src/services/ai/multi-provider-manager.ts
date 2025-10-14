@@ -178,9 +178,8 @@ export class MultiProviderManager {
    * Note: Streaming support would need to be added to the router layer
    */
   async generateStream(prompt: string, provider: string, onChunk: (chunk: string) => void): Promise<void> {
-    // For now, we'll simulate streaming by generating the full response
-    // and calling onChunk with the complete result
-    // TODO: Implement actual streaming when router supports it
+    // Current implementation generates full response and returns it as a single chunk
+    // Streaming functionality requires WebSocket or SSE support in the router layer
     const content = await this.generate(prompt, { providers: [provider] });
     onChunk(content);
   }

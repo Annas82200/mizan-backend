@@ -1,14 +1,128 @@
-// Import types from local schema instead of non-existent @mizan/shared/schema
-type Tenant = any; // TODO: Define proper types based on schema
-type User = any;
-type ActionModule = any;
-type AssessmentRecord = any;
-type EmployeeProgress = any;
-type LearningExperience = any;
-type OrgSnapshotRecord = any;
-type PipelineAgentStatus = any;
-type TenantSnapshot = any;
-type TriggeredAction = any;
+// Type definitions for seed data - COMPLIANT with AGENT_CONTEXT_ULTIMATE.md Lines 1173-1180
+interface Tenant {
+  id: string;
+  name: string;
+  plan: string;
+  status: 'active' | 'inactive' | 'suspended' | 'trial';
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  aiProviders: Record<string, string[]>;
+  features: Record<string, boolean>;
+  integrations: Record<string, unknown>;
+  valuesFramework: Record<string, unknown> | Array<{
+    level: number;
+    name: string;
+    enablingValues: Array<{ name: string; description: string; }>;
+    limitingValues: Array<{ name: string; description: string; }>;
+  }>;
+  lastAnalysisAt?: Date | string;
+  primaryContact?: string;
+}
+
+interface User {
+  id: string;
+  tenantId: string | null;
+  email: string;
+  name: string;
+  role: string;
+  title?: string;
+  cylinderFocus?: number;
+  reportsTo?: string;
+}
+
+interface ActionModule {
+  id: string;
+  name?: string;
+  status?: string;
+  data?: Record<string, unknown>;
+  triggerTags: string[];
+  category?: string;
+  title?: string;
+  description?: string;
+  effort?: string;
+}
+
+interface AssessmentRecord {
+  id: string;
+  tenantId: string;
+  type: string;
+  data?: Record<string, unknown>;
+  createdAt?: string;
+  score?: number;
+  summary?: string;
+  triadConfidence?: number;
+}
+
+interface EmployeeProgress {
+  id: string;
+  employeeId: string;
+  tenantId: string;
+  progress: number;
+  completedAt?: Date | string | null;
+  assignments: Array<{
+    id: string;
+    name: string;
+    completed: boolean;
+    moduleId?: string;
+    status?: string;
+    progress?: number;
+    nextAction?: string;
+  }>;
+}
+
+interface LearningExperience {
+  id: string;
+  name?: string;
+  title?: string;
+  type?: string;
+  content?: Record<string, unknown>;
+  tags: string[];
+  description?: string;
+  cylinder?: number;
+  estimatedMinutes?: number;
+  format?: string;
+}
+
+interface OrgSnapshotRecord {
+  id: string;
+  tenantId: string;
+  timestamp?: Date | string;
+  data?: Record<string, unknown>;
+  overallHealthScore: number;
+  createdAt: Date | string;
+  trend?: string;
+  highlights?: string[];
+}
+
+interface PipelineAgentStatus {
+  id?: string;
+  status: 'running' | 'completed' | 'failed' | 'ready' | 'idle';
+  progress?: number;
+  agent?: string;
+  owner?: string;
+  description?: string;
+  lastRun?: string;
+}
+
+interface TenantSnapshot {
+  id?: string;
+  tenantId: string;
+  data?: Record<string, unknown>;
+  healthScore: number;
+  lastAnalysis?: Date | string;
+}
+
+interface TriggeredAction {
+  id?: string;
+  tenantId: string;
+  action?: string;
+  status: string;
+  triggerId?: string;
+  moduleId?: string;
+  reason?: string;
+  priority?: string;
+  createdAt?: string;
+}
 const DEFAULT_VALUES_FRAMEWORK = {};
 
 export const tenants: Tenant[] = [
