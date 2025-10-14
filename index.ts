@@ -6,25 +6,25 @@ import { db } from './db/index.js';
 import { users, tenants } from './db/schema.js';
 import { eq } from 'drizzle-orm';
 
-// Import routes
-import authRoutes from './routes/auth.js';
-import adminRoutes from './routes/admin.js';
-import employeeRoutes from './routes/employee.js';
-import agentRoutes from './routes/agents.js';
-import entryRoutes from './routes/entry.js';
-import superadminRoutes from './routes/superadmin.js';
-import cultureRoutes from './routes/culture-assessment.js';
-import uploadRoutes from './routes/upload.js';
-import analysesRoutes from './routes/analyses.js';
-import billingRoutes from './routes/billing.js';
-import modulesRoutes from './routes/modules.js';
-import frameworkRoutes from './routes/framework.js';
-import exportRoutes from './routes/export.js';
-import testAiRoutes from './routes/test-ai.js';
-import publicStructureRoutes from './routes/public-structure.js';
-import paymentRoutes from './routes/payment.js';
-import webhookRoutes from './routes/webhooks.js';
-import demoRoutes from './routes/demo.js';
+// Import routes from src directory (AGENT_CONTEXT_ULTIMATE.md Line 383)
+import authRoutes from './src/routes/auth';
+import adminRoutes from './src/routes/admin';
+import employeeRoutes from './src/routes/employee';
+import agentRoutes from './src/routes/agents';
+import entryRoutes from './src/routes/entry';
+import superadminRoutes from './src/routes/superadmin';
+import cultureRoutes from './src/routes/culture-assessment';
+import uploadRoutes from './src/routes/upload';
+import analysesRoutes from './src/routes/analyses';
+import billingRoutes from './src/routes/billing';
+import modulesRoutes from './src/routes/modules';
+import frameworkRoutes from './src/routes/framework';
+import exportRoutes from './src/routes/export';
+import testAiRoutes from './src/routes/test-ai';
+import publicStructureRoutes from './src/routes/public-structure';
+import paymentRoutes from './src/routes/payment';
+import webhookRoutes from './src/routes/webhooks';
+import demoRoutes from './src/routes/demo';
 
 // Load environment variables
 dotenv.config();
