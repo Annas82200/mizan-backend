@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index.js';
-import { frameworkConfig } from '../db/schema/core.js';
+import { db } from '../../db/index.js';
+import { frameworkConfig } from '../../db/schema/core.js';
 import { eq, desc } from 'drizzle-orm';
 import { authenticate, requireRole } from '../middleware/auth.js';
 

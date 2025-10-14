@@ -5,8 +5,8 @@
  */
 
 import { z } from 'zod';
-import { DomainContext } from './KnowledgeEngine';
-import { ProcessedData } from './DataEngine';
+import { DomainContext } from './KnowledgeEngine.js';
+import { ProcessedData } from './DataEngine.js';
 
 // Analysis result schema
 const AnalysisResultSchema = z.object({
@@ -215,7 +215,7 @@ export class ReasoningEngine {
 
     // Factor in pattern strength
     const avgPatternSignificance = data.structured.patterns.reduce(
-      (sum, p) => sum + p.significance,
+      (sum: number, p: any) => sum + p.significance,
       0
     ) / Math.max(1, data.structured.patterns.length);
     confidence += avgPatternSignificance * this.confidenceFactors.patternStrength;
@@ -656,7 +656,7 @@ export class ReasoningEngine {
 
     // Adjust based on pattern significance
     const avgSignificance = data.structured.patterns.reduce(
-      (sum, p) => sum + p.significance,
+      (sum: number, p: any) => sum + p.significance,
       0
     ) / Math.max(1, data.structured.patterns.length);
     score += (avgSignificance - 0.5) * 30;
@@ -769,11 +769,11 @@ export class ReasoningEngine {
     if (historicalData.length === 0) return 0.5;
 
     // Compare pattern consistency
-    const currentPatterns = new Set(data.structured.patterns.map(p => p.pattern));
+    const currentPatterns = new Set(data.structured.patterns.map((p: any) => p.pattern));
     let consistencyScore = 0;
 
     for (const historical of historicalData) {
-      const historicalPatterns = new Set(historical.structured.patterns.map(p => p.pattern));
+      const historicalPatterns = new Set(historical.structured.patterns.map((p: any) => p.pattern));
       const intersection = new Set([...currentPatterns].filter(x => historicalPatterns.has(x)));
       const union = new Set([...currentPatterns, ...historicalPatterns]);
 

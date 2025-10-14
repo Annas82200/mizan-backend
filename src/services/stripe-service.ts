@@ -1,7 +1,7 @@
 // services/stripe-service.ts
 import Stripe from 'stripe';
-import { db } from '../db/index.js';
-import { subscriptions, payments, demoRequests } from '../db/schema/payments.js';
+import { db } from '../../db/index.js';
+import { subscriptions, payments, demoRequests } from '../../db/schema/payments.js';
 import { eq } from 'drizzle-orm';
 import { emailService } from './email.js';
 

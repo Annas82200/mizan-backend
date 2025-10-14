@@ -3,13 +3,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
-import { db } from '../db/index.js';
+import { db } from '../../db/index.js';
 import {
   cultureAssessments,
   employeeProfiles,
   courseEnrollments,
   users
-} from '../db/schema.js';
+} from '../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 
 const router = Router();

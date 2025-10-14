@@ -4,8 +4,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { runArchitectAI, ArchitectAIInput } from '../services/orchestrator/architect-ai.js';
-import { db } from '../db/index.js';
-import { analyses, companies } from '../db/schema.js';
+import { db } from '../../db/index.js';
+import { analyses, companies } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();

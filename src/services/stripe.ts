@@ -1,8 +1,8 @@
 // server/services/stripe.ts
 
 import Stripe from 'stripe';
-import { db } from '../db/index.js';
-import { tenants, payments } from '../db/schema.js';
+import { db } from '../../db/index.js';
+import { tenants, payments } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 

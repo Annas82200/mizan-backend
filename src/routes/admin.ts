@@ -3,7 +3,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { db } from '../db/index.js';
+import { db } from '../../db/index.js';
 import {
   users,
   tenants,
@@ -13,7 +13,7 @@ import {
   employeeProfiles,
   departments,
   triggers
-} from '../db/schema.js';
+} from '../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { emailService } from '../services/email.js';

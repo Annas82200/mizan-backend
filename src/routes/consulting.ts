@@ -3,8 +3,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { db } from '../db/index.js';
-import { consultingRequests, consultants } from '../db/schema.js';
+import { db } from '../../db/index.js';
+import { consultingRequests, consultants } from '../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { emailService } from '../services/email.js';
 

@@ -1,7 +1,7 @@
 // routes/demo.ts
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index.js';
-import { demoRequests } from '../db/schema/payments.js';
+import { db } from '../../db/index.js';
+import { demoRequests } from '../../db/schema/payments.js';
 import { eq, desc } from 'drizzle-orm';
 import { authenticateToken } from '../middleware/auth.js';
 import { emailService } from '../services/email.js';

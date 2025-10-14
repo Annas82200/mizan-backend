@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index.js';
-import { tenants, users } from '../db/schema.js';
+import { db } from '../../db/index.js';
+import { tenants, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import multer from 'multer';

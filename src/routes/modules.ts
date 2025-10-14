@@ -3,8 +3,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { db } from '../db/index.js';
-import { performanceReviews } from '../db/schema.js';
+import { db } from '../../db/index.js';
+import { performanceReviews } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 const router = Router();

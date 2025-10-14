@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { DomainContext } from './KnowledgeEngine';
+import { DomainContext } from './KnowledgeEngine.js';
 
 // Processed data schema
 const ProcessedDataSchema = z.object({
@@ -357,8 +357,8 @@ export class DataEngine {
     const categories: Record<string, string[]> = {};
 
     // Categorize based on context
-    categories.frameworks = context.frameworks.map(f => f.name);
-    categories.bestPractices = context.bestPractices.map(bp => bp.practice);
+    categories.frameworks = context.frameworks.map((f: any) => f.name);
+    categories.bestPractices = context.bestPractices.map((bp: any) => bp.practice);
 
     // Categorize data fields
     const dataFields = Object.keys(data);
