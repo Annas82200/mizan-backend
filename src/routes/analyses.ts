@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { analyzeStructure, StructureAgent } from "../services/agents/structure-agent.js";
-import { analyzeCulture } from "../services/agents/culture-agent.js";
+import { analyzeCulture } from "../services/agents/culture/culture-agent.js";
 import { runArchitectAI } from "../services/orchestrator/architect-ai.js";
 import { buildUnifiedResults } from "../services/results/unified-results.js";
 import { runTriggers } from "../services/results/trigger-engine.js";
