@@ -10,20 +10,22 @@ import { tenants } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert.js";
 import { performCultureExpertAnalysis, type CultureExpertAnalysis } from "../services/culture-design-expert.js";
+import type { StrategyData, StructureData, Role } from "../types/structure-types.js";
 
 const router = Router();
 
-interface Role {
+// Legacy interfaces for old data format
+interface LegacyRole {
   id: string;
   name: string;
   level: number;
   reports: string | null;
-  children?: Role[];
+  children?: LegacyRole[];
 }
 
-interface StructureData {
-  roles: Role[];
-  hierarchy: Role;
+interface LegacyStructureData {
+  roles: LegacyRole[];
+  hierarchy: LegacyRole;
   uploadedAt: string;
 }
 
@@ -35,13 +37,13 @@ interface TenantStrategy {
 }
 
 function analyzeStrategyAlignment(structureData: StructureData, strategy: TenantStrategy) {
-  const { roles } = structureData;
+  const { roles, departments } = structureData;
 
-  // Extract departments from roles
-  const departments = new Map<string, number>();
-  roles.forEach(role => {
-    const dept = role.name.split(' - ')[1] || 'Unknown';
-    departments.set(dept, (departments.get(dept) || 0) + 1);
+  // Count employees by department
+  const departmentCounts = new Map<string, number>();
+  roles.forEach((role: Role) => {
+    const dept = role.department || 'Unknown';
+    departmentCounts.set(dept, (departmentCounts.get(dept) || 0) + 1);
   });
 
   const hasStrategy = !!(strategy.vision || strategy.mission || strategy.strategy);
@@ -79,10 +81,10 @@ function analyzeStrategyAlignment(structureData: StructureData, strategy: Tenant
 
   // Analyze if structure supports strategy
   const totalEmployees = roles.length;
-  const deptArray = Array.from(departments.entries()).sort((a, b) => b[1] - a[1]);
+  const deptArray = Array.from(departmentCounts.entries()).sort((a: [string, number], b: [string, number]) => b[1] - a[1]);
 
-  report.push(`The organization has ${totalEmployees} employees distributed across ${departments.size} functional areas:\n`);
-  deptArray.forEach(([dept, count]) => {
+  report.push(`The organization has ${totalEmployees} employees distributed across ${departmentCounts.size} functional areas:\n`);
+  deptArray.forEach(([dept, count]: [string, number]) => {
     const percentage = ((count / totalEmployees) * 100).toFixed(1);
     report.push(`- **${dept}**: ${count} employees (${percentage}%)`);
   });
@@ -90,10 +92,10 @@ function analyzeStrategyAlignment(structureData: StructureData, strategy: Tenant
   report.push("\n### Strategy Alignment\n");
 
   // Check for strategic alignment based on department distribution
-  const engineeringCount = departments.get('Engineering') || 0;
-  const salesCount = departments.get('Sales') || 0;
-  const productCount = departments.get('Product') || 0;
-  const operationsCount = departments.get('Operations') || 0;
+  const engineeringCount = departmentCounts.get('Engineering') || 0;
+  const salesCount = departmentCounts.get('Sales') || 0;
+  const productCount = departmentCounts.get('Product') || 0;
+  const operationsCount = departmentCounts.get('Operations') || 0;
 
   const engineeringPercent = (engineeringCount / totalEmployees) * 100;
   const salesPercent = (salesCount / totalEmployees) * 100;
@@ -130,7 +132,7 @@ function analyzeStrategyAlignment(structureData: StructureData, strategy: Tenant
   }
 
   if (strategyText.includes('customer') || strategyText.includes('service') || strategyText.includes('experience')) {
-    const customerFacingPercent = salesPercent + (departments.get('Support') || 0) / totalEmployees * 100;
+    const customerFacingPercent = salesPercent + (departmentCounts.get('Support') || 0) / totalEmployees * 100;
     if (customerFacingPercent < 20) {
       misalignments.push({
         area: 'Customer-Facing Teams',
@@ -203,11 +205,11 @@ function analyzeStrategyAlignment(structureData: StructureData, strategy: Tenant
 function calculateRealStructureAnalysis(structureData: StructureData, strategy?: TenantStrategy) {
   const { roles } = structureData;
 
-  // Calculate span of control for each manager
+  // Calculate span of control for each manager (count direct reports)
   const managerSpans = new Map<string, number>();
-  roles.forEach(role => {
-    if (role.reports) {
-      managerSpans.set(role.reports, (managerSpans.get(role.reports) || 0) + 1);
+  roles.forEach((role: Role) => {
+    if (role.reportsTo) {
+      managerSpans.set(role.reportsTo, (managerSpans.get(role.reportsTo) || 0) + 1);
     }
   });
 
@@ -232,10 +234,11 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
 
   // Find outliers (span > 10)
   const outliers: Array<{ role: string; span: number; recommendation: string }> = [];
-  managerSpans.forEach((span, managerName) => {
+  managerSpans.forEach((span, managerId) => {
     if (span > 10) {
+      const manager = roles.find((r: Role) => r.id === managerId);
       outliers.push({
-        role: managerName,
+        role: manager?.title || managerId,
         span,
         recommendation: `Consider adding middle management layer or splitting into ${Math.ceil(span / 7)} teams`
       });
@@ -243,12 +246,12 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
   });
 
   // Layer analysis
-  const maxLevel = Math.max(...roles.map(r => r.level));
+  const maxLevel = Math.max(...roles.map((r: Role) => r.level), 0);
   const totalLayers = maxLevel + 1;
 
   // Find bottlenecks (layers with high avg span)
   const layerCounts = new Map<number, Role[]>();
-  roles.forEach(role => {
+  roles.forEach((role: Role) => {
     if (!layerCounts.has(role.level)) {
       layerCounts.set(role.level, []);
     }
@@ -258,12 +261,12 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
   const bottlenecks: Array<{ layer: number; roles: string[]; issue: string }> = [];
   layerCounts.forEach((rolesInLayer, layer) => {
     if (layer > 0 && layer < maxLevel) {
-      const childCount = roles.filter(r => r.level === layer + 1).length;
+      const childCount = roles.filter((r: Role) => r.level === layer + 1).length;
       const avgChildrenPerRole = childCount / rolesInLayer.length;
       if (avgChildrenPerRole > 8) {
         bottlenecks.push({
           layer,
-          roles: rolesInLayer.map(r => r.name),
+          roles: rolesInLayer.map((r: Role) => r.title),
           issue: `High span at this layer (avg ${avgChildrenPerRole.toFixed(1)} reports per manager)`
         });
       }
@@ -355,10 +358,10 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
   }
 
   // Calculate departments for detailed recommendations
-  const departments = new Map<string, number>();
-  roles.forEach(role => {
-    const dept = role.name.split(' - ')[1] || 'Unknown';
-    departments.set(dept, (departments.get(dept) || 0) + 1);
+  const departmentMap = new Map<string, number>();
+  roles.forEach((role: Role) => {
+    const dept = role.department || 'Unknown';
+    departmentMap.set(dept, (departmentMap.get(dept) || 0) + 1);
   });
 
   // Calculate strategy alignment if strategy provided
@@ -387,12 +390,12 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
         let specificActions: string[] = [];
 
         console.log('📊 Processing gap:', gap.area);
-        console.log('📊 Available departments:', Array.from(departments.keys()));
-        console.log('📊 Department counts:', Array.from(departments.entries()));
+        console.log('📊 Available departments:', Array.from(departmentMap.keys()));
+        console.log('📊 Department counts:', Array.from(departmentMap.entries()));
 
         // Generate specific, actionable recommendations based on the gap
         if (gap.area === 'Engineering Capacity') {
-          const engineeringCount = departments.get('Engineering') || 0;
+          const engineeringCount = departmentMap.get('Engineering') || 0;
           const totalEmployees = roles.length;
           const currentPercent = ((engineeringCount / totalEmployees) * 100).toFixed(1);
           const targetPercent = 30; // Innovation strategies typically need 30-40% technical
@@ -406,7 +409,7 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
             `Alternative: Partner with development agencies for 3-6 months while building internal team`
           ];
         } else if (gap.area === 'Sales & GTM') {
-          const salesCount = departments.get('Sales') || 0;
+          const salesCount = departmentMap.get('Sales') || 0;
           const totalEmployees = roles.length;
           const currentPercent = ((salesCount / totalEmployees) * 100).toFixed(1);
           const targetPercent = 20;
@@ -420,7 +423,7 @@ function calculateRealStructureAnalysis(structureData: StructureData, strategy?:
             `Timeline: Fill leadership role (VP Sales) in Q1, ramp team throughout year`
           ];
         } else if (gap.area === 'Customer-Facing Teams') {
-          const supportCount = (departments.get('Support') || 0) + (departments.get('Sales') || 0);
+          const supportCount = (departmentMap.get('Support') || 0) + (departmentMap.get('Sales') || 0);
           const totalEmployees = roles.length;
           const neededHires = Math.ceil((totalEmployees * 0.25) - supportCount);
 
@@ -501,7 +504,16 @@ router.post("/structure", async (req, res) => {
       return res.status(404).json({ error: "No organization structure found for tenant" });
     }
 
-    const structureData = structures[0].structureData as StructureData;
+    const rawStructureData = structures[0].structureData as any;
+    
+    // Ensure structureData has all required StructureData fields
+    const structureData: StructureData = {
+      departments: rawStructureData.departments || [],
+      reportingLines: rawStructureData.reportingLines || [],
+      roles: rawStructureData.roles || [],
+      totalEmployees: rawStructureData.totalEmployees || rawStructureData.employees?.length || 0,
+      organizationLevels: rawStructureData.organizationLevels || 1
+    };
 
     // Get tenant strategy data including name, industry, positioning
     const tenantData = await db
@@ -519,12 +531,27 @@ router.post("/structure", async (req, res) => {
       .limit(1);
 
     const tenantInfo = tenantData.length > 0 ? tenantData[0] : null;
-    const strategyData: TenantStrategy = tenantData.length > 0
+    const tenantStrategy: TenantStrategy = tenantData.length > 0
       ? tenantData[0] as TenantStrategy
       : { vision: null, mission: null, strategy: null, values: null };
 
+    // Convert TenantStrategy to StrategyData format for AI agents
+    const strategyData: StrategyData | undefined = 
+      (tenantStrategy.vision || tenantStrategy.mission || tenantStrategy.strategy)
+        ? {
+            id: tenantId, // Use tenantId as strategy id
+            vision: tenantStrategy.vision || undefined,
+            mission: tenantStrategy.mission || undefined,
+            goals: [], // Could extract from strategy text in the future
+            priorities: [],
+            targetMarket: undefined,
+            competitiveAdvantage: undefined,
+            growthStrategy: tenantStrategy.strategy || undefined
+          }
+        : undefined;
+
     // Calculate real analysis from actual data with strategy alignment
-    const result = calculateRealStructureAnalysis(structureData, strategyData);
+    const result = calculateRealStructureAnalysis(structureData, tenantStrategy);
 
     // Run rich AI-powered structure analysis for human, contextual insights
     const structureAgent = new StructureAgent();
@@ -534,7 +561,7 @@ router.post("/structure", async (req, res) => {
         tenantId,
         companyName: tenantInfo?.name || 'Your Organization',
         structureData: structureData,
-        strategyData: strategyData.vision || strategyData.mission || strategyData.strategy ? strategyData : undefined
+        strategyData: strategyData
       });
     } catch (error) {
       console.error('Failed to generate rich structure analysis:', error);
@@ -542,10 +569,10 @@ router.post("/structure", async (req, res) => {
 
     // Run expert organizational design analysis
     let expertAnalysis: ExpertOrgDesignAnalysis | null = null;
-    if (strategyData.vision || strategyData.mission || strategyData.strategy) {
+    if (tenantStrategy.vision || tenantStrategy.mission || tenantStrategy.strategy) {
       expertAnalysis = performExpertAnalysis(
         structureData,
-        strategyData,
+        tenantStrategy,
         tenantInfo?.name,
         tenantInfo?.industry
       );
@@ -619,31 +646,8 @@ router.post("/culture", async (req, res) => {
     // Run Mizan 7-Cylinder Framework analysis (unchanged - respects the approved framework)
     const result = await analyzeCulture(req.body || {});
 
-    // Enhance recommendations with client name and formatted descriptions
-    if (result.recommendations && Array.isArray(result.recommendations)) {
-      result.recommendations = result.recommendations.map((rec: any) => {
-        // Add client name to title if not already there
-        const enhancedTitle = rec.title.includes(clientName)
-          ? rec.title
-          : `${clientName}: ${rec.title}`;
-
-        // Format description with ** subtitles if expectedImpact exists
-        let enhancedDescription = rec.description;
-        if (rec.expectedImpact && !rec.description.includes('**Expected Impact:**')) {
-          enhancedDescription = `${rec.description}\n\n**Expected Impact:**\n${rec.expectedImpact}`;
-        }
-        if (rec.timeframe && !enhancedDescription.includes('**Timeframe:**')) {
-          enhancedDescription = `${enhancedDescription}\n\n**Timeframe:**\n${rec.timeframe}`;
-        }
-
-        return {
-          ...rec,
-          title: enhancedTitle,
-          description: enhancedDescription
-        };
-      });
-    }
-
+    // Culture analysis returns recommendations in { immediate, shortTerm, longTerm } format
+    // No enhancement needed - returning as-is from Culture Agent
     return res.json(result);
   } catch (e: any) {
     console.error('Culture analysis error:', e);
@@ -1000,27 +1004,42 @@ router.post('/skills', async (req, res) => {
     console.log('📊 Running skills analysis for tenant:', tenantId);
     const startTime = Date.now();
 
+    // Get tenant info for analysis
+    const tenantInfo = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId)
+    });
+
+    if (!tenantInfo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant not found'
+      });
+    }
+
     // Run the actual skills analysis
     const analysis = await skillsAgent.analyzeSkills({
       tenantId,
-      targetType,
-      targetId: tenantId
+      companyId: tenantId,
+      industry: tenantInfo.industry || 'General',
+      organizationName: tenantInfo.name || 'Organization',
+      strategy: tenantInfo.strategy || undefined
     });
 
     console.log('✅ Skills analysis complete:', {
       tenantId,
-      coverage: analysis.overallCoverage,
-      gapsFound: analysis.skillGaps.length,
+      overallScore: analysis.overallScore,
+      criticalGapsCount: analysis.criticalGaps.length,
       executionTime: Date.now() - startTime
     });
 
     // Return the analysis results in the format the frontend expects
     return res.json({
-      overallCoverage: analysis.overallCoverage,
-      skillGaps: analysis.skillGaps,
-      skillSurplus: analysis.skillSurplus,
+      overallScore: analysis.overallScore,
+      strategicAlignment: analysis.strategicAlignment,
+      skillsCoverage: analysis.skillsCoverage,
+      criticalGaps: analysis.criticalGaps,
       recommendations: analysis.recommendations,
-      trainingTriggers: analysis.trainingTriggers,
+      lxpTriggers: analysis.lxpTriggers || [],
       metadata: {
         analysisDate: new Date().toISOString(),
         executionTime: Date.now() - startTime,

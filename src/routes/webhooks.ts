@@ -31,6 +31,8 @@ router.post('/stripe', async (req: Request, res: Response) => {
     console.log(`📩 Stripe webhook received: ${event.type}`);
 
     // Handle different event types
+    // Note: TenantId is extracted from Stripe metadata within each handler
+    // to ensure proper multi-tenant isolation for billing operations
     switch (event.type) {
       case 'checkout.session.completed':
         await stripeService.handleCheckoutComplete(event.data.object as Stripe.Checkout.Session);
@@ -49,7 +51,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
         break;
 
       case 'invoice.payment_succeeded':
-        console.log(`✅ Payment succeeded for invoice ${event.data.object.id}`);
+        console.log(`✅ Payment succeeded for invoice ${(event.data.object as Stripe.Invoice).id}`);
         break;
 
       default:

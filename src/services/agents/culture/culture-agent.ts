@@ -802,3 +802,37 @@ Return ONLY valid JSON. Be specific and actionable.`;
   }
 }
 
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+// Create singleton instance with proper Three-Engine configuration
+const cultureConfig: ThreeEngineConfig = {
+  knowledge: {
+    providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+    model: 'claude-3-opus-20240229',
+    temperature: 0.2,
+    maxTokens: 4000
+  },
+  data: {
+    providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+    model: 'gpt-4',
+    temperature: 0.1,
+    maxTokens: 3000
+  },
+  reasoning: {
+    providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+    model: 'claude-3-opus-20240229',
+    temperature: 0.4,
+    maxTokens: 4000
+  },
+  consensusThreshold: 0.8
+};
+
+const agent = new CultureAgentV2('culture', cultureConfig);
+export { agent as cultureAgent };
+
+// Export the main analysis function for backward compatibility
+export async function analyzeCulture(input: CultureAnalysisInput): Promise<CultureAnalysisOutput> {
+  return agent.analyzeCulture(input);
+}

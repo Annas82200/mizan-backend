@@ -115,7 +115,12 @@ export const skillsAssessments = pgTable('skills_assessments', {
   userId: text('user_id').notNull(),
   currentSkills: jsonb('current_skills'),
   requiredSkills: jsonb('required_skills'),
+  analysisData: jsonb('analysis_data'), // Full analysis results
+  overallScore: integer('overall_score'), // 0-100
+  strategicAlignment: integer('strategic_alignment'), // 0-100
+  criticalGapsCount: integer('critical_gaps_count'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 
 // Relations
@@ -191,3 +196,57 @@ export const employeeSkills = pgTable('employee_skills', {
   proficiencyLevel: integer('proficiency_level'), // 1-5 scale
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// User Skills Table - for individual skills tracking
+export const skills = pgTable('skills', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  category: text('category').notNull(), // 'technical' | 'soft' | 'leadership' | 'analytical' | 'communication'
+  level: text('level').notNull(), // 'beginner' | 'intermediate' | 'advanced' | 'expert'
+  yearsOfExperience: integer('years_of_experience'),
+  verified: boolean('verified').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+// Skills Gaps Table - for tracking skill gaps
+export const skillsGaps = pgTable('skills_gaps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id'),
+  skill: text('skill').notNull(),
+  category: text('category').notNull(),
+  currentLevel: text('current_level').notNull(),
+  requiredLevel: text('required_level').notNull(),
+  gapSeverity: text('gap_severity').notNull(), // 'critical' | 'high' | 'medium' | 'low'
+  priority: integer('priority').notNull(),
+  businessImpact: text('business_impact'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+// Relations for skills table
+export const skillsRelations = relations(skills, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skills.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [skills.userId],
+    references: [users.id],
+  }),
+}));
+
+// Relations for skillsGaps table
+export const skillsGapsRelations = relations(skillsGaps, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsGaps.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [skillsGaps.employeeId],
+    references: [users.id],
+  }),
+}));

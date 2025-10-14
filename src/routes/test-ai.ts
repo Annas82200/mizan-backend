@@ -1,12 +1,20 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/test-ai', async (req, res) => {
+// Apply authentication and restrict to superadmin only
+router.use(authenticate);
+router.use(requireRole('superadmin'));
+
+router.get('/test-ai', async (req: Request, res: Response) => {
   try {
-    console.log('🧪 TEST - Starting AI test...');
-    
+    const tenantId = req.user!.tenantId;
+    const userId = req.user!.id;
+
+    console.log(`🧪 TEST - Starting AI test for superadmin (tenant: ${tenantId}, user: ${userId})...`);
+
     const agent = new CultureAgent('culture', {
       knowledge: {
         providers: ['anthropic'],

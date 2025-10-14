@@ -5,8 +5,8 @@ import { db } from '../../../db/index.js';
 import { triggers, triggerExecutions } from '../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { lxpModule } from '../modules/lxp/lxp-module.js';
-import { hiringModule } from '../modules/hiring/hiring-module.js';
+import lxpModule from '../modules/lxp/lxp-module.js';
+import hiringModule from '../modules/hiring/hiring-module.js';
 import { TriggerConfig, TriggerResultData } from '../../types/trigger-types.js';
 
 export interface Trigger {
@@ -46,7 +46,16 @@ export async function runTriggers(unifiedResults: UnifiedResults & { tenantId: s
     const triggerResults: TriggerResult[] = [];
     
     // Process each trigger
-    for (const trigger of activeTriggers) {
+    for (const dbTrigger of activeTriggers) {
+      // Map database result to Trigger interface
+      const trigger: Trigger = {
+        id: dbTrigger.id,
+        name: dbTrigger.name,
+        type: dbTrigger.type,
+        config: (dbTrigger.metadata as TriggerConfig) || {},
+        status: (dbTrigger.isActive ? 'active' : 'inactive') as 'active' | 'inactive' | 'paused',
+        tenantId: dbTrigger.tenantId
+      };
       try {
         const result = await processTrigger(trigger, unifiedResults);
         if (result) {

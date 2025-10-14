@@ -205,7 +205,7 @@ export const tenants: Tenant[] = [
     },
     valuesFramework: DEFAULT_VALUES_FRAMEWORK,
     createdAt: "2024-02-04T08:00:00.000Z",
-    lastAnalysisAt: null,
+    lastAnalysisAt: undefined,
   },
 ];
 
@@ -395,35 +395,35 @@ export const learningLibrary: LearningExperience[] = [
 
 export const employeeProgress: EmployeeProgress[] = [
   {
+    id: "prog-1",
     employeeId: "user-aurora-emp-1",
     tenantId: "tenant-aurora",
-    xp: 1280,
-    streak: 6,
+    progress: 0.65,
     assignments: [
-      { moduleId: "learn-mastery-lab", status: "completed", progress: 1, nextAction: "Coach peers on lab outline" },
-      { moduleId: "learn-evolution-loop", status: "in_progress", progress: 0.45, nextAction: "Run retro with new canvas" },
-      { moduleId: "module-aar-sprint", status: "not_started", progress: 0, nextAction: "Schedule first AAR" },
+      { id: "assign-1", name: "Mastery Lab", completed: true, moduleId: "learn-mastery-lab", status: "completed", progress: 1, nextAction: "Coach peers on lab outline" },
+      { id: "assign-2", name: "Evolution Loop", completed: false, moduleId: "learn-evolution-loop", status: "in_progress", progress: 0.45, nextAction: "Run retro with new canvas" },
+      { id: "assign-3", name: "AAR Sprint", completed: false, moduleId: "module-aar-sprint", status: "not_started", progress: 0, nextAction: "Schedule first AAR" },
     ],
   },
   {
+    id: "prog-2",
     employeeId: "user-aurora-emp-2",
     tenantId: "tenant-aurora",
-    xp: 860,
-    streak: 3,
+    progress: 0.4,
     assignments: [
-      { moduleId: "learn-belonging-story", status: "in_progress", progress: 0.6, nextAction: "Test story in next standup" },
-      { moduleId: "module-performance-clarity", status: "not_started", progress: 0, nextAction: "Review goal canvas" },
+      { id: "assign-4", name: "Belonging Story", completed: false, moduleId: "learn-belonging-story", status: "in_progress", progress: 0.6, nextAction: "Test story in next standup" },
+      { id: "assign-5", name: "Performance Clarity", completed: false, moduleId: "module-performance-clarity", status: "not_started", progress: 0, nextAction: "Review goal canvas" },
     ],
   },
 ];
 
 export const pipelineAgents: PipelineAgentStatus[] = [
-  { agent: "Agent D", owner: "Survey Analyst", description: "Synthesizes pulses and long-form feedback.", lastRun: "2024-08-12T09:00:00.000Z", status: "ready" },
-  { agent: "Agent A", owner: "Coordinator", description: "Sequences cadences and orchestrates nudges.", lastRun: "2024-08-12T09:15:00.000Z", status: "running" },
-  { agent: "Agent B", owner: "Psychology Expert", description: "Maps motivational levers to values cylinders.", lastRun: "2024-08-11T17:30:00.000Z", status: "ready" },
-  { agent: "Agent C", owner: "Ethical Values Mapper", description: "Checks interventions against seven-cylinder ethics.", lastRun: "2024-08-11T18:00:00.000Z", status: "ready" },
-  { agent: "Agent E", owner: "Training Designer", description: "Builds blended experiences from the library.", lastRun: "2024-08-11T18:30:00.000Z", status: "idle" },
-  { agent: "Agent F", owner: "Game Developer", description: "Ships XP quests and mini-games.", lastRun: "2024-08-10T16:00:00.000Z", status: "idle" },
+  { id: "agent-d", agent: "Agent D", owner: "Survey Analyst", description: "Synthesizes pulses and long-form feedback.", lastRun: "2024-08-12T09:00:00.000Z", status: "ready" },
+  { id: "agent-a", agent: "Agent A", owner: "Coordinator", description: "Sequences cadences and orchestrates nudges.", lastRun: "2024-08-12T09:15:00.000Z", status: "running" },
+  { id: "agent-b", agent: "Agent B", owner: "Psychology Expert", description: "Maps motivational levers to values cylinders.", lastRun: "2024-08-11T17:30:00.000Z", status: "ready" },
+  { id: "agent-c", agent: "Agent C", owner: "Ethical Values Mapper", description: "Checks interventions against seven-cylinder ethics.", lastRun: "2024-08-11T18:00:00.000Z", status: "ready" },
+  { id: "agent-e", agent: "Agent E", owner: "Training Designer", description: "Builds blended experiences from the library.", lastRun: "2024-08-11T18:30:00.000Z", status: "idle" },
+  { id: "agent-f", agent: "Agent F", owner: "Game Developer", description: "Ships XP quests and mini-games.", lastRun: "2024-08-10T16:00:00.000Z", status: "idle" },
 ];
 
 export const tenantSnapshots: TenantSnapshot[] = tenants.map((tenant) => ({

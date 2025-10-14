@@ -14,7 +14,7 @@ const analysisRequestSchema = z.object({
 });
 
 const multiAgentRequestSchema = z.object({
-  agentTypes: z.array(z.string()),
+  agentTypes: z.array(z.enum(['culture', 'structure'])),
   inputData: z.any()
 });
 

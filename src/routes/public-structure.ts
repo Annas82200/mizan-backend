@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { StructureAgent } from '../services/agents/structure-agent.js';
+import { StructureData } from '../types/structure-types.js';
 
 const router = express.Router();
 
@@ -76,21 +77,55 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       }
     }
 
-    // Prepare structure data for AI analysis
-    const structureData = {
-      employees: orgStructure,
-      reportingRelationships,
+    // Build departments from employee data
+    const departmentMap = new Map<string, { id: string; name: string; headCount: number; manager?: string }>();
+    orgStructure.forEach(emp => {
+      const deptName = emp.department || 'General';
+      if (!departmentMap.has(deptName)) {
+        departmentMap.set(deptName, {
+          id: deptName.toLowerCase().replace(/\s+/g, '-'),
+          name: deptName,
+          headCount: 0
+        });
+      }
+      const dept = departmentMap.get(deptName)!;
+      dept.headCount++;
+    });
+
+    // Prepare structure data for AI analysis in proper StructureData format
+    const structureData: StructureData = {
+      departments: Array.from(departmentMap.values()),
+      reportingLines: Object.entries(reportingRelationships).flatMap(([manager, reports]) =>
+        (reports as string[]).map(report => ({
+          from: report,
+          to: manager,
+          type: 'direct' as const
+        }))
+      ),
+      roles: orgStructure.map(emp => ({
+        id: emp.id,
+        title: emp.title || 'Unknown',
+        department: emp.department || 'General',
+        level: emp.level,
+        reportsTo: emp.reportsTo,
+        directReports: (reportingRelationships[emp.id] as string[] | undefined) || []
+      })),
       totalEmployees: orgStructure.length,
-      managers: Object.keys(reportingRelationships)
+      organizationLevels: Math.max(...orgStructure.map(e => e.level), 1)
     };
 
-    // Prepare strategy data
-    const strategyData = {
-      vision: vision || '',
-      mission: mission || '',
-      strategy: strategy || '',
-      values: values ? values.split(',').map((v: string) => v.trim()) : []
-    };
+    // Prepare strategy data in proper StrategyData format
+    const hasStrategy = vision || mission || strategy;
+    const strategyData = hasStrategy ? {
+      id: 'public-strategy',
+      vision: vision || undefined,
+      mission: mission || undefined,
+      goals: [],
+      priorities: [],
+      targetMarket: undefined,
+      competitiveAdvantage: undefined,
+      growthStrategy: strategy || undefined
+    } : undefined;
 
     // Run FULL AI-powered structure analysis using Structure Agent
     const structureAgent = new StructureAgent();
@@ -101,7 +136,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
         tenantId: 'public', // Special tenant ID for public analyses
         companyName,
         structureData,
-        strategyData: vision || mission || strategy ? strategyData : undefined,
+        strategyData,
         useFastMode: true // Use single Gemini call for speed (~3-5 seconds vs ~30+ seconds)
       });
 
@@ -109,9 +144,9 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       richAnalysis = {
         overallAssessment: agentResponse.overallHealthInterpretation || '',
         keyFindings: [
-          agentResponse.spanAnalysis?.interpretation,
-          agentResponse.layerAnalysis?.interpretation,
-          agentResponse.strategyAlignment?.interpretation,
+          agentResponse.spanAnalysis?.interpretation || `Span of Control: Average ${agentResponse.spanAnalysis?.average || 0} direct reports`,
+          agentResponse.layerAnalysis?.interpretation || `Organization Layers: ${agentResponse.layerAnalysis?.totalLayers || 0} hierarchical levels`,
+          agentResponse.strategyAlignment?.interpretation || `Strategy Alignment: ${agentResponse.strategyAlignment?.score || 0}% score`,
           agentResponse.humanImpact?.interpretation
         ].filter(Boolean),
         recommendations: agentResponse.recommendations || []

@@ -6,10 +6,36 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
-import path from 'path';
 import { parse } from 'csv-parse/sync';
 
 const router = Router();
+
+// Type definitions for CSV records
+interface EmployeeCSVRecord {
+  Name: string;
+  Email: string;
+  Title?: string;
+  Department?: string;
+  'Manager Email'?: string;
+}
+
+// Type for tenant updates
+interface TenantUpdates {
+  name?: string;
+  plan?: string;
+  status?: string;
+  industry?: string;
+  size?: string;
+  domain?: string;
+  updatedAt?: Date;
+}
+
+// Type for user updates
+interface UserUpdates {
+  role?: string;
+  isActive?: boolean;
+  updatedAt: Date;
+}
 
 // Configure multer for CSV upload
 const upload = multer({
@@ -76,7 +102,7 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
         // Create users from CSV
         // Expected columns: Name, Email, Title, Department, Manager Email
         for (const record of records) {
-          const { Name, Email, Title, Department } = record as any;
+          const { Name, Email, Title } = record as EmployeeCSVRecord;
 
           if (!Name || !Email) continue;
 
@@ -108,9 +134,10 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
 
         // Clean up uploaded file
         await fs.unlink(req.file.path);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error processing CSV';
         console.error('CSV processing error:', err);
-        return res.status(400).json({ error: 'Failed to process CSV file: ' + err.message });
+        return res.status(400).json({ error: 'Failed to process CSV file: ' + errorMessage });
       }
     }
 
@@ -121,9 +148,10 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
       message: `Client created successfully with ${employeesCreated} employees`
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create client';
     console.error('Client creation error:', error);
-    return res.status(500).json({ error: 'Failed to create client: ' + error.message });
+    return res.status(500).json({ error: 'Failed to create client: ' + errorMessage });
   }
 });
 
@@ -178,8 +206,8 @@ router.patch('/tenants/:tenantId', async (req: Request, res: Response) => {
   const { tenantId } = req.params;
   const updates = req.body;
 
-  const allowedFields = ['name', 'plan', 'status', 'industry', 'size', 'domain'];
-  const filteredUpdates: any = {};
+  const allowedFields: (keyof TenantUpdates)[] = ['name', 'plan', 'status', 'industry', 'size', 'domain'];
+  const filteredUpdates: TenantUpdates = {};
 
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
@@ -229,7 +257,7 @@ router.patch('/users/:userId', async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { role, isActive } = req.body;
 
-  const updates: any = { updatedAt: new Date() };
+  const updates: UserUpdates = { updatedAt: new Date() };
 
   if (role) updates.role = role;
   if (typeof isActive === 'boolean') updates.isActive = isActive;
@@ -265,7 +293,7 @@ router.get('/stats', async (req: Request, res: Response) => {
     };
 
     return res.json(stats);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Stats error:', error);
     return res.status(500).json({ error: 'Failed to fetch stats' });
   }
@@ -287,7 +315,8 @@ router.get('/revenue', async (req: Request, res: Response) => {
     ];
 
     return res.json({ data });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Revenue fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch revenue' });
   }
 });
@@ -311,7 +340,8 @@ router.get('/activity', async (req: Request, res: Response) => {
     ];
 
     return res.json({ activities: activities.slice(0, limit) });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Activity fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch activity' });
   }
 });
@@ -337,7 +367,8 @@ router.get('/analytics/usage', async (req: Request, res: Response) => {
     };
 
     return res.json(stats);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Usage stats fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch usage stats' });
   }
 });
@@ -361,7 +392,8 @@ router.get('/analytics/api', async (req: Request, res: Response) => {
     };
 
     return res.json(stats);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('API stats fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch API stats' });
   }
 });
@@ -378,7 +410,8 @@ router.get('/analytics/agents', async (req: Request, res: Response) => {
     ];
 
     return res.json({ agents });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Agent stats fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch agent stats' });
   }
 });
@@ -396,7 +429,8 @@ router.get('/analytics/performance', async (req: Request, res: Response) => {
     ];
 
     return res.json({ metrics });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Performance metrics fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch performance metrics' });
   }
 });

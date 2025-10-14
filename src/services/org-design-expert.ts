@@ -10,17 +10,21 @@
  * 6. Industry-specific benchmarks
  */
 
-interface Role {
+// Import types from standard definitions
+import type { StructureData as ImportedStructureData, Role as ImportedRole } from '../types/structure-types.js';
+
+// Legacy interfaces for backward compatibility
+interface LegacyRole {
   id: string;
   name: string;
   level: number;
   reports: string | null;
-  children?: Role[];
+  children?: LegacyRole[];
 }
 
-interface StructureData {
-  roles: Role[];
-  hierarchy: Role;
+interface LegacyStructureData {
+  roles: LegacyRole[];
+  hierarchy: LegacyRole;
   uploadedAt: string;
 }
 
@@ -30,6 +34,10 @@ interface TenantStrategy {
   strategy: string | null;
   values: string[] | null;
 }
+
+// Type alias for compatibility
+type StructureData = ImportedStructureData | LegacyStructureData;
+type Role = ImportedRole | LegacyRole;
 
 // ============================================================================
 // COMPANY STAGE DETECTION (Greiner's Growth Model)

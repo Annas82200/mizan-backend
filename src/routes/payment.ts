@@ -34,6 +34,7 @@ router.post('/create-checkout-session', authenticateToken, async (req: Request, 
     }
 
     // Get demo request
+    // Note: demoRequests table doesn't have tenantId as it stores pre-tenant signup data
     const [demoRequest] = await db
       .select()
       .from(demoRequests)

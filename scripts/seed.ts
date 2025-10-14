@@ -9,7 +9,7 @@ import {
   employeeProfiles,
   learningAssignments,
 } from "../db/schema.js";
-import { hashPassword } from "../services/auth.js";
+import { hashPassword } from "../src/services/auth.js";
 
 const DEFAULT_VALUES_FRAMEWORK = [
   {

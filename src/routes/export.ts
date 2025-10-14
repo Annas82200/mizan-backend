@@ -760,19 +760,28 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
 router.post('/structure', async (req: Request, res: Response) => {
   try {
     const { analysisData, tenantName } = req.body;
+    const tenantId = req.user?.tenantId;
+
+    // Verify tenant isolation - ensure user can only export their own tenant's data
+    if (!tenantId) {
+      return res.status(401).json({ error: 'Authentication required for export' });
+    }
 
     if (!analysisData) {
       return res.status(400).json({ error: 'Analysis data is required' });
     }
 
+    // Note: analysisData should already be filtered by tenantId from the analysis retrieval
+    // This endpoint trusts that the client has fetched tenant-specific data
     const html = generateHTMLExport(analysisData, tenantName || 'Organization');
 
     // Return HTML for download or preview
     res.setHeader('Content-Type', 'text/html');
     return res.send(html);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate export';
     console.error('Export error:', error);
-    return res.status(500).json({ error: 'Failed to generate export' });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 

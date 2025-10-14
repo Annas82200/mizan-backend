@@ -23,9 +23,16 @@ export interface StructureAnalysisInput extends Record<string, unknown> {
 
 export interface StructureAnalysisOutput {
   overallScore: number;
+  overallHealthInterpretation?: string;
+  humanImpact?: {
+    interpretation?: string;
+    employeeExperience?: string;
+    culturalImpact?: string;
+  };
   spanAnalysis: {
     average: number;
     distribution: { [span: string]: number };
+    interpretation?: string;
     outliers: Array<{
       role: string;
       span: number;
@@ -35,6 +42,7 @@ export interface StructureAnalysisOutput {
   layerAnalysis: {
     totalLayers: number;
     averageLayersToBottom: number;
+    interpretation?: string;
     bottlenecks: Array<{
       layer: number;
       roles: string[];
@@ -43,6 +51,7 @@ export interface StructureAnalysisOutput {
   };
   strategyAlignment: {
     score: number;
+    interpretation?: string;
     misalignments: Array<{
       area: string;
       issue: string;
@@ -263,8 +272,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
         },
         humanImpact: {
           interpretation: 'Human impact analysis is being processed.',
-          strengths: [],
-          challenges: []
+          employeeExperience: 'Employee experience analysis pending.',
+          culturalImpact: 'Cultural impact analysis pending.'
         },
         recommendations: []
       };

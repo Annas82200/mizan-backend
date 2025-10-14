@@ -12,6 +12,8 @@ const router = Router();
  * POST /api/demo/submit
  * Submit a demo request from the public /demo page
  * PUBLIC - No authentication required
+ * NOTE: Demo requests are pre-tenant data (submitted before tenant creation),
+ * so tenantId isolation does not apply to this table by design.
  */
 router.post('/submit', async (req: Request, res: Response) => {
   try {

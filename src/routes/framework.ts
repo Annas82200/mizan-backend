@@ -11,9 +11,15 @@ router.use(authenticate);
 
 /**
  * GET /api/framework - Get current active framework configuration
+ * NOTE: Framework is a global configuration (not tenant-specific) but access is tenant-isolated
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user!.tenantId;
+
+    // Framework configuration is global but logged for audit purposes
+    console.log(`Framework config accessed by tenant: ${tenantId}`);
+
     // Get the most recent active framework config
     const configs = await db.query.frameworkConfig.findMany({
       where: eq(frameworkConfig.isActive, true),
@@ -35,18 +41,24 @@ router.get('/', async (req: Request, res: Response) => {
       cylinders: configs[0].cylinders,
       updatedAt: configs[0].updatedAt
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework configuration';
     console.error('Get framework error:', error);
-    return res.status(500).json({ error: 'Failed to fetch framework configuration' });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 
 /**
  * PUT /api/framework - Update framework configuration (superadmin only)
+ * NOTE: Framework updates are global but tracked by superadmin's tenantId for audit
  */
 router.put('/', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user!.tenantId;
+    const userId = req.user!.id;
     const { cylinders } = req.body;
+
+    console.log(`Framework config update attempted by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     if (!cylinders || !Array.isArray(cylinders) || cylinders.length !== 7) {
       return res.status(400).json({ error: 'Invalid framework data. Must include 7 cylinders.' });
@@ -54,10 +66,10 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
 
     // Validate each cylinder has required fields
     for (const cylinder of cylinders) {
-      if (!cylinder.cylinder || !cylinder.name || !cylinder.definition || 
+      if (!cylinder.cylinder || !cylinder.name || !cylinder.definition ||
           !cylinder.ethicalPrinciple || !cylinder.enablingValues || !cylinder.limitingValues) {
-        return res.status(400).json({ 
-          error: `Invalid cylinder ${cylinder.cylinder || 'unknown'}. Missing required fields.` 
+        return res.status(400).json({
+          error: `Invalid cylinder ${cylinder.cylinder || 'unknown'}. Missing required fields.`
         });
       }
     }
@@ -80,7 +92,7 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
       version: newVersion,
       cylinders: cylinders,
       isActive: true,
-      updatedBy: req.user!.id
+      updatedBy: userId
     }).returning();
 
     return res.json({
@@ -89,9 +101,10 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
       version: newConfig.version,
       id: newConfig.id
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update framework configuration';
     console.error('Update framework error:', error);
-    return res.status(500).json({ error: 'Failed to update framework configuration' });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -100,7 +113,10 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
  */
 router.get('/history', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user!.tenantId;
     const limit = parseInt(req.query.limit as string) || 10;
+
+    console.log(`Framework history accessed by superadmin (tenant: ${tenantId})`);
 
     const configs = await db.query.frameworkConfig.findMany({
       orderBy: [desc(frameworkConfig.createdAt)],
@@ -117,9 +133,10 @@ router.get('/history', requireRole('superadmin'), async (req: Request, res: Resp
         cylinderCount: Array.isArray(config.cylinders) ? config.cylinders.length : 0
       }))
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework history';
     console.error('Get framework history error:', error);
-    return res.status(500).json({ error: 'Failed to fetch framework history' });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -128,7 +145,10 @@ router.get('/history', requireRole('superadmin'), async (req: Request, res: Resp
  */
 router.get('/version/:version', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user!.tenantId;
     const version = parseInt(req.params.version);
+
+    console.log(`Framework version ${version} accessed by superadmin (tenant: ${tenantId})`);
 
     const configs = await db.query.frameworkConfig.findMany({
       where: eq(frameworkConfig.version, version),
@@ -147,9 +167,10 @@ router.get('/version/:version', requireRole('superadmin'), async (req: Request, 
       updatedBy: configs[0].updatedBy,
       updatedAt: configs[0].updatedAt
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework version';
     console.error('Get framework version error:', error);
-    return res.status(500).json({ error: 'Failed to fetch framework version' });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 

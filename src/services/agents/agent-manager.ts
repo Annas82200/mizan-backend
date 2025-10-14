@@ -1,7 +1,7 @@
 import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent.js';
 import { StructureAgent, StructureAnalysisOutput } from './structure-agent.js';
 import { db } from '../../../db/index.js';
-import { agentAnalyses, triggers, cultureAssessments } from '../../../db/schema.js';
+import { agentAnalyses, triggers, cultureAssessments as cultureAssessmentsTable } from '../../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Unified agent output type
@@ -308,9 +308,9 @@ export class AgentManager {
     // Get culture recommendations
     const cultureAssessments = await db
       .select()
-      .from(cultureAssessments)
-      .where(eq(cultureAssessments.tenantId, tenantId))
-      .orderBy(desc(cultureAssessments.createdAt))
+      .from(cultureAssessmentsTable)
+      .where(eq(cultureAssessmentsTable.tenantId, tenantId))
+      .orderBy(desc(cultureAssessmentsTable.createdAt))
       .limit(1);
 
     if (cultureAssessments.length > 0 && cultureAssessments[0].results) {

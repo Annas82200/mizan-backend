@@ -104,18 +104,10 @@ type DeepPartial<T> = {
 function cloneTenant(input: Tenant): Tenant {
   return {
     ...input,
-    aiProviders: {
-      knowledge: [...input.aiProviders.knowledge],
-      data: [...input.aiProviders.data],
-      reasoning: [...input.aiProviders.reasoning],
-    },
-    features: { ...input.features },
-    integrations: { ...input.integrations, hris: [...input.integrations.hris] },
-    valuesFramework: input.valuesFramework.map((cylinder: any) => ({
-      ...cylinder,
-      enablingValues: cylinder.enablingValues.map((value: any) => ({ ...value })),
-      limitingValues: cylinder.limitingValues.map((value: any) => ({ ...value })),
-    })),
+    aiProviders: input.aiProviders ? { ...input.aiProviders } : undefined,
+    features: input.features ? { ...input.features } : undefined,
+    integrations: input.integrations ? { ...input.integrations } : undefined,
+    valuesFramework: input.valuesFramework ? { ...input.valuesFramework } : undefined,
   };
 }
 
