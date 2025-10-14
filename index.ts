@@ -13,9 +13,7 @@ import employeeRoutes from './routes/employee.js';
 import agentRoutes from './routes/agents.js';
 import entryRoutes from './routes/entry.js';
 import superadminRoutes from './routes/superadmin.js';
-import skillsRoutes from './routes/skills-analysis.js';
 import cultureRoutes from './routes/culture-assessment.js';
-import hiringRoutes from './routes/hiring.js';
 import uploadRoutes from './routes/upload.js';
 import analysesRoutes from './routes/analyses.js';
 import billingRoutes from './routes/billing.js';
@@ -24,7 +22,6 @@ import frameworkRoutes from './routes/framework.js';
 import exportRoutes from './routes/export.js';
 import testAiRoutes from './routes/test-ai.js';
 import publicStructureRoutes from './routes/public-structure.js';
-import socialMediaRoutes from './routes/social-media.js';
 import paymentRoutes from './routes/payment.js';
 import webhookRoutes from './routes/webhooks.js';
 import demoRoutes from './routes/demo.js';
@@ -71,9 +68,7 @@ app.get('/health', (req, res) => {
       'Three-Engine AI Architecture',
       'Multi-Provider AI Consensus',
       'Culture Analysis',
-      'Structure Analysis', 
-      'Skills Analysis',
-      'Benchmarking',
+      'Structure Analysis',
       'Multi-Tenant Support',
       'Role-Based Access Control'
     ]
@@ -207,18 +202,15 @@ app.use('/api/employee', employeeRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/entry', entryRoutes); // Core analysis endpoints
 app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints
-app.use('/api/skills', skillsRoutes); // Skills analysis endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
-app.use('/api/hiring', hiringRoutes); // Complete hiring flow endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
-app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture, skills)
+app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture)
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints (legacy)
 app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only)
 app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin management)
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 app.use('/api/export', exportRoutes); // Export formatted reports
-app.use('/api/social-media', socialMediaRoutes); // Social media content generation
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware
@@ -244,7 +236,7 @@ app.use('*', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Mizan Platform Server v2.0.0 running on port ${PORT}`);
-  console.log(`📊 Features: Three-Engine AI, Multi-Provider Consensus, 7 AI Agents`);
+  console.log(`📊 Features: Three-Engine AI, Multi-Provider Consensus, Culture & Structure Analysis`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   
