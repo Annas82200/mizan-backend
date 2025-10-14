@@ -3,8 +3,8 @@
 import { StructureAgentV2 } from '../agents/structure/structure-agent.js';
 import { CultureAgentV2 } from '../agents/culture/culture-agent.js';
 import { SkillsAgent } from '../agents/skills/skills-agent.js';
-import { db } from '../../db/index.js';
-import { companies, users, departments } from '../../db/schema.js';
+import { db } from '../../../db/index.js';
+import { companies, users, departments } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export interface ArchitectAIInput {
