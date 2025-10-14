@@ -1,8 +1,8 @@
 // server/services/agents/structure/structure-agent-v2.ts
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
-import { db } from '../../../db/index.js';
-import { tenants, departments, users } from '../../../db/schema.js';
+import { db } from '../../../../db/index.js';
+import { tenants, departments, users } from '../../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 // ============================================================================
@@ -504,7 +504,7 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
   }
   
   private async triggerHiringModule(hiringNeeds: HiringNeed[], tenantId: string): Promise<void> {
-    const { triggers } = await import('../../../db/schema.js');
+    const { triggers } = await import('../../../../db/schema.js');
 
     // Create trigger for each critical/high priority hiring need
     const urgentNeeds = hiringNeeds.filter(n =>

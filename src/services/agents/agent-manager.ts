@@ -1,7 +1,7 @@
 import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent.js';
 import { StructureAgent, StructureAnalysisOutput } from './structure-agent.js';
-import { db } from '../../db/index.js';
-import { agentAnalyses, triggers, cultureAssessments } from '../../db/schema.js';
+import { db } from '../../../db/index.js';
+import { agentAnalyses, triggers, cultureAssessments } from '../../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Unified agent output type

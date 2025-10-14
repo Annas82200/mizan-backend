@@ -1,8 +1,8 @@
 // backend/src/services/agents/skills/skills-agent.ts
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
-import { db } from '../../../db/index.js';
-import { tenants, users, departments, skills, skillsAssessments, skillsGaps } from '../../../db/schema.js';
+import { db } from '../../../../db/index.js';
+import { tenants, users, departments, skills, skillsAssessments, skillsGaps } from '../../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -634,7 +634,7 @@ export class SkillsAgent extends ThreeEngineAgent {
     console.log(`Triggering LXP module for ${gaps.length} skill gaps`);
 
     // Create triggers in database
-    const { triggers } = await import('../../../db/schema.js');
+    const { triggers } = await import('../../../../db/schema.js');
 
     for (const gap of gaps) {
       await db.insert(triggers).values({
