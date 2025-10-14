@@ -1,5 +1,6 @@
 # Production Dockerfile for Mizan Backend
-FROM node:18-alpine AS builder
+# AGENT_CONTEXT_ULTIMATE.md Compliance: Node 20+ required (Line 810)
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -18,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
@@ -30,10 +31,11 @@ RUN adduser -S mizan -u 1001
 # Set working directory
 WORKDIR /app
 
-# Copy built application
+# Copy built application and necessary files
 COPY --from=builder --chown=mizan:nodejs /app/dist ./dist
 COPY --from=builder --chown=mizan:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=mizan:nodejs /app/package*.json ./
+COPY --from=builder --chown=mizan:nodejs /app/db ./db
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown mizan:nodejs /app/logs
@@ -41,8 +43,8 @@ RUN mkdir -p /app/logs && chown mizan:nodejs /app/logs
 # Switch to non-root user
 USER mizan
 
-# Expose port
-EXPOSE 3000
+# Expose port (matches application default in index.ts)
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

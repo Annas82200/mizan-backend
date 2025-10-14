@@ -1,4 +1,5 @@
-FROM node:18-alpine
+# AGENT_CONTEXT_ULTIMATE.md Compliance: Node 20+ required (Line 810)
+FROM node:20-alpine
 
 WORKDIR /app
 
