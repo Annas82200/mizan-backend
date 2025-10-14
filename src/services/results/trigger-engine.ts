@@ -1,8 +1,8 @@
 // server/services/results/trigger-engine.ts
 
 import { UnifiedResults } from './unified-results.js';
-import { db } from '../../db/index.js';
-import { triggers, triggerExecutions } from '../../db/schema.js';
+import { db } from '../../../db/index.js';
+import { triggers, triggerExecutions } from '../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { lxpModule } from '../modules/lxp/lxp-module.js';
