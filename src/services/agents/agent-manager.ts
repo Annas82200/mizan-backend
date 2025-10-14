@@ -293,28 +293,40 @@ export class AgentManager {
       conditions.push(eq(agentAnalyses.agentType, agentType));
     }
 
-    return await db
+    const rawResults = await db
       .select()
       .from(agentAnalyses)
       .where(conditions.length > 1 ? conditions[0] : conditions[0])
       .orderBy(agentAnalyses.createdAt)
       .limit(limit);
+
+    // Map the results to ensure proper typing
+    return rawResults.map(r => ({
+      id: r.id,
+      tenantId: r.tenantId,
+      agentType: r.agentType,
+      results: (r.results as Record<string, unknown>) || {},
+      createdAt: r.createdAt
+    }));
   }
 
   async getActiveRecommendations(tenantId: string): Promise<Recommendation[]> {
     // Aggregate recommendations from all completed analyses
     const recommendations: Recommendation[] = [];
 
-    // Get culture recommendations
-    const cultureAssessments = await db
+    // Get culture recommendations from agent_analyses table
+    const cultureAnalyses = await db
       .select()
-      .from(cultureAssessmentsTable)
-      .where(eq(cultureAssessmentsTable.tenantId, tenantId))
-      .orderBy(desc(cultureAssessmentsTable.createdAt))
+      .from(agentAnalyses)
+      .where(and(
+        eq(agentAnalyses.tenantId, tenantId),
+        eq(agentAnalyses.agentType, 'culture')
+      ))
+      .orderBy(desc(agentAnalyses.createdAt))
       .limit(1);
 
-    if (cultureAssessments.length > 0 && cultureAssessments[0].results) {
-      const results = cultureAssessments[0].results as CultureAnalysisResult;
+    if (cultureAnalyses.length > 0 && cultureAnalyses[0].results) {
+      const results = cultureAnalyses[0].results as CultureAnalysisResult;
       if (results.recommendations) {
         recommendations.push(...results.recommendations.map(rec => ({
           id: `culture-${rec.id || Math.random().toString(36).substr(2, 9)}`,
@@ -323,7 +335,7 @@ export class AgentManager {
           title: rec.title,
           description: rec.description,
           status: 'active' as const,
-          createdAt: cultureAssessments[0].createdAt
+          createdAt: cultureAnalyses[0].createdAt
         })));
       }
     }

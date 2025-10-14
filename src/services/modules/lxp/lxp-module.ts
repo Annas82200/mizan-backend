@@ -121,7 +121,7 @@ export async function createLearningPath(
       targetSkills: learningPath.goalSkills || [],
       courses: recommendedCourses,
       estimatedDuration,
-      status: learningPath.status
+      status: (learningPath.status as 'active' | 'draft' | 'completed') || 'active'
     };
 
   } catch (error) {
@@ -135,14 +135,16 @@ export async function createLearningPath(
  */
 async function findCoursesForSkill(skill: string, targetLevel: string): Promise<Course[]> {
   try {
-    // Query courses from database
-    const skillCourses = await db.query.courses.findMany({
-      where: and(
-        eq(courses.skillTags, skill),
-        eq(courses.level, targetLevel)
-      ),
-      limit: 3
+    // Query courses from database - courses.skills is an array, so we'll search differently
+    const allCourses = await db.query.courses.findMany({
+      where: eq(courses.level, targetLevel),
+      limit: 20
     });
+
+    // Filter by skills array
+    const skillCourses = allCourses.filter(course => 
+      course.skills && Array.isArray(course.skills) && course.skills.includes(skill)
+    ).slice(0, 3);
 
     return skillCourses.map(course => ({
       id: course.id,
@@ -151,7 +153,7 @@ async function findCoursesForSkill(skill: string, targetLevel: string): Promise<
       provider: course.provider || 'Unknown',
       duration: course.duration || 10,
       level: (course.level as 'beginner' | 'intermediate' | 'advanced') || 'intermediate',
-      url: course.url
+      url: course.thumbnailUrl || ''
     }));
 
   } catch (error) {
@@ -187,7 +189,7 @@ export async function getLearningPath(employeeId: string, tenantId: string): Pro
       targetSkills: path.goalSkills || [],
       courses: coursesData,
       estimatedDuration: 0, // Calculate from courses if needed
-      status: path.status
+      status: (path.status as 'active' | 'draft' | 'completed') || 'active'
     };
 
   } catch (error) {

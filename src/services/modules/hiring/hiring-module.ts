@@ -54,11 +54,21 @@ export async function createJobRequisition(
       .values({
         id: randomUUID(),
         tenantId,
-        title: recommendation.positionTitle,
+        positionTitle: recommendation.positionTitle,
         department: recommendation.department,
         description: `Position: ${recommendation.positionTitle}\n\nJustification: ${recommendation.justification}`,
-        requirements: recommendation.requiredSkills,
+        level: 'mid',
+        type: 'full_time',
+        location: 'Office',
+        remote: false,
+        responsibilities: [],
+        qualifications: [],
+        requiredSkills: Array.isArray(recommendation.requiredSkills) ? recommendation.requiredSkills : [],
+        compensationRange: { min: 0, max: 0, currency: 'USD' },
+        urgency: 'medium',
         status: 'draft',
+        requestedBy: tenantId,
+        hiringManagerId: tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -69,11 +79,11 @@ export async function createJobRequisition(
     return {
       id: requisition.id,
       tenantId: requisition.tenantId,
-      title: requisition.title,
+      title: requisition.positionTitle,
       department: requisition.department,
       description: requisition.description,
-      requirements: requisition.requirements,
-      status: requisition.status
+      requirements: requisition.requiredSkills || [],
+      status: requisition.status === 'draft' ? 'draft' : requisition.status === 'pending_approval' ? 'pending_approval' : requisition.status === 'approved' ? 'approved' : requisition.status === 'filled' ? 'filled' : 'draft'
     };
 
   } catch (error) {
@@ -98,18 +108,23 @@ export async function createJobPosting(
       throw new Error(`Requisition ${requisitionId} not found`);
     }
 
-    logger.info(`Creating job posting for requisition: ${requisition.title}`);
+    logger.info(`Creating job posting for requisition: ${requisition.positionTitle}`);
 
     const [posting] = await db.insert(jobPostings)
       .values({
         id: randomUUID(),
         tenantId: requisition.tenantId,
         requisitionId,
-        title: requisition.title,
+        title: requisition.positionTitle,
         description: requisition.description,
-        requirements: requisition.requirements,
-        platforms: JSON.stringify(platforms),
-        status: 'pending_approval',
+        responsibilities: '',
+        requirements: '',
+        companyName: 'Company',
+        location: requisition.location || 'Office',
+        remote: requisition.remote || false,
+        publishedPlatforms: platforms,
+        status: 'draft',
+        createdBy: tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -123,8 +138,8 @@ export async function createJobPosting(
       title: posting.title,
       description: posting.description,
       requirements: posting.requirements,
-      platforms,
-      status: posting.status
+      platforms: Array.isArray(posting.publishedPlatforms) ? posting.publishedPlatforms : platforms,
+      status: posting.status === 'draft' ? 'draft' : posting.status === 'active' ? 'active' : 'closed'
     };
 
   } catch (error) {
@@ -164,14 +179,15 @@ export async function processApplication(
       .values({
         id: randomUUID(),
         tenantId,
-        jobId,
-        candidateId,
-        candidateName: candidateData.name,
-        candidateEmail: candidateData.email,
+        requisitionId: jobId,
+        firstName: candidateData.name.split(' ')[0] || candidateData.name,
+        lastName: candidateData.name.split(' ')[1] || '',
+        email: candidateData.email,
         resumeUrl: candidateData.resumeUrl,
-        status: 'pending_review',
+        source: 'job_board',
+        status: 'applied',
+        stage: 'application',
         appliedAt: new Date(),
-        createdAt: new Date(),
         updatedAt: new Date()
       })
       .returning();
@@ -187,8 +203,7 @@ export async function processApplication(
     // Update application with culture fit results
     await db.update(candidates)
       .set({
-        cultureFitScore: cultureFit.overallFitScore,
-        cultureFitRecommendation: cultureFit.recommendation,
+        cultureScore: cultureFit.overallFitScore,
         updatedAt: new Date()
       })
       .where(eq(candidates.id, application.id));
@@ -213,7 +228,7 @@ export async function processApplication(
 export async function getApplicationsForJob(jobId: string): Promise<any[]> {
   try {
     const apps = await db.query.candidates.findMany({
-      where: eq(candidates.jobId, jobId)
+      where: eq(candidates.requisitionId, jobId)
     });
 
     return apps;

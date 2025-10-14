@@ -4,7 +4,7 @@ interface Tenant {
   id: string;
   name: string;
   plan: string;
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'inactive' | 'suspended' | 'trial';
   createdAt: Date;
   updatedAt: Date;
   aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }>;
@@ -15,74 +15,107 @@ interface Tenant {
 
 interface User {
   id: string;
-  tenantId: string;
+  tenantId: string | null;
   email: string;
   name: string;
   role: string;
+  title?: string;
+  cylinderFocus?: number;
+  reportsTo?: string;
 }
 
 interface ActionModule {
   id: string;
-  name: string;
-  status: string;
-  data: Record<string, unknown>;
-  triggerTags?: string[];
+  name?: string;
+  status?: string;
+  data?: Record<string, unknown>;
+  triggerTags: string[];
+  category?: string;
+  title?: string;
+  description?: string;
+  effort?: string;
 }
 
 interface AssessmentRecord {
   id: string;
   tenantId: string;
   type: string;
-  data: Record<string, unknown>;
+  data?: Record<string, unknown>;
+  createdAt?: string;
+  score?: number;
+  summary?: string;
+  triadConfidence?: number;
 }
 
 interface EmployeeProgress {
   id: string;
   employeeId: string;
-  tenantId?: string;
+  tenantId: string;
   progress: number;
-  completedAt?: Date;
-  assignments?: unknown[];
+  completedAt?: Date | null;
+  assignments: unknown[];
 }
 
 interface LearningExperience {
   id: string;
-  name: string;
-  type: string;
-  content: Record<string, unknown>;
-  tags?: string[];
+  name?: string;
+  title?: string;
+  type?: string;
+  content?: Record<string, unknown>;
+  tags: string[];
+  description?: string;
+  cylinder?: number;
+  estimatedMinutes?: number;
+  format?: string;
 }
 
 interface OrgSnapshotRecord {
   id: string;
   tenantId: string;
-  timestamp: Date;
-  data: Record<string, unknown>;
-  overallHealthScore?: number;
-  createdAt?: Date;
+  timestamp?: Date;
+  data?: Record<string, unknown>;
+  overallHealthScore: number;
+  createdAt: Date;
+  trend?: string;
+  highlights?: string[];
 }
 
 interface PipelineAgentStatus {
-  id: string;
-  status: 'running' | 'completed' | 'failed';
-  progress: number;
+  id?: string;
+  status: 'running' | 'completed' | 'failed' | 'ready' | 'idle';
+  progress?: number;
+  agent?: string;
+  owner?: string;
+  description?: string;
+  lastRun?: string;
 }
 interface TenantSnapshot {
-  id: string;
+  id?: string;
   tenantId: string;
-  data: Record<string, unknown>;
-  healthScore?: number;
+  data?: Record<string, unknown>;
+  healthScore: number;
   lastAnalysis?: Date;
 }
 interface TriggeredAction {
-  id: string;
-  tenantId?: string;
-  action: string;
-  status: string;
-}
-interface TenantFeatureToggles {
+  id?: string;
   tenantId: string;
-  features: Record<string, boolean>;
+  action?: string;
+  status: string;
+  triggerId?: string;
+  moduleId?: string;
+  reason?: string;
+  priority?: string;
+  createdAt?: string;
+}
+interface TenantFeatureToggles extends Record<string, boolean> {
+  cultureAnalysis?: boolean;
+  structureAnalysis?: boolean;
+  skillsAnalysis?: boolean;
+  performanceModule?: boolean;
+  hiringModule?: boolean;
+  lxpModule?: boolean;
+  talentModule?: boolean;
+  bonusModule?: boolean;
 }
 import {
   actionModules as actionModuleSeed,
@@ -137,7 +170,7 @@ export function getTenant(tenantId: string): Tenant | undefined {
 export function updateTenantFeatures(tenantId: string, patch: DeepPartial<TenantFeatureToggles>): Tenant | undefined {
   const tenant = tenantStore.find((t) => t.id === tenantId);
   if (!tenant) return undefined;
-  tenant.features = { ...tenant.features, ...patch } as TenantFeatureToggles;
+  tenant.features = { ...tenant.features, ...patch };
   return cloneTenant(tenant);
 }
 
@@ -174,7 +207,13 @@ export function addSnapshot(snapshot: OrgSnapshotRecord): void {
     summary.healthScore = snapshot.overallHealthScore;
     summary.lastAnalysis = snapshot.createdAt;
   } else {
-    snapshotSummary.push({ tenantId: snapshot.tenantId, healthScore: snapshot.overallHealthScore, lastAnalysis: snapshot.createdAt });
+    snapshotSummary.push({
+      id: randomUUID(),
+      tenantId: snapshot.tenantId,
+      data: snapshot.data || {},
+      healthScore: snapshot.overallHealthScore,
+      lastAnalysis: snapshot.createdAt
+    });
   }
 }
 
@@ -197,7 +236,7 @@ export function listEmployeeProgress(tenantId: string): EmployeeProgress[] {
     .filter((progress) => progress.tenantId === tenantId)
     .map((progress) => ({
       ...progress,
-      assignments: progress.assignments.map((assignment: any) => ({ ...assignment })),
+      assignments: progress.assignments ? progress.assignments.map((assignment: any) => ({ ...assignment })) : [],
     }));
 }
 
@@ -206,12 +245,12 @@ export function upsertEmployeeProgress(record: EmployeeProgress): void {
   if (index >= 0) {
     employeeProgressStore[index] = {
       ...record,
-      assignments: record.assignments.map((assignment: any) => ({ ...assignment })),
+      assignments: record.assignments ? record.assignments.map((assignment: any) => ({ ...assignment })) : [],
     };
   } else {
     employeeProgressStore.push({
       ...record,
-      assignments: record.assignments.map((assignment: any) => ({ ...assignment })),
+      assignments: record.assignments ? record.assignments.map((assignment: any) => ({ ...assignment })) : [],
     });
   }
 }

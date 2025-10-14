@@ -872,8 +872,10 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
     // Get tenant ID from assessment or user
     const tenantId = assessment.tenantId || (assessment.user && typeof assessment.user === 'object' && 'tenantId' in assessment.user ? (assessment.user as {tenantId: string}).tenantId : undefined);
 
-    // Trigger regeneration
-    generateEmployeeReport(assessment.id, userId, tenantId);
+    // Trigger regeneration only if tenantId is available
+    if (tenantId) {
+      generateEmployeeReport(assessment.id, userId, tenantId);
+    }
 
     return res.json({
       success: true,
@@ -1407,7 +1409,8 @@ async function getDepartmentReport(
 
   const report = await generateTenantReport(tenantId, mappedAssessments, 'department', departmentId);
 
-  return report;
+  // Extract the reportData from the CultureReport
+  return report.reportData as DepartmentReportData;
 }
 
 async function generateTenantReport(
@@ -1442,7 +1445,22 @@ async function generateTenantReport(
   );
 
   // Aggregate employee data
-  const aggregatedData = aggregateEmployeeAssessments(assessments);
+  const rawAggregatedData = aggregateEmployeeAssessments(assessments);
+  
+  // Build full AggregatedAssessmentData
+  const aggregatedData: AggregatedAssessmentData = {
+    totalEmployees: assessments.length,
+    completedAssessments: assessments.length,
+    averageEngagement: assessments.reduce((sum, a) => sum + (a.engagement ?? a.engagementLevel ?? 0), 0) / assessments.length,
+    averageRecognition: assessments.reduce((sum, a) => sum + (a.recognition ?? a.recognitionLevel ?? 0), 0) / assessments.length,
+    personalValuesDistribution: {},
+    currentValuesDistribution: {},
+    desiredValuesDistribution: {},
+    alignmentScore: 0,
+    personalValues: rawAggregatedData.personalValues,
+    currentExperience: rawAggregatedData.currentExperience,
+    desiredExperience: rawAggregatedData.desiredExperience
+  };
 
   // Analyze: How employees experience the company vs. tenant values
   const currentExperienceAnalysis = await analyzeEmployeeExperienceVsTenantValues(
@@ -1567,7 +1585,7 @@ async function generateTenantReport(
     id: reportId,
     tenantId,
     reportType,
-    reportData: report as EmployeeReportData | CompanyReportData | DepartmentReportData,
+    reportData: report as unknown as EmployeeReportData | CompanyReportData | DepartmentReportData,
     createdAt,
     updatedAt
   };
@@ -1710,13 +1728,7 @@ function analyzeCulturalHealth(
   aggregatedData: AggregatedAssessmentData,
   tenantValues: string[],
   cylinders: Cylinder[]
-): {
-  overallScore: number;
-  status: string;
-  strengths: string[];
-  challenges: string[];
-  cylinderDistribution: { [key: number]: number };
-} {
+): CulturalHealthMetrics {
   const currentValues = aggregatedData.currentExperience || [];
 
   // Map current experience to cylinders
@@ -1864,12 +1876,13 @@ function generateOrganizationalRecommendations(
   }
 
   // Cultural health recommendations
-  if (culturalHealth.challenges.length > 0) {
+  const challenges = culturalHealth.challenges || culturalHealth.improvementAreas || [];
+  if (challenges.length > 0) {
     recommendations.push({
       category: 'Cultural Development',
       priority: 'medium',
       title: 'Develop Underrepresented Cultural Dimensions',
-      description: `Low representation in: ${culturalHealth.challenges.join(', ')}`,
+      description: `Low representation in: ${challenges.join(', ')}`,
       actionItems: [
         'Design learning experiences targeting these cylinders',
         'Set goals aligned with these cultural dimensions',

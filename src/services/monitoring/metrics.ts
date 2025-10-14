@@ -68,6 +68,16 @@ export const businessMetrics = {
     help: 'Number of active users'
   }),
   
+  tenantsActive: new Gauge({
+    name: 'mizan_tenants_active',
+    help: 'Number of active tenants'
+  }),
+  
+  analysesCompleted: new Gauge({
+    name: 'mizan_analyses_completed',
+    help: 'Number of analyses completed in the last 24 hours'
+  }),
+  
   performanceGoalsCreated: new Counter({
     name: 'mizan_performance_goals_created_total',
     help: 'Total number of performance goals created'

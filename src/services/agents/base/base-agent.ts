@@ -245,7 +245,12 @@ Your response must be:
     
     // For JSON responses, merge intelligently
     if (typeof results[0].response === 'object') {
-      const merged = this.mergeJsonResponses(results.map(r => r.response));
+      const jsonResponses = results
+        .map(r => r.response)
+        .filter((response): response is Record<string, unknown> => 
+          typeof response === 'object' && response !== null && !Array.isArray(response)
+        );
+      const merged = this.mergeJsonResponses(jsonResponses);
       return {
         result: merged,
         score: avgConfidence
@@ -397,7 +402,8 @@ export abstract class MizanAgent extends BaseAgent {
     const consensus = await this.multiProviderAnalysis(analysisPrompt, true);
     
     // Validate the analysis is fact-based
-    if (!this.validateFactBased(consensus.finalResult, data)) {
+    const dataRecord = typeof data === 'string' ? { text: data } : data;
+    if (!this.validateFactBased(consensus.finalResult, dataRecord)) {
       console.warn(`Analysis may contain assumptions: ${analysisName}`);
     }
     
