@@ -1,14 +1,35 @@
 // backend/src/routes/skills.ts
+// Complete Skills Analysis API Routes - AGENT_CONTEXT_ULTIMATE.md Lines 287-292
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { skillsAgent, SkillsAnalysisInput } from '../services/agents/skills/skills-agent.js';
+import { SkillsAnalysisService } from '../services/skills/skillsAnalysisService.js';
+import { SkillsBotService } from '../services/skills/skillsBotService.js';
 import { db } from '../../db/index.js';
-import { skills, skillsAssessments, skillsGaps, users } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { 
+  skills, 
+  skillsAssessments, 
+  skillsGaps, 
+  skillsFramework,
+  skillsAssessmentSessions,
+  skillsBotInteractions,
+  skillsLearningTriggers,
+  skillsTalentTriggers,
+  skillsBonusTriggers,
+  skillsProgress,
+  employeeSkillsProfiles,
+  users 
+} from '../../db/schema.js';
+import { eq, and, desc } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 
 const router = Router();
+
+// Initialize services
+const skillsAnalysisService = new SkillsAnalysisService();
+const skillsBotService = new SkillsBotService();
 
 // Schema validation for skills analysis request
 const SkillsAnalysisRequestSchema = z.object({
@@ -19,6 +40,30 @@ const SkillsAnalysisRequestSchema = z.object({
   strategy: z.string().optional(),
   includeEmployeeData: z.boolean().default(true),
   includeResumeData: z.boolean().default(false)
+});
+
+// Schema for complete skills workflow
+const CompleteSkillsWorkflowSchema = z.object({
+  tenantId: z.string().uuid(),
+  clientStrategy: z.object({
+    coreCompetencies: z.array(z.string()).optional(),
+    capabilities: z.array(z.string()).optional(),
+    growthAreas: z.array(z.string()).optional(),
+    transformationGoals: z.array(z.string()).optional()
+  }),
+  clientContext: z.object({
+    industry: z.string(),
+    employeeCSV: z.record(z.unknown()).optional(),
+    resumeData: z.record(z.unknown()).optional()
+  })
+});
+
+// Schema for strategic framework creation
+const StrategicFrameworkSchema = z.object({
+  tenantId: z.string().uuid(),
+  industry: z.string(),
+  strategy: z.string(),
+  createdBy: z.string().uuid()
 });
 
 // Schema for individual skills assessment
@@ -38,6 +83,14 @@ const ResumeUploadSchema = z.object({
   employeeId: z.string().uuid(),
   resumeText: z.string(),
   extractSkills: z.boolean().default(true)
+});
+
+// Schema for BOT interaction
+const BotInteractionSchema = z.object({
+  userId: z.string().uuid(),
+  tenantId: z.string().uuid(),
+  query: z.string(),
+  sessionId: z.string().uuid().optional()
 });
 
 /**
@@ -566,5 +619,564 @@ function calculateDepartmentScore(skills: DepartmentSkillsAggregation[]): number
 
   return Math.round((avgLevel * 25) + (avgCoverage * 0.5));
 }
+
+/**
+ * POST /api/skills/complete-workflow
+ * Run complete 8-step Skills Analysis workflow
+ * As per AGENT_CONTEXT_ULTIMATE.md Lines 64-113
+ */
+router.post('/complete-workflow',
+  authenticate,
+  authorize(['clientAdmin', 'superadmin']),
+  async (req: Request, res: Response) => {
+    try {
+      const validatedData = CompleteSkillsWorkflowSchema.parse(req.body);
+
+      // Verify tenant access
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+      
+      if (req.user.role !== 'superadmin' && req.user.tenantId !== validatedData.tenantId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied to this tenant'
+        });
+      }
+
+      // Run complete skills analysis workflow
+      const workflow = await skillsAnalysisService.runCompleteSkillsAnalysis(
+        validatedData.tenantId,
+        validatedData.clientStrategy,
+        {
+          ...validatedData.clientContext,
+          tenantId: validatedData.tenantId
+        },
+        req.user.id
+      );
+
+      return res.json({
+        success: true,
+        workflow,
+        message: 'Complete skills analysis workflow completed successfully'
+      });
+
+    } catch (error) {
+      console.error('Complete workflow error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to run complete skills analysis workflow'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/strategic-framework
+ * Create strategic skills framework
+ * Step 1 of Skills Analysis workflow
+ */
+router.post('/strategic-framework',
+  authenticate,
+  authorize(['clientAdmin', 'superadmin']),
+  async (req: Request, res: Response) => {
+    try {
+      const validatedData = StrategicFrameworkSchema.parse(req.body);
+
+      // Verify tenant access
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+      
+      if (req.user.role !== 'superadmin' && req.user.tenantId !== validatedData.tenantId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied to this tenant'
+        });
+      }
+
+      // Create strategic framework
+      const framework = await skillsAnalysisService.developStrategicFramework(
+        validatedData.tenantId,
+        { strategy: validatedData.strategy },
+        validatedData.industry,
+        validatedData.createdBy
+      );
+
+      return res.json({
+        success: true,
+        framework,
+        message: 'Strategic skills framework created successfully'
+      });
+
+    } catch (error) {
+      console.error('Strategic framework creation error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create strategic skills framework'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/collect-employee-data
+ * Collect employee skills data
+ * Step 2 of Skills Analysis workflow
+ */
+router.post('/collect-employee-data',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { tenantId, employeeId, resumeData, csvData } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== employeeId && req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Collect employee skills data
+      const profile = await skillsAnalysisService.collectEmployeeSkills(
+        tenantId,
+        employeeId,
+        resumeData,
+        csvData
+      );
+
+      return res.json({
+        success: true,
+        profile,
+        message: 'Employee skills data collected successfully'
+      });
+
+    } catch (error) {
+      console.error('Employee data collection error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to collect employee skills data'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/analyze-gaps/:employeeId
+ * Analyze individual skills gaps
+ * Step 3 of Skills Analysis workflow
+ */
+router.post('/analyze-gaps/:employeeId',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { employeeId } = req.params;
+      const { tenantId, frameworkId } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== employeeId && req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Analyze individual gaps
+      const gapAnalysis = await skillsAnalysisService.analyzeIndividualGaps(
+        tenantId,
+        employeeId,
+        frameworkId
+      );
+
+      return res.json({
+        success: true,
+        gapAnalysis,
+        message: 'Individual skills gap analysis completed'
+      });
+
+    } catch (error) {
+      console.error('Gap analysis error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to analyze individual skills gaps'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/trigger-lxp
+ * Trigger LXP module for learning path creation
+ * Step 4 of Skills Analysis workflow
+ */
+router.post('/trigger-lxp',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { tenantId, employeeId, sessionId, skillsGaps } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== employeeId && req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Trigger LXP module
+      const lxpTrigger = await skillsAnalysisService.triggerLXP(
+        tenantId,
+        employeeId,
+        sessionId,
+        skillsGaps
+      );
+
+      return res.json({
+        success: true,
+        lxpTrigger,
+        message: 'LXP module triggered successfully'
+      });
+
+    } catch (error) {
+      console.error('LXP trigger error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to trigger LXP module'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/notify-stakeholders
+ * Notify stakeholders about skills analysis results
+ * Step 5 of Skills Analysis workflow
+ */
+router.post('/notify-stakeholders',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { tenantId, employeeId, supervisorId, gapAnalysis } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Notify stakeholders
+      const notifications = await skillsAnalysisService.notifyStakeholders(
+        tenantId,
+        employeeId,
+        supervisorId,
+        gapAnalysis
+      );
+
+      return res.json({
+        success: true,
+        notifications,
+        message: 'Stakeholders notified successfully'
+      });
+
+    } catch (error) {
+      console.error('Stakeholder notification error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to notify stakeholders'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/bot/interact
+ * Interact with Skills BOT
+ * Interactive BOT system for employees, supervisors, and admins
+ */
+router.post('/bot/interact',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const validatedData = BotInteractionSchema.parse(req.body);
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== validatedData.userId && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Handle BOT interaction
+      const botResponse = await skillsBotService.handleBotQuery(
+        validatedData.userId,
+        validatedData.tenantId,
+        validatedData.query,
+        validatedData.sessionId
+      );
+
+      return res.json({
+        success: true,
+        botResponse,
+        message: 'BOT interaction completed successfully'
+      });
+
+    } catch (error) {
+      console.error('BOT interaction error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to process BOT interaction'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/skills/bot/resume-upload
+ * BOT-assisted resume upload
+ */
+router.post('/bot/resume-upload',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId, resumeData } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== userId && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Assist with resume upload
+      const botResponse = await skillsBotService.assistEmployeeResumeUpload(
+        userId,
+        tenantId,
+        resumeData
+      );
+
+      return res.json({
+        success: true,
+        botResponse,
+        message: 'Resume upload assistance completed'
+      });
+
+    } catch (error) {
+      console.error('Resume upload assistance error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to assist with resume upload'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/skills/assessment-sessions
+ * Get skills assessment sessions for tenant
+ */
+router.get('/assessment-sessions',
+  authenticate,
+  authorize(['clientAdmin', 'superadmin']),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Get assessment sessions
+      const sessions = await db.query.skillsAssessmentSessions.findMany({
+        where: eq(skillsAssessmentSessions.tenantId, req.user.tenantId),
+        orderBy: desc(skillsAssessmentSessions.createdAt),
+        limit: 20
+      });
+
+      return res.json({
+        success: true,
+        sessions,
+        message: 'Assessment sessions retrieved successfully'
+      });
+
+    } catch (error) {
+      console.error('Assessment sessions fetch error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch assessment sessions'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/skills/frameworks
+ * Get skills frameworks for tenant
+ */
+router.get('/frameworks',
+  authenticate,
+  authorize(['clientAdmin', 'superadmin']),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Get skills frameworks
+      const frameworks = await db.query.skillsFramework.findMany({
+        where: eq(skillsFramework.tenantId, req.user.tenantId),
+        orderBy: desc(skillsFramework.createdAt),
+        limit: 10
+      });
+
+      return res.json({
+        success: true,
+        frameworks,
+        message: 'Skills frameworks retrieved successfully'
+      });
+
+    } catch (error) {
+      console.error('Skills frameworks fetch error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch skills frameworks'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/skills/bot/interactions
+ * Get BOT interaction history for user
+ */
+router.get('/bot/interactions',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, limit = 20 } = req.query;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Verify access
+      if (req.user.id !== userId && req.user.role !== 'superadmin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Get BOT interactions
+      const interactions = await db.query.skillsBotInteractions.findMany({
+        where: and(
+          eq(skillsBotInteractions.tenantId, req.user.tenantId),
+          eq(skillsBotInteractions.userId, userId as string)
+        ),
+        orderBy: desc(skillsBotInteractions.createdAt),
+        limit: parseInt(limit as string)
+      });
+
+      return res.json({
+        success: true,
+        interactions,
+        message: 'BOT interactions retrieved successfully'
+      });
+
+    } catch (error) {
+      console.error('BOT interactions fetch error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch BOT interactions'
+      });
+    }
+  }
+);
 
 export default router;

@@ -55,6 +55,8 @@ interface StructureAnalysisResult {
   spanAnalysis?: Record<string, unknown>;
   layerAnalysis?: Record<string, unknown>;
   recommendations?: Array<{ title: string; description: string }>;
+  healthScore?: number;
+  hiringNeeds?: Array<{ role: string; urgency: string }>;
 }
 
 interface CultureAnalysisResult {
@@ -62,12 +64,18 @@ interface CultureAnalysisResult {
   valuesAlignment?: Record<string, unknown>;
   culturalHealth?: Record<string, unknown>;
   recommendations?: Array<{ title: string; description: string }>;
+  alignmentScore?: number;
+  culturalEntropy?: number;
+  interventions?: Array<{ type: string; priority: string }>;
 }
 
 interface SkillsAnalysisResult {
   overallScore?: number;
   skillsGaps?: Array<{ skill: string; gap: number }>;
   recommendations?: Array<{ title: string; description: string }>;
+  coverageScore?: number;
+  criticalGaps?: Array<{ skill: string; severity: string }>;
+  trainingNeeds?: Array<{ area: string; priority: string }>;
 }
 
 interface EngagementAnalysisResult {
@@ -243,7 +251,18 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
       industry: company?.industry || 'General',
       organizationName: company?.name || 'Organization',
       strategy: input.strategy,
-      employeeData: input.employeeData || []
+      employeeData: (input.employeeData || []).map(emp => ({
+        employeeId: emp.id,
+        name: emp.name,
+        department: emp.department,
+        role: emp.role,
+        skills: (emp.skills || []).map(skill => ({ 
+          name: skill, 
+          level: 'intermediate' as const,
+          category: 'technical' as const
+        })),
+        experience: 0
+      }))
     };
 
     const result = await agent.analyzeSkills(analysisInput);
@@ -305,28 +324,28 @@ function generateRecommendations(structure: StructureAnalysisResult, culture: Cu
   const recommendations: string[] = [];
   
   if (structure) {
-    if (structure.healthScore < 0.7) {
+    if (structure.healthScore !== undefined && structure.healthScore < 0.7) {
       recommendations.push('Address structural gaps to improve organizational health');
     }
-    if (structure.hiringNeeds?.length > 0) {
+    if (structure.hiringNeeds && structure.hiringNeeds.length > 0) {
       recommendations.push('Prioritize hiring for critical positions');
     }
   }
   
   if (culture) {
-    if (culture.alignmentScore < 0.6) {
+    if (culture.alignmentScore !== undefined && culture.alignmentScore < 0.6) {
       recommendations.push('Improve culture-strategy alignment through targeted interventions');
     }
-    if (culture.culturalEntropy > 0.3) {
+    if (culture.culturalEntropy !== undefined && culture.culturalEntropy > 0.3) {
       recommendations.push('Reduce cultural entropy by clarifying values and expectations');
     }
   }
   
   if (skills) {
-    if (skills.coverageScore < 0.8) {
+    if (skills.coverageScore !== undefined && skills.coverageScore < 0.8) {
       recommendations.push('Address critical skill gaps through training and hiring');
     }
-    if (skills.criticalGaps?.length > 0) {
+    if (skills.criticalGaps && skills.criticalGaps.length > 0) {
       recommendations.push('Develop training programs for critical skill gaps');
     }
   }
@@ -341,15 +360,15 @@ function generateNextSteps(structure: StructureAnalysisResult, culture: CultureA
   nextSteps.push('Review detailed analysis reports');
   nextSteps.push('Schedule leadership alignment meeting');
   
-  if (structure?.hiringNeeds?.length > 0) {
+  if (structure?.hiringNeeds && structure.hiringNeeds.length > 0) {
     nextSteps.push('Initiate hiring process for critical positions');
   }
   
-  if (culture?.interventions?.length > 0) {
+  if (culture?.interventions && culture.interventions.length > 0) {
     nextSteps.push('Plan culture intervention implementation');
   }
   
-  if (skills?.trainingNeeds?.length > 0) {
+  if (skills?.trainingNeeds && skills.trainingNeeds.length > 0) {
     nextSteps.push('Design and launch training programs');
   }
   

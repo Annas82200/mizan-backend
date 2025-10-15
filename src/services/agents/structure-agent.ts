@@ -243,12 +243,14 @@ Return ONLY a valid JSON object with NO markdown formatting:
     try {
       let jsonText = response.narrative;
       // Remove markdown code blocks if present
-      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      const analysis = JSON.parse(jsonText);
+      if (typeof jsonText === 'string') {
+        jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      }
+      const analysis = JSON.parse(typeof jsonText === 'string' ? jsonText : JSON.stringify(jsonText));
       return analysis;
     } catch (error) {
       console.error('Failed to parse structure analysis:', error);
-      console.error('Raw response:', response.narrative?.substring(0, 500));
+      console.error('Raw response:', typeof response.narrative === 'string' ? response.narrative.substring(0, 500) : 'Not a string');
       // Return structured fallback
       return {
         overallScore: 50,

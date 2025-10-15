@@ -87,7 +87,13 @@ export async function publishPost(postId: string): Promise<PostResult> {
 
     // Publish to platform
     // In production, this would integrate with actual platform APIs
-    const result = await publishToPlatform(post, account);
+    const result = await publishToPlatform({
+      ...post,
+      scheduledFor: post.scheduledFor || new Date()
+    }, {
+      ...account,
+      isActive: account.isActive || false
+    });
 
     // Update post status
     await db.update(socialMediaPosts)

@@ -63,6 +63,7 @@ import publicStructureRoutes from './src/routes/public-structure.js';
 import paymentRoutes from './src/routes/payment.js';
 import webhookRoutes from './src/routes/webhooks.js';
 import demoRoutes from './src/routes/demo.js';
+import skillsRoutes from './src/routes/skills.js';
 console.log('✅ All route modules loaded successfully');
 
 const app = express();
@@ -277,6 +278,7 @@ app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin m
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
 app.use('/api/export', exportRoutes); // Export formatted reports
+app.use('/api/skills', skillsRoutes); // Skills Analysis endpoints (AGENT_CONTEXT_ULTIMATE.md Lines 56-226)
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { StructureAgent } from '../services/agents/structure-agent.js';
-import { StructureData } from '../types/structure-types.js';
+import { StructureData, Role } from '../types/structure-types.js';
 
 const router = express.Router();
 
@@ -74,7 +74,9 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       const [employee, manager] = lines[i].split(',').map(s => s.trim());
       if (employee) {
         orgStructure.push({
+          id: `emp-${i}`,
           name: employee,
+          level: 0, // Will be calculated later
           manager: manager && manager !== '' && manager.toLowerCase() !== 'none' ? manager : null
         });
 
@@ -117,7 +119,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
         title: emp.title || 'Unknown',
         department: emp.department || 'General',
         level: emp.level,
-        reportsTo: emp.reportsTo,
+        reportsTo: emp.reportsTo || undefined,
         directReports: (reportingRelationships[emp.id] as string[] | undefined) || []
       })),
       totalEmployees: orgStructure.length,
@@ -139,7 +141,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
 
     // Run FULL AI-powered structure analysis using Structure Agent
     const structureAgent = new StructureAgent();
-    let richAnalysis: StructureAnalysisOutput | null = null;
+    let richAnalysis: any | null = null;
 
     try {
       const agentResponse = await structureAgent.generateRichStructureAnalysis({

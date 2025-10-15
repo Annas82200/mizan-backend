@@ -39,6 +39,10 @@ interface StrategyAlignment {
   alignments?: string[];
   misalignments?: Array<{ area: string; issue: string; recommendation: string; impact?: string }>;
   interpretation?: string;
+  canAchieveStrategy?: boolean;
+  hasStrategy?: boolean;
+  achievabilityExplanation?: string;
+  strengths?: string[];
 }
 
 interface Recommendation {
@@ -90,12 +94,12 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
   const canAchieve = strategyAlignment.canAchieveStrategy;
   let achieveColor = '#22c55e';
   let achieveLabel = 'Yes';
-  if (canAchieve === 'no') {
+  if (canAchieve === false) {
     achieveColor = '#ef4444';
     achieveLabel = 'No';
-  } else if (canAchieve === 'partial') {
+  } else if (canAchieve === undefined) {
     achieveColor = '#f59e0b';
-    achieveLabel = 'Partially';
+    achieveLabel = 'Unknown';
   }
 
   return `<!DOCTYPE html>
@@ -275,7 +279,7 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
     }
 
     .strategy-verdict {
-      background: ${canAchieve === 'no' ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' : canAchieve === 'partial' ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'};
+      background: ${canAchieve === false ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' : canAchieve === undefined ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'};
       padding: 40px;
       border-radius: 16px;
       border-left: 4px solid ${achieveColor};
@@ -656,16 +660,16 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
         ${strategyAlignment.hasStrategy ? `
         <div class="strategy-verdict">
           <div class="verdict-header">
-            <div class="verdict-icon">${canAchieve === 'no' ? ICONS.warning : canAchieve === 'partial' ? ICONS.gap : ICONS.success}</div>
+            <div class="verdict-icon">${canAchieve === false ? ICONS.warning : canAchieve === undefined ? ICONS.gap : ICONS.success}</div>
             <div class="verdict-title">Can You Achieve Your Strategy?</div>
           </div>
           <div class="verdict-text">${strategyAlignment.achievabilityExplanation}</div>
         </div>
 
-        ${strategyAlignment.misalignments.length > 0 ? `
+        ${strategyAlignment.misalignments && strategyAlignment.misalignments.length > 0 ? `
         <h3>Critical Gaps to Address</h3>
         <div class="gap-list">
-          ${strategyAlignment.misalignments.map((gap: { area: string; issue: string; recommendation: string; impact?: string }) => `
+          ${strategyAlignment.misalignments?.map((gap: { area: string; issue: string; recommendation: string; impact?: string }) => `
             <div class="gap-item ${gap.impact || 'medium'}">
               <div class="gap-header">
                 <div class="gap-title">${ICONS.gap} ${gap.area}</div>
@@ -677,10 +681,10 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
         </div>
         ` : ''}
 
-        ${strategyAlignment.strengths.length > 0 ? `
+        ${strategyAlignment.strengths && strategyAlignment.strengths.length > 0 ? `
         <h3>Structural Strengths</h3>
         <div class="strength-list">
-          ${strategyAlignment.strengths.map((strength: string) => `
+          ${strategyAlignment.strengths?.map((strength: string) => `
             <div class="strength-item">
               <div class="strength-icon">${ICONS.strength}</div>
               <div class="strength-text">${strength}</div>
@@ -766,7 +770,7 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
               <div class="rec-title">${rec.title}</div>
               <div class="rec-description">${formatRichText(rec.description)}</div>
               <div class="action-items">
-                ${rec.actionItems.map((item: string) => `
+                ${rec.actionItems?.map((item: string) => `
                   <div class="action-item">${item}</div>
                 `).join('')}
               </div>

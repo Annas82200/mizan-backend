@@ -149,7 +149,7 @@ export function requireModuleAccess(moduleName: ModuleName) {
       });
     }
 
-    next();
+    return next();
   };
 }
 

@@ -3,6 +3,18 @@
 import PDFDocument from 'pdfkit';
 import { Chart } from 'chart.js';
 
+interface Finding {
+  title: string;
+  description: string;
+  severity?: 'high' | 'medium' | 'low';
+}
+
+interface RecommendationItem {
+  title: string;
+  description: string;
+  priority?: 'high' | 'medium' | 'low';
+}
+
 interface StructureAnalysisResult {
   id: string;
   score: number;
@@ -113,10 +125,24 @@ export async function generatePDFReport(result: StructureAnalysisResult): Promis
 // Generate other report types
 export async function generateCultureReport(data: Record<string, unknown>): Promise<Buffer> {
   // Similar implementation for culture reports
-  return generatePDFReport(data);
+  const reportData: StructureAnalysisResult = {
+    id: String(data.id || 'culture-report'),
+    score: Number(data.score || 0),
+    findings: Array.isArray(data.findings) ? data.findings : [],
+    recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
+    createdAt: data.createdAt instanceof Date ? data.createdAt : new Date()
+  };
+  return generatePDFReport(reportData);
 }
 
 export async function generateSkillsReport(data: Record<string, unknown>): Promise<Buffer> {
   // Similar implementation for skills reports
-  return generatePDFReport(data);
+  const reportData: StructureAnalysisResult = {
+    id: String(data.id || 'skills-report'),
+    score: Number(data.score || 0),
+    findings: Array.isArray(data.findings) ? data.findings : [],
+    recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
+    createdAt: data.createdAt instanceof Date ? data.createdAt : new Date()
+  };
+  return generatePDFReport(reportData);
 }

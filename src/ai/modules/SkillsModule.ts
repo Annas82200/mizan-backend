@@ -276,6 +276,18 @@ export interface ClientStrategy {
   capabilities?: string[];
   growthAreas?: string[];
   transformationGoals?: string[];
+  strategy?: string;
+}
+
+export interface ClientContext {
+  industry: string;
+  tenantId: string;
+  size?: number;
+  strategy?: string;
+  culture?: string;
+  marketPosition?: string;
+  employeeCSV?: Record<string, unknown>;
+  resumeData?: Record<string, unknown>;
 }
 
 export interface EmployeeProfile {
@@ -333,6 +345,22 @@ export interface LXPTrigger {
 export interface NotificationPackage {
   employeeNotification: NotificationData;
   supervisorNotification: NotificationData;
+}
+
+export interface StrategicSkillsAssessment {
+  overallReadiness: 'ready' | 'partially-ready' | 'not-ready';
+  strategicAlignment: number;
+  criticalGaps: Array<{
+    skill: string;
+    impact: string;
+    urgency: string;
+    solution: string;
+  }>;
+  strengthAreas: string[];
+  investmentPriorities: InvestmentRecommendation[];
+  timeToReadiness: string;
+  riskFactors: RiskFactor[];
+  recommendations: Recommendation[];
 }
 
 // Input schemas as per AGENT_CONTEXT_ULTIMATE.md Lines 195-226

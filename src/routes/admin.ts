@@ -76,7 +76,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       ? totalCultureScore / cultureScores.length
       : 0;
     
-    res.json({
+    return res.json({
       stats: {
         employees: userCount.length,
         analyses: analysisCount.length,
@@ -98,7 +98,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ error: 'Failed to load dashboard' });
+    return res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
 
@@ -117,11 +117,11 @@ router.get('/companies', async (req: Request, res: Response) => {
       }
     });
     
-    res.json(companiesList);
+    return res.json(companiesList);
     
   } catch (error) {
     console.error('Companies fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch companies' });
+    return res.status(500).json({ error: 'Failed to fetch companies' });
   }
 });
 
@@ -155,11 +155,11 @@ router.post('/companies', async (req: Request, res: Response) => {
       })
       .returning();
     
-    res.json(company);
+    return res.json(company);
     
   } catch (error) {
     console.error('Company creation error:', error);
-    res.status(500).json({ error: 'Failed to create company' });
+    return res.status(500).json({ error: 'Failed to create company' });
   }
 });
 
@@ -201,11 +201,11 @@ router.get('/users', async (req: Request, res: Response) => {
       createdAt: u.createdAt
     }));
     
-    res.json(sanitizedUsers);
+    return res.json(sanitizedUsers);
     
   } catch (error) {
     console.error('Users fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    return res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
@@ -268,7 +268,7 @@ router.post('/users/invite', async (req: Request, res: Response) => {
       // Don't fail the request if email fails
     }
 
-    res.json({
+    return res.json({
       success: true,
       user: {
         id: user.id,
@@ -280,7 +280,7 @@ router.post('/users/invite', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('User invite error:', error);
-    res.status(500).json({ error: 'Failed to invite user' });
+    return res.status(500).json({ error: 'Failed to invite user' });
   }
 });
 
@@ -299,11 +299,11 @@ router.get('/analyses', async (req: Request, res: Response) => {
       }
     });
     
-    res.json(analysesList);
+    return res.json(analysesList);
     
   } catch (error) {
     console.error('Analyses fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch analyses' });
+    return res.status(500).json({ error: 'Failed to fetch analyses' });
   }
 });
 
@@ -324,11 +324,11 @@ router.get('/triggers', async (req: Request, res: Response) => {
       }
     });
     
-    res.json(triggersList);
+    return res.json(triggersList);
     
   } catch (error) {
     console.error('Triggers fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch triggers' });
+    return res.status(500).json({ error: 'Failed to fetch triggers' });
   }
 });
 
@@ -355,11 +355,11 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Trigger not found' });
     }
     
-    res.json(updated);
+    return res.json(updated);
     
   } catch (error) {
     console.error('Trigger update error:', error);
-    res.status(500).json({ error: 'Failed to update trigger' });
+    return res.status(500).json({ error: 'Failed to update trigger' });
   }
 });
 
@@ -377,11 +377,11 @@ router.get('/departments', async (req: Request, res: Response) => {
       }
     });
     
-    res.json(departmentsList);
+    return res.json(departmentsList);
     
   } catch (error) {
     console.error('Departments fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch departments' });
+    return res.status(500).json({ error: 'Failed to fetch departments' });
   }
 });
 
@@ -416,7 +416,7 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     
     const avgAlignmentScore = assessments.length > 0 ? totalScore / assessments.length : 0;
     
-    res.json({
+    return res.json({
       assessments,
       summary: {
         totalAssessments: assessments.length,
@@ -427,7 +427,7 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('Culture report error:', error);
-    res.status(500).json({ error: 'Failed to generate culture report' });
+    return res.status(500).json({ error: 'Failed to generate culture report' });
   }
 });
 

@@ -176,6 +176,115 @@ export const skillsAssessmentsRelations = relations(skillsAssessments, ({ one })
 }));
 
 // ============================================================================
+// STRATEGIC SKILLS FRAMEWORK TABLES - AGENT_CONTEXT_ULTIMATE.md Lines 456-460
+// ============================================================================
+
+export const skillsFramework = pgTable('skills_framework', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  frameworkName: text('framework_name').notNull(),
+  industry: text('industry').notNull(),
+  strategicSkills: jsonb('strategic_skills').notNull(), // Array of RequiredSkill
+  technicalSkills: jsonb('technical_skills').notNull(), // Array of technical skills
+  softSkills: jsonb('soft_skills').notNull(), // Array of soft skills
+  prioritization: jsonb('prioritization').notNull(), // FrameworkInsight array
+  createdBy: text('created_by').notNull(), // user who created framework
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+// Skills Assessment Sessions - tracks complete assessment workflows
+export const skillsAssessmentSessions = pgTable('skills_assessment_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  sessionName: text('session_name').notNull(),
+  frameworkId: text('framework_id').notNull(), // Links to skillsFramework
+  status: text('status', { enum: ['collecting', 'analyzing', 'completed', 'failed'] }).notNull(),
+  employeeCount: integer('employee_count').default(0),
+  completedCount: integer('completed_count').default(0),
+  analysisResults: jsonb('analysis_results'), // SkillsWorkflow results
+  strategicAssessment: jsonb('strategic_assessment'), // OrganizationAssessment
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Skills BOT Interactions - tracks all BOT interactions
+export const skillsBotInteractions = pgTable('skills_bot_interactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  userId: text('user_id').notNull(),
+  sessionId: text('session_id'), // Links to skillsAssessmentSessions
+  interactionType: text('interaction_type').notNull(), // 'resume_upload', 'gap_explanation', 'learning_guidance', etc.
+  userQuery: text('user_query').notNull(),
+  botResponse: text('bot_response').notNull(),
+  context: jsonb('context'), // Additional context data
+  resolved: boolean('resolved').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Learning Path Triggers - tracks LXP module triggers
+export const skillsLearningTriggers = pgTable('skills_learning_triggers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  sessionId: text('session_id').notNull(), // Links to skillsAssessmentSessions
+  skillGaps: jsonb('skill_gaps').notNull(), // Array of SkillGap
+  learningPaths: jsonb('learning_paths').notNull(), // Array of LearningPath
+  priority: text('priority').notNull(),
+  status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).default('pending'),
+  lxpPathId: text('lxp_path_id'), // Links to LXP module
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  processedAt: timestamp('processed_at')
+});
+
+// Talent Module Triggers - tracks talent identification triggers
+export const skillsTalentTriggers = pgTable('skills_talent_triggers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  sessionId: text('session_id').notNull(),
+  skillsData: jsonb('skills_data').notNull(), // Skills analysis data
+  potentialRoles: jsonb('potential_roles'), // Identified potential roles
+  readinessScore: integer('readiness_score'),
+  status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).default('pending'),
+  talentModuleId: text('talent_module_id'), // Links to Talent module
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  processedAt: timestamp('processed_at')
+});
+
+// Bonus Module Triggers - tracks skills-based bonus triggers
+export const skillsBonusTriggers = pgTable('skills_bonus_triggers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  sessionId: text('session_id').notNull(),
+  skillsAchievements: jsonb('skills_achievements').notNull(), // Array of achieved skills
+  recommendedBonus: integer('recommended_bonus'), // Bonus amount
+  bonusCriteria: jsonb('bonus_criteria'), // Criteria for bonus
+  status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).default('pending'),
+  bonusModuleId: text('bonus_module_id'), // Links to Bonus module
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  processedAt: timestamp('processed_at')
+});
+
+// Skills Progress Tracking - tracks individual skill development progress
+export const skillsProgress = pgTable('skills_progress', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  skillId: text('skill_id').notNull(),
+  skillName: text('skill_name').notNull(),
+  currentLevel: text('current_level').notNull(),
+  targetLevel: text('target_level').notNull(),
+  progressPercentage: integer('progress_percentage').default(0),
+  learningPathId: text('learning_path_id'), // Links to LXP learning path
+  milestones: jsonb('milestones'), // Array of progress milestones
+  lastUpdated: timestamp('last_updated').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// ============================================================================
 // ADDITIONAL SKILLS TABLES
 // ============================================================================
 
@@ -247,6 +356,100 @@ export const skillsGapsRelations = relations(skillsGaps, ({ one }) => ({
   }),
   employee: one(users, {
     fields: [skillsGaps.employeeId],
+    references: [users.id],
+  }),
+}));
+
+// Relations for new Skills Framework tables
+export const skillsFrameworkRelations = relations(skillsFramework, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsFramework.tenantId],
+    references: [tenants.id],
+  }),
+  creator: one(users, {
+    fields: [skillsFramework.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const skillsAssessmentSessionsRelations = relations(skillsAssessmentSessions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsAssessmentSessions.tenantId],
+    references: [tenants.id],
+  }),
+  framework: one(skillsFramework, {
+    fields: [skillsAssessmentSessions.frameworkId],
+    references: [skillsFramework.id],
+  }),
+}));
+
+export const skillsBotInteractionsRelations = relations(skillsBotInteractions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsBotInteractions.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [skillsBotInteractions.userId],
+    references: [users.id],
+  }),
+  session: one(skillsAssessmentSessions, {
+    fields: [skillsBotInteractions.sessionId],
+    references: [skillsAssessmentSessions.id],
+  }),
+}));
+
+export const skillsLearningTriggersRelations = relations(skillsLearningTriggers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsLearningTriggers.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [skillsLearningTriggers.employeeId],
+    references: [users.id],
+  }),
+  session: one(skillsAssessmentSessions, {
+    fields: [skillsLearningTriggers.sessionId],
+    references: [skillsAssessmentSessions.id],
+  }),
+}));
+
+export const skillsTalentTriggersRelations = relations(skillsTalentTriggers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsTalentTriggers.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [skillsTalentTriggers.employeeId],
+    references: [users.id],
+  }),
+  session: one(skillsAssessmentSessions, {
+    fields: [skillsTalentTriggers.sessionId],
+    references: [skillsAssessmentSessions.id],
+  }),
+}));
+
+export const skillsBonusTriggersRelations = relations(skillsBonusTriggers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsBonusTriggers.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [skillsBonusTriggers.employeeId],
+    references: [users.id],
+  }),
+  session: one(skillsAssessmentSessions, {
+    fields: [skillsBonusTriggers.sessionId],
+    references: [skillsAssessmentSessions.id],
+  }),
+}));
+
+export const skillsProgressRelations = relations(skillsProgress, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [skillsProgress.tenantId],
+    references: [tenants.id],
+  }),
+  employee: one(users, {
+    fields: [skillsProgress.employeeId],
     references: [users.id],
   }),
 }));
