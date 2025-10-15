@@ -46,11 +46,12 @@ RUN mkdir -p /app/logs && chown mizan:nodejs /app/logs
 # Switch to non-root user
 USER mizan
 
-# Expose port (matches application default in index.ts)
+# Expose port (Railway will override with PORT env var)
+# Default is 3001 but Railway typically uses dynamic ports
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Health check - increased timeouts for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD node dist/health-check.js
 
 # Start the application

@@ -30,7 +30,7 @@ import demoRoutes from './src/routes/demo.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Middleware
 const allowedOrigins = [
@@ -260,53 +260,98 @@ async function testDatabaseConnection(): Promise<boolean> {
 // Start server with proper error handling (AGENT_CONTEXT_ULTIMATE.md Line 1114)
 async function startServer() {
   try {
+    console.log('🚀 Starting Mizan Platform Server v2.0.0...');
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔌 Port: ${PORT}`);
+    
     // Validate required environment variables
     if (!process.env.DATABASE_URL) {
       console.warn('⚠️  WARNING: DATABASE_URL not set, using default connection string');
+    } else {
+      console.log('✅ DATABASE_URL is set');
     }
 
     if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
       console.warn('⚠️  WARNING: SESSION_SECRET/JWT_SECRET not set, using default (insecure for production)');
+    } else {
+      console.log('✅ JWT_SECRET is set');
     }
 
-    // Test database connection
-    const dbConnected = await testDatabaseConnection();
+    // Test database connection (with retry logic)
+    let dbConnected = false;
+    const maxRetries = 3;
     
-    if (!dbConnected && process.env.NODE_ENV === 'production') {
-      console.error('🚨 FATAL: Database connection required in production');
-      process.exit(1);
+    for (let i = 0; i < maxRetries; i++) {
+      console.log(`🔍 Database connection attempt ${i + 1}/${maxRetries}...`);
+      dbConnected = await testDatabaseConnection();
+      
+      if (dbConnected) {
+        break;
+      }
+      
+      if (i < maxRetries - 1) {
+        console.log('⏳ Waiting 2 seconds before retry...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    if (!dbConnected) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('🚨 FATAL: Database connection required in production');
+        console.error('🔧 Check DATABASE_URL environment variable');
+        process.exit(1);
+      } else {
+        console.warn('⚠️  Continuing without database (development mode)');
+      }
     }
 
-    // Start HTTP server
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Mizan Platform Server v2.0.0 running on port ${PORT}`);
-      console.log(`📊 Features: Three-Engine AI, Multi-Provider Consensus, Culture & Structure Analysis`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    // Start HTTP server - CRITICAL: Listen on 0.0.0.0 for containerized environments
+    const HOST = process.env.HOST || '0.0.0.0';
+    const server = app.listen(PORT, HOST, () => {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`🚀 Mizan Platform Server v2.0.0 ONLINE`);
+      console.log(`📍 Listening on: ${HOST}:${PORT}`);
+      console.log(`📊 Features: Three-Engine AI, Multi-Provider Consensus`);
+      console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`💾 Database: ${dbConnected ? 'Connected' : 'Disconnected (dev mode)'}`);
+      console.log(`💾 Database: ${dbConnected ? '✅ Connected' : '❌ Disconnected'}`);
+      console.log('═══════════════════════════════════════════════════════════');
+    });
+
+    // Handle server errors
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`🚨 FATAL: Port ${PORT} is already in use`);
+      } else if (error.code === 'EACCES') {
+        console.error(`🚨 FATAL: Permission denied to bind to port ${PORT}`);
+      } else {
+        console.error('🚨 FATAL: Server error:', error);
+      }
+      process.exit(1);
     });
 
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
-      console.log(`\n${signal} received, shutting down gracefully...`);
+      console.log(`\n⚠️  ${signal} received, shutting down gracefully...`);
       
       server.close(async () => {
-        console.log('HTTP server closed');
+        console.log('✅ HTTP server closed');
         
         try {
           const { pool } = await import('./db/index.js');
           await pool.end();
-          console.log('Database pool closed');
+          console.log('✅ Database pool closed');
         } catch (error) {
-          console.error('Error closing database pool:', error);
+          console.error('❌ Error closing database pool:', error);
         }
         
+        console.log('👋 Shutdown complete');
         process.exit(0);
       });
 
       // Force shutdown after 10 seconds
       setTimeout(() => {
-        console.error('Forced shutdown after timeout');
+        console.error('🚨 Forced shutdown after timeout');
         process.exit(1);
       }, 10000);
     };
@@ -314,8 +359,20 @@ async function startServer() {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error('🚨 Uncaught Exception:', error);
+      gracefulShutdown('UNCAUGHT_EXCEPTION');
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+      gracefulShutdown('UNHANDLED_REJECTION');
+    });
+
   } catch (error: any) {
     console.error('🚨 FATAL: Failed to start server:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 }
