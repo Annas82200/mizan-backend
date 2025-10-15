@@ -1124,7 +1124,7 @@ async function generateEmployeeReport(assessmentId: string, userId: string, tena
       // Build comprehensive employee report with rich AI insights
       const report: EmployeeReportData = {
         employeeId: userId,
-        employeeName: assessment.user?.name || 'Employee',
+        employeeName: (assessment.user && !Array.isArray(assessment.user) ? assessment.user.name : null) || 'Employee',
         assessmentDate: assessment.completedAt,
 
         // Personal values interpretation with cylinder mapping
@@ -1445,7 +1445,7 @@ async function getDepartmentReport(
     completedAt: a.completedAt,
     createdAt: a.createdAt,
     updatedAt: a.createdAt,
-    user: a.user ? {
+    user: (a.user && !Array.isArray(a.user)) ? {
       id: a.user.id,
       email: a.user.email,
       name: a.user.name

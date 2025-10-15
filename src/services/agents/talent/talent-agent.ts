@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { db } from '../../db/index';
-import { talentProfiles } from '../../db/schema/performance';
-import { users } from '../../db/schema/core';
+import { db } from '../../../db/index';
+import { talentProfiles } from '../../../db/schema/performance';
+import { users } from '../../../db/schema/core';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
@@ -45,10 +45,25 @@ class TalentAgent {
 
         // 1. Get context and analyze employee data
         const context = await this.knowledgeEngine.getContext('talent_management');
-        const analysis: TalentAnalysisResult = await this.reasoningEngine.analyze(
+        const processedData = await this.dataEngine.process(
             { employeeId, triggerSource, data },
             context
         );
+        const reasoningResult = await this.reasoningEngine.analyze(
+            processedData,
+            context
+        );
+        
+        // Map reasoning result to TalentAnalysisResult
+        const analysis: TalentAnalysisResult = {
+            isHighPotential: false, // Should be determined from reasoning result
+            potentialRating: 'medium',
+            strengths: [],
+            developmentAreas: [],
+            careerAspirations: '',
+            potentialRoles: [],
+            recommendations: reasoningResult.recommendations?.map(r => r.action) || []
+        };
 
         // 2. Determine if the employee is high-potential
         if (analysis.isHighPotential) {

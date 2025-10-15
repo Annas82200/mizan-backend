@@ -19,6 +19,8 @@ export const tenants = pgTable('tenants', {
   mission: text('mission'),         // Company mission statement
   strategy: text('strategy'),       // Strategy statement
   values: jsonb('values').$type<string[]>(), // Company values array
+  marketPosition: text('market_position'), // Market position (leader, challenger, follower, nicher)
+  location: text('location'), // Company location/headquarters
 
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),

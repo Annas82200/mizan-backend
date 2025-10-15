@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../../db/index';
-import { bonusRecommendations } from '../../db/schema/bonus';
+import { db } from '../../../db/index';
+import { bonusRecommendations } from '../../../db/schema/bonus';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
@@ -42,10 +42,22 @@ class BonusAgent {
 
         // 1. Get context and analyze the trigger data
         const context = await this.knowledgeEngine.getContext('compensation_and_rewards');
-        const analysis: BonusAnalysisResult = await this.reasoningEngine.analyze(
+        const processedData = await this.dataEngine.process(
             { employeeId, triggerSource, data },
             context
         );
+        const reasoningResult = await this.reasoningEngine.analyze(
+            processedData,
+            context
+        );
+        
+        // Map the reasoning result to BonusAnalysisResult
+        const analysis: BonusAnalysisResult = {
+            recommendBonus: reasoningResult.recommendations?.[0]?.priority === 'high' || false,
+            recommendedAmount: 0, // This should be calculated based on the trigger data
+            bonusType: 'performance', // Default type, should be determined by trigger
+            rationale: reasoningResult.recommendations?.[0]?.rationale || 'No specific rationale provided'
+        };
 
         // 2. If a bonus is recommended, create a record
         if (analysis.recommendBonus && analysis.recommendedAmount > 0) {

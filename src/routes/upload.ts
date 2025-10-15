@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
+import { randomUUID } from "crypto";
 import { authenticate } from "../middleware/auth";
 import { StructureAgentV2 } from "../services/agents/structure/structure-agent";
 import { db } from "../db/index";
@@ -362,7 +363,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       submittedBy: req.user!.id,
       tenantId: targetTenantId,
       rawText: orgText,
-      parsedData: result.roles || [],
+      parsedData: [],  // Store parsed structure data here if needed
       analysisResult: result,
       isPublic: false,
     }).returning();

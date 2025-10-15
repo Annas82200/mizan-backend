@@ -73,6 +73,8 @@ router.post("/structure", async (req, res) => {
       roles: (rawStructureData.roles || []) as Role[],
       departments: (rawStructureData.departments || []) as Department[],
       reportingLines: (rawStructureData.reportingLines || []) as ReportingLine[],
+      totalEmployees: rawStructureData.totalEmployees || 0,
+      organizationLevels: rawStructureData.organizationLevels || 0
     };
 
     // Run rich AI-powered structure analysis for human, contextual insights
@@ -82,18 +84,46 @@ router.post("/structure", async (req, res) => {
       richAnalysis = await structureAgent.generateRichStructureAnalysis({
         tenantId,
         structureData: structureData,
-        strategyData: tenantStrategy,
+        strategyData: {
+          id: tenantStrategy.id || '',
+          vision: tenantStrategy.vision,
+          mission: tenantStrategy.mission,
+          strategy: tenantStrategy.strategy,
+          values: tenantStrategy.values
+        } as StrategyData,
       });
     } catch (error: unknown) {
       console.error('Failed to generate rich structure analysis:', error);
+      // Create a default structure analysis output that matches the interface
       richAnalysis = {
-        keyInsights: ["AI analysis failed, showing basic analysis only."],
+        overallScore: 0.2,
+        overallHealthInterpretation: "AI analysis failed, showing basic analysis only.",
+        spanAnalysis: {
+          average: 0,
+          distribution: {},
+          outliers: []
+        },
+        layerAnalysis: {
+          totalLayers: 0,
+          layerDistribution: {},
+          recommendations: []
+        },
         recommendations: [],
         confidenceScore: 0.2
-      };
+      } as StructureAnalysisOutput;
     }
     
-    const expertAnalysis = analyzeStructure(structureData, tenantStrategy);
+    const expertAnalysis = await analyzeStructure({
+      tenantId,
+      structureData,
+      strategyData: {
+        id: tenantStrategy.id || '',
+        vision: tenantStrategy.vision,
+        mission: tenantStrategy.mission,
+        strategy: tenantStrategy.strategy,
+        values: tenantStrategy.values
+      } as StrategyData
+    });
 
     // Combine results
     const combinedResult = {

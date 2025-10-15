@@ -453,7 +453,7 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
     });
 
     // Type the departments data properly
-    const typedDepartments: DepartmentData[] = departmentsData.map((d: { id: string; name: string; level?: number | null; users?: Array<{ id: string; name?: string }> | null; parentId?: string | null }) => ({
+    const typedDepartments: DepartmentData[] = departmentsData.map((d) => ({
       id: d.id,
       name: d.name,
       level: d.level || 1,

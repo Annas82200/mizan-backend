@@ -103,7 +103,17 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             return res.status(404).json({ success: false, error: 'Skills framework not found for this tenant.' });
         }
 
-        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(employeeId, tenantId, framework);
+        // Map database framework to SkillsFramework interface
+        const skillsFramework: SkillsFramework = {
+            tenantId: framework.tenantId,
+            strategicSkills: (framework.strategicSkills as Skill[]) || [],
+            industryBenchmarks: [],  // These should be populated from the database if available
+            criticalSkills: [],      // These should be populated from the database if available
+            emergingSkills: [],      // These should be populated from the database if available
+            obsoleteSkills: []       // These should be populated from the database if available
+        };
+        
+        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(employeeId, tenantId, skillsFramework);
         res.json({ success: true, gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);
@@ -148,10 +158,13 @@ router.post('/employee/:employeeId', authenticate, async (req: Request, res: Res
         const newSkills = [];
         for (const skill of skillsToAdd) {
             const [newSkill] = await db.insert(skills).values({
-                id: randomUUID(),
                 userId: employeeId,
                 tenantId: req.user!.tenantId,
-                ...skill
+                name: skill.name!,
+                category: skill.category!,
+                level: skill.level!,
+                yearsOfExperience: skill.yearsOfExperience,
+                verified: skill.verified
             }).onConflictDoUpdate({
                 target: [skills.userId, skills.name],
                 set: {

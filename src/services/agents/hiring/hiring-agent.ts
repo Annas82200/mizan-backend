@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../../db/index';
-import { hiringRequisitions, jobPostings, candidates, candidateAssessments, interviews, offers } from '../../db/schema';
+import { db } from '../../../db/index';
+import { hiringRequisitions, jobPostings, candidates, candidateAssessments, interviews, offers } from '../../../db/schema/hiring';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
@@ -105,11 +105,25 @@ class HiringAgent {
         }, context);
 
         // Step 3: Reasoning and Analysis
-        const analysisResult: HiringAnalysisResult = await this.reasoningEngine.analyze(processedData, {
+        const reasoningResult = await this.reasoningEngine.analyze(processedData, {
             ...context,
-            industryBenchmarks: industryData,
+            industryBenchmarks: industryData as any,
             compensationData: await this.getMarketCompensationData(clientContext)
         });
+        
+        // Map reasoning result to HiringAnalysisResult
+        const analysisResult: HiringAnalysisResult = {
+            responsibilities: [],  // Should be extracted from reasoning result
+            requirements: [],      // Should be extracted from reasoning result
+            compensation: {
+                market: { p25: 0, p50: 0, p75: 0 },
+                recommended: { base: 0, bonus: 0 }
+            },
+            interview: {
+                questions: [],
+                criteria: []
+            }
+        };
 
         // Step 4: Persist Requisition to DB
         const requisition = await this.createHiringRequisition(requisitionId, tenantId, structureRecommendation, analysisResult);

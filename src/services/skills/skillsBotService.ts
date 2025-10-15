@@ -15,14 +15,18 @@ import {
 import { users } from '../../db/schema/core';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { SkillsAnalysisService } from './skillsAnalysisService';
+import { SkillsAgent } from '../agents/skills/skills-agent';
 
 // Define BotResponse type
 interface BotResponse {
   message: string;
+  response?: string; // Added for backward compatibility
   data?: any;
   suggestions?: string[];
   error?: boolean;
+  resources?: string[];
+  nextSteps?: string[];
+  requiresAction?: boolean;
 }
 
 // Define strict types to replace 'any'
@@ -52,10 +56,10 @@ interface ResumeData {
  * As per AGENT_CONTEXT_ULTIMATE.md (Lines 114-226)
  */
 export class SkillsBotService {
-  private skillsAnalysisService: SkillsAnalysisService;
+  private skillsAgent: SkillsAgent;
 
   constructor() {
-    this.skillsAnalysisService = new SkillsAnalysisService();
+    this.skillsAgent = new SkillsAgent('skills', { model: 'gpt-4' });
   }
 
   /**

@@ -93,6 +93,12 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
   }
   
   const user = session.user;
+  
+  // Handle case where user might be an array (shouldn't happen but we need to be safe)
+  if (!user || Array.isArray(user)) {
+    return null;
+  }
+  
   return {
     id: user.id,
     email: user.email,
@@ -136,8 +142,8 @@ export async function login(email: string, password: string, tenantId: string): 
       name: user.name,
       role: user.role as 'employee' | 'clientAdmin' | 'superadmin',
       tenantId: user.tenantId,
-      tenantName: user.tenant?.name,
-      tenantPlan: user.tenant?.plan,
+      tenantName: (user.tenant && !Array.isArray(user.tenant)) ? user.tenant.name : undefined,
+      tenantPlan: (user.tenant && !Array.isArray(user.tenant)) ? user.tenant.plan : undefined,
     },
     token,
   };

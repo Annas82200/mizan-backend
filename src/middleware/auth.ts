@@ -23,7 +23,7 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -47,7 +47,30 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
         if (!decoded) {
             return res.status(401).json({ error: 'Invalid token' });
         }
-        req.user = decoded;
+        
+        // Fetch full user data from database
+        const userData = await db.query.users.findFirst({
+            where: eq(users.id, decoded.userId),
+            with: {
+                tenant: true
+            }
+        });
+        
+        if (!userData) {
+            return res.status(401).json({ error: 'User not found' });
+        }
+        
+        // Set the authenticated user with all required properties
+        req.user = {
+            id: userData.id,
+            tenantId: userData.tenantId,
+            email: userData.email,
+            name: userData.name || '',
+            role: userData.role,
+            departmentId: userData.departmentId || undefined,
+            managerId: userData.managerId || undefined
+        };
+        
         next();
     } catch (error: unknown) {
         if (error instanceof Error) {

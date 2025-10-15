@@ -443,9 +443,9 @@ export class BillingService {
     const customer = await stripe.customers.retrieve(subscription.customer as string);
 
     // Check if customer was deleted
-    if (customer.deleted) return;
+    if ('deleted' in customer && customer.deleted) return;
 
-    const tenantId = customer.metadata?.tenantId;
+    const tenantId = 'metadata' in customer ? customer.metadata?.tenantId : undefined;
 
     if (!tenantId) return;
 
@@ -464,9 +464,9 @@ export class BillingService {
     const customer = await stripe.customers.retrieve(subscription.customer as string);
 
     // Check if customer was deleted
-    if (customer.deleted) return;
+    if ('deleted' in customer && customer.deleted) return;
 
-    const tenantId = customer.metadata?.tenantId;
+    const tenantId = 'metadata' in customer ? customer.metadata?.tenantId : undefined;
 
     if (!tenantId) return;
 
