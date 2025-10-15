@@ -56,5 +56,6 @@ HEALTHCHECK --interval=10s --timeout=10s --start-period=60s --retries=5 \
   CMD node dist/health-check.js
 
 # Start the application with verbose error reporting
+# Run node directly (not through npm) for proper log capture in Railway
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "--trace-warnings", "--unhandled-rejections=strict", "dist/index.js"]
