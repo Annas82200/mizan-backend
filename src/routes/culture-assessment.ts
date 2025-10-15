@@ -2,7 +2,7 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db/index.js';
+import { db } from '../../db/index';
 import {
   cultureAssessments,
   cultureReports,
@@ -10,11 +10,11 @@ import {
   users,
   tenants,
   triggers
-} from '../../db/schema.js';
-import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent.js';
-import { EngagementAgent } from '../services/agents/engagement/engagement-agent.js';
-import { RecognitionAgent } from '../services/agents/recognition/recognition-agent.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+} from '../../db/schema';
+import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent';
+import { EngagementAgent } from '../services/agents/engagement/engagement-agent';
+import { RecognitionAgent } from '../services/agents/recognition/recognition-agent';
+import { authenticate, authorize } from '../middleware/auth';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 

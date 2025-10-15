@@ -2,11 +2,11 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../middleware/auth.js';
-import { db } from '../../db/index.js';
-import { consultingRequests, consultants } from '../../db/schema.js';
+import { authenticate, authorize } from '../middleware/auth';
+import { db } from '../../db/index';
+import { consultingRequests, consultants } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { emailService } from '../services/email.js';
+import { emailService } from '../services/email';
 
 const router = Router();
 

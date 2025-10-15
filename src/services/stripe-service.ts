@@ -1,9 +1,9 @@
 // services/stripe-service.ts
 import Stripe from 'stripe';
-import { db } from '../../db/index.js';
-import { subscriptions, payments, demoRequests } from '../../db/schema/payments.js';
+import { db } from '../../db/index';
+import { subscriptions, payments, demoRequests } from '../../db/schema/payments';
 import { eq } from 'drizzle-orm';
-import { emailService } from './email.js';
+import { emailService } from './email';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in environment variables');

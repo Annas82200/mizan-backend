@@ -1,10 +1,10 @@
 // server/services/orchestrator/architect-ai.ts
 
-import { StructureAgentV2 } from '../agents/structure/structure-agent.js';
-import { CultureAgentV2 } from '../agents/culture/culture-agent.js';
-import { SkillsAgent } from '../agents/skills/skills-agent.js';
-import { db } from '../../../db/index.js';
-import { companies, users, departments } from '../../../db/schema.js';
+import { StructureAgentV2 } from '../agents/structure/structure-agent';
+import { CultureAgentV2 } from '../agents/culture/culture-agent';
+import { SkillsAgent } from '../agents/skills/skills-agent';
+import { db } from '../../../db/index';
+import { companies, users, departments } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 interface OrgChartData {

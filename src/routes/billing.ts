@@ -1,12 +1,12 @@
 import { Router } from "express";
 import express from "express";
 import { z } from "zod";
-import { authenticate, authorize } from "../middleware/auth.js";
-import { requireTenant } from "../middleware/tenant.js";
-import { db } from "./db/index.js";
-import { payments, subscriptions } from "./db/schema/payments.js";
+import { authenticate, authorize } from "../middleware/auth";
+import { requireTenant } from "../middleware/tenant";
+import { db } from "./db/index";
+import { payments, subscriptions } from "./db/schema/payments";
 import { eq, desc } from "drizzle-orm";
-import { stripeService } from "../services/stripe-service.js";
+import { stripeService } from "../services/stripe-service";
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

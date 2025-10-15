@@ -10,9 +10,9 @@ import {
   candidateAssessments,
   interviews,
   offers
-} from '../../db/schema/hiring.js';
+} from '../../db/schema/hiring';
 
-import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared.js';
+import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 
 // ============================================================================
 // DATABASE INFERRED TYPES

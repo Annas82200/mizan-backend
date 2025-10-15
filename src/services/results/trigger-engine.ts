@@ -1,13 +1,13 @@
 // server/services/results/trigger-engine.ts
 
-import { UnifiedResults } from './unified-results.js';
-import { db } from '../../../db/index.js';
-import { triggers, triggerExecutions } from '../../../db/schema.js';
+import { UnifiedResults } from './unified-results';
+import { db } from '../../../db/index';
+import { triggers, triggerExecutions } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import lxpModule from '../modules/lxp/lxp-module.js';
-import * as hiringModule from '../modules/hiring/hiring-module.js';
-import { TriggerConfig, TriggerResultData } from '../../types/trigger-types.js';
+import lxpModule from '../modules/lxp/lxp-module';
+import * as hiringModule from '../modules/hiring/hiring-module';
+import { TriggerConfig, TriggerResultData } from '../../types/trigger-types';
 
 export interface Trigger {
   id: string;

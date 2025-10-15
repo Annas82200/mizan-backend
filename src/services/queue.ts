@@ -2,8 +2,8 @@
 // BullMQ v5 implementation with separate Queue (producer) and Worker (consumer) instances
 
 import { Queue, Worker, Job } from 'bullmq';
-import { db } from '../../db/index.js';
-import { analyses, triggerExecutions } from '../../db/schema.js';
+import { db } from '../../db/index';
+import { analyses, triggerExecutions } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 

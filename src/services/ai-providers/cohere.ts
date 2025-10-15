@@ -1,5 +1,5 @@
-import { ProviderCall, ProviderResponse } from "./types.js";
-import { getTenant } from "../data/store.js";
+import { ProviderCall, ProviderResponse } from "./types";
+import { getTenant } from "../data/store";
 
 const COHERE_API_KEY = process.env.COHERE_API_KEY || "";
 

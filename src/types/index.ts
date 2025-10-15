@@ -5,12 +5,12 @@
  */
 
 // Shared types
-export * from './shared.js';
+export * from './shared';
 
 // Module types
-export * from './lxp.js';
-export * from './performance.js';
-export * from './hiring.js';
+export * from './lxp';
+export * from './performance';
+export * from './hiring';
 
 // Agent types
-export * from './agents.js';
+export * from './agents';

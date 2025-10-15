@@ -5,7 +5,7 @@
  * Compliant with AGENT_CONTEXT_ULTIMATE.md
  */
 
-import { UnifiedResults } from '../services/results/unified-results.js';
+import { UnifiedResults } from '../services/results/unified-results';
 
 // ============================================================================
 // CORE TRIGGER TYPES

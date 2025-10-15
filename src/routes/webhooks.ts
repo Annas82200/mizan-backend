@@ -1,6 +1,6 @@
 // routes/webhooks.ts
 import { Router, Request, Response } from 'express';
-import { stripeService } from '../services/stripe-service.js';
+import { stripeService } from '../services/stripe-service';
 import Stripe from 'stripe';
 
 const router = Router();

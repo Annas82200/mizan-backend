@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { AgentManager } from '../services/agents/agent-manager.js';
-import { authenticateToken, authorize } from '../middleware/auth.js';
+import { AgentManager } from '../services/agents/agent-manager';
+import { authenticateToken, authorize } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();

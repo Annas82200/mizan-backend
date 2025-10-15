@@ -1,4 +1,4 @@
-import { ThreeEngineAgent, ThreeEngineConfig } from '../../services/agents/base/three-engine-agent.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../../services/agents/base/three-engine-agent';
 
 // ============================================================================
 // ENGAGEMENT AGENT - Analyzes employee engagement levels and factors

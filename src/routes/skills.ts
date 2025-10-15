@@ -3,10 +3,10 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../middleware/auth.js';
-import { skillsAgent } from '../../services/agents/skills/skills-agent.js';
-import { db } from '../../db/index.js';
-import { skills, skillsAssessments, skillsGaps, skillsFrameworks, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema.js';
+import { authenticate, authorize } from '../middleware/auth';
+import { skillsAgent } from '../../services/agents/skills/skills-agent';
+import { db } from '../../db/index';
+import { skills, skillsAssessments, skillsGaps, skillsFrameworks, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

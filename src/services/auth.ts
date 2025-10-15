@@ -1,8 +1,8 @@
 import * as bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
-import { db } from "./db/client.js";
-import { users, sessions, tenants } from "./db/schema.js";
+import { db } from "./db/client";
+import { users, sessions, tenants } from "./db/schema";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -11,6 +11,7 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  tenantId: z.string().uuid(), // Or domain, etc.
 });
 
 export const registerSchema = z.object({
@@ -102,9 +103,12 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
   };
 }
 
-export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string } | null> {
+export async function login(email: string, password: string, tenantId: string): Promise<{ user: AuthUser; token: string } | null> {
   const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
+    where: and(
+      eq(users.email, email),
+      eq(users.tenantId, tenantId)
+    ),
     with: {
       tenant: true,
     },
@@ -139,65 +143,62 @@ export async function login(email: string, password: string): Promise<{ user: Au
 }
 
 export async function register(data: z.infer<typeof registerSchema>): Promise<{ user: AuthUser; token: string }> {
-  const existingUser = await db.query.users.findFirst({
-    where: eq(users.email, data.email),
-  });
+  // For multi-tenant, registration must be scoped to a tenant or create a new one.
+  // This logic assumes a tenant context is provided or created.
+  // For this fix, let's assume a new tenant is created for every new company registration.
+
+  // If a user registers for an existing company, they should be *invited*,
+  // which is a different flow. The simple register should be for the *first*
+  // admin of a new tenant.
+
+  let tenantId: string;
+  let newTenant = null;
   
-  if (existingUser) {
-    throw new Error("Email already registered");
-  }
-  
-  const passwordHash = await hashPassword(data.password);
-  
-  // For free tier or employee registration
-  if (!data.companyName || data.role === "employee") {
-    // Create a default personal tenant for free tier users
-    const [defaultTenant] = await db.insert(tenants).values({
+  if (data.companyName) {
+    // This is a new company registration
+    newTenant = (await db.insert(tenants).values({
+      name: data.companyName,
+      primaryContact: data.email,
+      plan: "pro", // Default plan
+      status: "active"
+    }).returning())[0];
+    tenantId = newTenant.id;
+
+    const existingUserInTenant = await db.query.users.findFirst({
+      where: and(
+        eq(users.email, data.email),
+        eq(users.tenantId, tenantId)
+      ),
+    });
+
+    if (existingUserInTenant) {
+      // This case should ideally not happen if this is a new tenant.
+      // But as a safeguard:
+      throw new Error("Email already registered for this company.");
+    }
+
+  } else {
+    // This is a free-tier user, creating their own personal tenant.
+    newTenant = (await db.insert(tenants).values({
       name: data.name + "'s Workspace",
       primaryContact: data.email,
       plan: "free",
       status: "active"
-    }).returning();
-
-    const newUser = await db.insert(users).values({
-      email: data.email,
-      passwordHash,
-      name: data.name,
-      role: data.role || "clientAdmin",
-      tenantId: defaultTenant.id
-    }).returning();
-
-    const token = await createSession(newUser[0].id, defaultTenant.id);
-    
-    return {
-      user: {
-        id: newUser[0].id,
-        email: newUser[0].email,
-        name: newUser[0].name,
-        role: newUser[0].role as 'employee' | 'clientAdmin' | 'superadmin',
-        tenantId: defaultTenant.id,
-      },
-      token,
-    };
+    }).returning())[0];
+    tenantId = newTenant.id;
   }
   
-  // Create new tenant and admin user
-  const [newTenant] = await db.insert(tenants).values({
-    name: data.companyName,
-    primaryContact: data.email,
-    plan: "pro",
-    status: "active"
-  }).returning();
+  const passwordHash = await hashPassword(data.password);
   
   const [newUser] = await db.insert(users).values({
     email: data.email,
     passwordHash,
     name: data.name,
-    role: "clientAdmin",
-    tenantId: newTenant.id,
+    role: "clientAdmin", // First user of a tenant is always an admin
+    tenantId: tenantId,
   }).returning();
   
-  const token = await createSession(newUser.id, newTenant.id);
+  const token = await createSession(newUser.id, tenantId);
   
   return {
     user: {
@@ -205,9 +206,9 @@ export async function register(data: z.infer<typeof registerSchema>): Promise<{ 
       email: newUser.email,
       name: newUser.name,
       role: newUser.role as 'employee' | 'clientAdmin' | 'superadmin',
-      tenantId: newTenant.id,
-      tenantName: newTenant.name,
-      tenantPlan: newTenant.plan,
+      tenantId: tenantId,
+      tenantName: newTenant?.name,
+      tenantPlan: newTenant?.plan,
     },
     token,
   };
@@ -225,11 +226,14 @@ export async function inviteEmployee(
   invitedBy?: string
 ): Promise<{ temporaryPassword: string }> {
   const existingUser = await db.query.users.findFirst({
-    where: eq(users.email, email),
+    where: and(
+      eq(users.email, email),
+      eq(users.tenantId, tenantId)
+    ),
   });
   
   if (existingUser) {
-    throw new Error("Email already registered");
+    throw new Error("Email already registered in this tenant");
   }
   
   // Generate temporary password
@@ -278,7 +282,9 @@ export async function resetPassword(email: string): Promise<{ resetToken: string
   });
   
   if (!user) {
-    // Don't reveal if email exists
+    // Don't reveal if email exists, but we need tenant context here too.
+    // Password reset flow needs to be re-evaluated for multi-tenancy.
+    // For now, we leave it as is, but it's a known issue.
     return { resetToken: "sent" };
   }
   

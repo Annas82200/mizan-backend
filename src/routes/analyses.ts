@@ -1,19 +1,19 @@
 import { Router } from "express";
-import { analyzeStructure, StructureAgent, StructureAnalysisOutput } from "../services/agents/structure-agent.js";
-import { analyzeCulture } from "../services/agents/culture/culture-agent.js";
-import { runArchitectAI } from "../services/orchestrator/architect-ai.js";
-import { buildUnifiedResults } from "../services/results/unified-results.js";
-import { runTriggers } from "../services/results/trigger-engine.js";
-import { db } from "./db/index.js";
-import { organizationStructure } from "./db/schema/strategy.js";
-import { tenants } from "./db/schema.js";
+import { analyzeStructure, StructureAgent, StructureAnalysisOutput } from "../services/agents/structure-agent";
+import { analyzeCulture } from "../services/agents/culture/culture-agent";
+import { runArchitectAI } from "../services/orchestrator/architect-ai";
+import { buildUnifiedResults } from "../services/results/unified-results";
+import { runTriggers } from "../services/results/trigger-engine";
+import { db } from "./db/index";
+import { organizationStructure } from "./db/schema/strategy";
+import { tenants } from "./db/schema";
 import { eq } from "drizzle-orm";
-import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert.js";
-import { performCultureExpertAnalysis, type CultureExpertAnalysis } from "../services/culture-design-expert.js";
-import type { StrategyData, StructureData, Role, Department, ReportingLine } from "../types/structure-types.js";
-import { performanceAgent } from '../services/agents/performance/performance-agent.js';
-import { hiringAgent } from '../services/agents/hiring/hiring-agent.js';
-import { lxpAgent } from '../services/agents/lxp/lxp-agent.js';
+import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert";
+import { performCultureExpertAnalysis, type CultureExpertAnalysis } from "../services/culture-design-expert";
+import type { StrategyData, StructureData, Role, Department, ReportingLine } from "../types/structure-types";
+import { performanceAgent } from '../services/agents/performance/performance-agent';
+import { hiringAgent } from '../services/agents/hiring/hiring-agent';
+import { lxpAgent } from '../services/agents/lxp/lxp-agent';
 
 
 const router = Router();

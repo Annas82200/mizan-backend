@@ -1,6 +1,6 @@
 import OpenAI from "openai";
-import { ProviderCall, ProviderResponse } from "./types.js";
-import { getTenant } from "../data/store.js";
+import { ProviderCall, ProviderResponse } from "./types";
+import { getTenant } from "../data/store";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,

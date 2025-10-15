@@ -1,10 +1,10 @@
-import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent.js';
-import { EngagementAgent } from './engagement/engagement-agent.js';
-import { RecognitionAgent } from './recognition/recognition-agent.js';
-import { SkillsAgent } from './skills/skills-agent.js';
-import { StructureAgent, StructureAnalysisOutput } from './structure-agent.js';
-import { db } from '../../../db/index.js';
-import { agentAnalyses, triggers, cultureAssessments as cultureAssessmentsTable } from '../../../db/schema.js';
+import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent';
+import { EngagementAgent } from './engagement/engagement-agent';
+import { RecognitionAgent } from './recognition/recognition-agent';
+import { SkillsAgent } from './skills/skills-agent';
+import { StructureAgent, StructureAnalysisOutput } from './structure-agent';
+import { db } from '../../../db/index';
+import { agentAnalyses, triggers, cultureAssessments as cultureAssessmentsTable } from '../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Unified agent output type

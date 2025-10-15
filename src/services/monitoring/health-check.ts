@@ -3,10 +3,10 @@
  * Monitors application health and dependencies
  */
 
-import { db } from '../../../db/index.js';
+import { db } from '../../../db/index';
 import { sql } from 'drizzle-orm';
-import { metricsCollector } from './metrics.js';
-import { logger } from '../../utils/logger.js';
+import { metricsCollector } from './metrics';
+import { logger } from '../../utils/logger';
 
 export interface HealthCheckResult {
   service: string;

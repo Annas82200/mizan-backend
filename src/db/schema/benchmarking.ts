@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, jsonb, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { tenants } from './core.js';
+import { tenants } from './core';
 
 // ============================================================================
 // BENCHMARKING & METRICS

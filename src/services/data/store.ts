@@ -144,7 +144,7 @@ import {
   tenantSnapshots as snapshotSummarySeed,
   triggeredActions as triggeredSeed,
   users as userSeed,
-} from "./seed.js";
+} from "./seed";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];

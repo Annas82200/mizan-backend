@@ -3,10 +3,10 @@
 // Triggered by Skills Analysis for personalized learning paths
 // NO PLACEHOLDERS - Production-ready implementation
 
-import { db } from '../../../../db/index.js';
-import { learningPaths, courses, courseEnrollments } from '../../../../db/schema.js';
+import { db } from '../../../../db/index';
+import { learningPaths, courses, courseEnrollments } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
-import logger from '../../../utils/logger.js';
+import logger from '../../../utils/logger';
 import { randomUUID } from 'node:crypto';
 
 export interface SkillGap {

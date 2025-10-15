@@ -7,9 +7,9 @@
 // TRAINING: Organizational culture theories, Mizan framework, culture-strategy alignment
 // ============================================================================
 
-import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent.js';
-import { db } from '../../../../db/index.js';
-import { tenants, cultureReports, cylinderScores } from '../../../../db/schema.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent';
+import { db } from '../../../../db/index';
+import { tenants, cultureReports, cylinderScores } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 // ============================================================================

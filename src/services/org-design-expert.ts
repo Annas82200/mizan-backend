@@ -11,7 +11,7 @@
  */
 
 // Import types from standard definitions
-import type { StructureData as ImportedStructureData, Role as ImportedRole } from '../types/structure-types.js';
+import type { StructureData as ImportedStructureData, Role as ImportedRole } from '../types/structure-types';
 
 // Legacy interfaces for backward compatibility
 interface LegacyRole {

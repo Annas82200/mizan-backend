@@ -1,7 +1,7 @@
 // import { AIProviderKey } from "@mizan/shared/schema";
 type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral';
-import { EngineType, ProviderCall, ProviderResponse, EnsembleConfig } from "./types.js";
-import { invokeProvider } from "./router.js";
+import { EngineType, ProviderCall, ProviderResponse, EnsembleConfig } from "./types";
+import { invokeProvider } from "./router";
 
 export class EnsembleAI {
   private config: EnsembleConfig;

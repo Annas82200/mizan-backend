@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
-import { StructureAgent } from '../services/agents/structure-agent.js';
-import { StructureData, Role } from '../types/structure-types.js';
+import { StructureAgent } from '../services/agents/structure-agent';
+import { StructureData, Role } from '../types/structure-types';
 
 const router = express.Router();
 

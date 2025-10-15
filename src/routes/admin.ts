@@ -2,8 +2,8 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../middleware/auth.js';
-import { db } from '../../db/index.js';
+import { authenticate, authorize } from '../middleware/auth';
+import { db } from '../../db/index';
 import {
   users,
   tenants,
@@ -13,12 +13,15 @@ import {
   employeeProfiles,
   departments,
   triggers
-} from '../../db/schema.js';
+} from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { emailService } from '../services/email.js';
+import { emailService } from '../services/email';
 
 const router = Router();
+
+type CultureAssessment = typeof cultureAssessments.$inferSelect;
+type Analysis = typeof analyses.$inferSelect;
 
 // Apply authentication to all admin routes
 router.use(authenticate);
@@ -67,7 +70,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       alignmentScore?: number | null;
     }
     
-    const totalCultureScore = cultureScores.reduce((sum, c) => {
+    const totalCultureScore = cultureScores.reduce((sum: number, c: CultureAssessment) => {
       const culture = c as unknown as CultureWithScore;
       return sum + (culture.alignmentScore || 0);
     }, 0);
@@ -86,7 +89,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       recentAnalyses,
       trends: {
         // Add trend calculations here
-        analysesThisMonth: analysisCount.filter((a) => {
+        analysesThisMonth: analysisCount.filter((a: Analysis) => {
           const analysis = a as { createdAt: Date | string };
           const createdDate = typeof analysis.createdAt === 'string' 
             ? new Date(analysis.createdAt) 
@@ -409,7 +412,7 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
       alignmentScore?: number | null;
     }
     
-    const totalScore = assessments.reduce((sum, a) => {
+    const totalScore = assessments.reduce((sum: number, a: CultureAssessment) => {
       const assessment = a as unknown as AssessmentWithScore;
       return sum + (assessment.alignmentScore || 0);
     }, 0);

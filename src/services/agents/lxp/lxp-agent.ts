@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { db } from '../../../db/index.js';
-import { courses, learningPaths, courseEnrollments } from '../../../db/schema/lxp-extended.js';
-import { skillsGaps } from '../../../db/schema/skills.js';
-import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine.js';
-import { DataEngine } from '../../../ai/engines/DataEngine.js';
-import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine.js';
+import { db } from '../../../db/index';
+import { courses, learningPaths, courseEnrollments } from '../../../db/schema/lxp-extended';
+import { skillsGaps } from '../../../db/schema/skills';
+import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
+import { DataEngine } from '../../../ai/engines/DataEngine';
+import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

@@ -1,4 +1,4 @@
-import { ProviderCall, ProviderResponse } from "./types.js";
+import { ProviderCall, ProviderResponse } from "./types";
 
 export async function callGemini(call: ProviderCall): Promise<ProviderResponse> {
   const spectrum = ["insight", "pattern", "trend"];

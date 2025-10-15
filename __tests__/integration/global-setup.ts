@@ -3,7 +3,7 @@
  * Runs once before all tests
  */
 
-import { db } from '../../db/index.js';
+import { db } from '../../db/index';
 
 export default async function globalSetup() {
   console.log('🚀 Setting up integration test environment...');

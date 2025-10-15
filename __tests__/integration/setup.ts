@@ -3,7 +3,7 @@
  * Configures test environment and mocks
  */
 
-import { db } from '../../db/index.js';
+import { db } from '../../db/index';
 
 // Setup test database connection
 beforeAll(async () => {

@@ -1,6 +1,6 @@
 import { pgTable, text, integer, timestamp, boolean, jsonb, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { tenants, users } from './core.js';
+import { tenants, users } from './core';
 
 // ============================================================================
 // CULTURE ANALYSIS SYSTEM

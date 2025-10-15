@@ -1,8 +1,8 @@
 // utils/module-access.ts
 // Module access control based on subscription tiers
 
-import { db } from '../db/index.js';
-import { tenants } from '../db/schema.js';
+import { db } from '../db/index';
+import { tenants } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
 /**

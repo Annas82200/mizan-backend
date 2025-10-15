@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db/index.js';
-import { tenants, users } from '../../db/schema.js';
+import { db } from '../../db/index';
+import { tenants, users } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-import { authenticate, requireRole } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';

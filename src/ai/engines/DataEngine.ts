@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { DomainContext } from './KnowledgeEngine.js';
+import { DomainContext } from './KnowledgeEngine';
 
 // Processed data schema
 const ProcessedDataSchema = z.object({

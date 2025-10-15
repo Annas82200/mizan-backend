@@ -11,9 +11,9 @@ import {
   courseAssessments,
   assessmentResults,
   learningAnalytics
-} from '../../db/schema/lxp-extended.js';
+} from '../../db/schema/lxp-extended';
 
-import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared.js';
+import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 
 // ============================================================================
 // DATABASE INFERRED TYPES

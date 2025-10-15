@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean, jsonb, decimal, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb, decimal, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // ============================================================================
@@ -30,7 +30,7 @@ export const tenants = pgTable('tenants', {
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: text('tenant_id').notNull(),
-  email: text('email').notNull().unique(),
+  email: text('email').notNull(),
   passwordHash: text('password_hash').notNull(),
   name: text('name').notNull(),
   role: text('role').notNull().default('employee'), // employee, manager, admin, superadmin
@@ -41,6 +41,10 @@ export const users = pgTable('users', {
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => {
+  return {
+    emailIdx: uniqueIndex('unique_email_per_tenant_idx').on(table.tenantId, table.email),
+  };
 });
 
 export const departments = pgTable('departments', {

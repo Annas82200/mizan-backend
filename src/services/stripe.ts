@@ -1,9 +1,9 @@
 // server/services/stripe.ts
 
 import Stripe from 'stripe';
-import { db } from '../../db/index.js';
-import { tenants, payments } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { db } from '../../db/index';
+import { tenants, payments } from '../../db/schema';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 // Initialize Stripe
@@ -405,7 +405,10 @@ export class BillingService {
         status: 'succeeded',
         metadata: { invoiceId: invoice.id }
       })
-      .where(eq(payments.stripePaymentIntentId, invoice.payment_intent as string));
+      .where(and(
+        eq(payments.stripePaymentIntentId, invoice.payment_intent as string),
+        eq(payments.tenantId, tenantId)
+      ));
 
     console.log(`Payment succeeded for tenant ${tenantId}`);
   }
@@ -420,7 +423,10 @@ export class BillingService {
         status: 'failed',
         metadata: { invoiceId: invoice.id }
       })
-      .where(eq(payments.stripePaymentIntentId, invoice.payment_intent as string));
+      .where(and(
+        eq(payments.stripePaymentIntentId, invoice.payment_intent as string),
+        eq(payments.tenantId, tenantId)
+      ));
 
     // Update tenant status
     await db.update(tenants)

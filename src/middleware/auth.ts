@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../../db/index.js';
-import { users } from '../../db/schema.js';
+import { db } from '../../db/index';
+import { users } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-import { verifyToken } from '../services/auth.js';
+import { verifyToken } from '../services/auth';
 
 export interface AuthenticatedUser {
   id: string;

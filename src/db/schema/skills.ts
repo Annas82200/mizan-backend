@@ -1,6 +1,6 @@
 import { pgTable, text, integer, timestamp, jsonb, uuid, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { tenants, users } from './core.js';
+import { tenants, users } from './core';
 
 // Employee Skills Profiles - stores resume uploads and manual profiles
 export const employeeSkillsProfiles = pgTable('employee_skills_profiles', {

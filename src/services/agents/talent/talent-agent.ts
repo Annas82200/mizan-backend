@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { db } from '../../../db/index.js';
-import { talentProfiles } from '../../../db/schema/performance.js';
-import { users } from '../../../db/schema/core.js';
-import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine.js';
-import { DataEngine } from '../../../ai/engines/DataEngine.js';
-import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine.js';
+import { db } from '../../../db/index';
+import { talentProfiles } from '../../../db/schema/performance';
+import { users } from '../../../db/schema/core';
+import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
+import { DataEngine } from '../../../ai/engines/DataEngine';
+import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

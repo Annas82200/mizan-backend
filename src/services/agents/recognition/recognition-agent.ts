@@ -1,4 +1,4 @@
-import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent.js';
+import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent';
 
 // ============================================================================
 // RECOGNITION AGENT - Analyzes employee recognition needs and patterns

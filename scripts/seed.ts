@@ -1,4 +1,4 @@
-import { db } from "../db/client.js";
+import { db } from "../db/client";
 import {
   tenants,
   users,
@@ -8,8 +8,8 @@ import {
   learningExperiences,
   employeeProfiles,
   learningAssignments,
-} from "../db/schema.js";
-import { hashPassword } from "../src/services/auth.js";
+} from "../db/schema";
+import { hashPassword } from "../src/services/auth";
 
 const DEFAULT_VALUES_FRAMEWORK = [
   {

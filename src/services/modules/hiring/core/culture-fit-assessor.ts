@@ -2,10 +2,10 @@
 // Culture Fit Assessment for Hiring Module
 // NO PLACEHOLDERS - Production-ready implementation
 
-import { db } from '../../../../../db/index.js';
-import { cultureAgent } from '../../../agents/culture/culture-agent.js';
+import { db } from '../../../../../db/index';
+import { cultureAgent } from '../../../agents/culture/culture-agent';
 import { eq } from 'drizzle-orm';
-import logger from '../../../../utils/logger.js';
+import logger from '../../../../utils/logger';
 
 export interface CultureFitInput {
   candidateId: string;

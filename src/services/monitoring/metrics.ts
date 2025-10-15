@@ -4,7 +4,7 @@
  */
 
 import { register, collectDefaultMetrics, Counter, Histogram, Gauge } from 'prom-client';
-import { logger } from '../../utils/logger.js';
+import { logger } from '../../utils/logger';
 
 // Enable default metrics collection
 collectDefaultMetrics({

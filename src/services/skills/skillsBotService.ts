@@ -5,17 +5,17 @@
  * NO MOCK DATA - PRODUCTION READY
  */
 
-import { db } from '../../../db/client.js';
+import { db } from '../../../db/client';
 import { 
   skillsBotInteractions,
   skillsAssessmentSessions,
   employeeSkillsProfiles,
   skillsGapAnalysis
-} from '../../../db/schema/skills.js';
-import { users } from '../../../db/schema/core.js';
+} from '../../../db/schema/skills';
+import { users } from '../../../db/schema/core';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { SkillsAnalysisService } from './skillsAnalysisService.js';
+import { SkillsAnalysisService } from './skillsAnalysisService';
 
 // Define strict types to replace 'any'
 interface BotContext {

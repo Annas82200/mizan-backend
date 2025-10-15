@@ -1,4 +1,4 @@
-import { ProviderCall, ProviderResponse } from "./types.js";
+import { ProviderCall, ProviderResponse } from "./types";
 
 export async function callMistral(call: ProviderCall): Promise<ProviderResponse> {
   const stance = call.engine === "reasoning" ? "decision calculus" : "signal harmonics";

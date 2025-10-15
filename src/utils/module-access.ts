@@ -3,8 +3,8 @@
 // NO PLACEHOLDERS - Full implementation
 
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../../db/index.js';
-import { tenants } from '../../db/schema.js';
+import { db } from '../../db/index';
+import { tenants } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 export interface ModuleAccess {

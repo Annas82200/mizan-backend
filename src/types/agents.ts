@@ -4,7 +4,7 @@
  * All types related to AI agents and their configurations
  */
 
-import { AgentConfig, AgentExecutionResult } from './shared.js';
+import { AgentConfig, AgentExecutionResult } from './shared';
 
 // ============================================================================
 // THREE ENGINE AGENT TYPES

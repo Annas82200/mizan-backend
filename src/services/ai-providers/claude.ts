@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ProviderCall, ProviderResponse } from "./types.js";
-import { getTenant } from "../data/store.js";
+import { ProviderCall, ProviderResponse } from "./types";
+import { getTenant } from "../data/store";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,

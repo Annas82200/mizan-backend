@@ -3,7 +3,7 @@
  * Runs once after all tests
  */
 
-import { db } from '../../db/index.js';
+import { db } from '../../db/index';
 
 export default async function globalTeardown() {
   console.log('🧹 Cleaning up integration test environment...');

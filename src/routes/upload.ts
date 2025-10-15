@@ -1,13 +1,13 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
-import { authenticate } from "../middleware/auth.js";
-import { StructureAgentV2 } from "../services/agents/structure/structure-agent.js";
-import { db } from "./db/index.js";
-import { orgStructures, users, tenants } from "./db/schema/core.js";
-import { organizationStructure } from "./db/schema/strategy.js";
+import { authenticate } from "../middleware/auth";
+import { StructureAgentV2 } from "../services/agents/structure/structure-agent";
+import { db } from "./db/index";
+import { orgStructures, users, tenants } from "./db/schema/core";
+import { organizationStructure } from "./db/schema/strategy";
 import { eq, desc, and } from "drizzle-orm";
-import { AnalysisResult } from "../types/shared.js";
+import { AnalysisResult } from "../types/shared";
 import bcrypt from "bcryptjs";
 
 const router = Router();

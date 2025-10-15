@@ -1,7 +1,7 @@
 // server/services/workflow/automated-flow.ts
 
-import { db } from '../../../db/index.js';
-import { automatedFlows, flowExecutions } from '../../../db/schema.js';
+import { db } from '../../../db/index';
+import { automatedFlows, flowExecutions } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 

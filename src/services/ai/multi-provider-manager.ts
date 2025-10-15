@@ -4,8 +4,8 @@
  * Uses the existing EnsembleAI infrastructure for actual AI calls
  */
 
-import { EnsembleAI } from '../ai-providers/ensemble.js';
-import { ProviderCall, ProviderResponse } from '../ai-providers/types.js';
+import { EnsembleAI } from '../ai-providers/ensemble';
+import { ProviderCall, ProviderResponse } from '../ai-providers/types';
 
 export interface GenerationOptions {
   temperature?: number;

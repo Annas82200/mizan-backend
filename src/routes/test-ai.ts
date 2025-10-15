@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent.js';
-import { authenticate, requireRole } from '../middleware/auth.js';
+import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent';
+import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 

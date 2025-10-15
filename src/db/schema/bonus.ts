@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, decimal, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { users } from './core.js';
+import { users } from './core';
 
 export const bonusTypeEnum = pgEnum('bonus_type', ['performance', 'skill_acquisition', 'project_completion', 'spot_bonus', 'retention']);
 export const bonusStatusEnum = pgEnum('bonus_status', ['recommended', 'approved', 'rejected', 'paid', 'cancelled']);

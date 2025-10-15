@@ -2,7 +2,7 @@
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import * as schema from './schema.js';
+import * as schema from './schema';
 
 // Create connection pool (AGENT_CONTEXT_ULTIMATE.md - Drizzle ORM requirement)
 const pool = new Pool({

@@ -1,8 +1,8 @@
-import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent.js';
-import { db } from '../../../db/index.js';
-import { organizationStructure, companyStrategies } from '../../../db/schema.js';
+import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent';
+import { db } from '../../../db/index';
+import { organizationStructure, companyStrategies } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
-import { invokeProvider } from '../ai-providers/router.js';
+import { invokeProvider } from '../ai-providers/router';
 import type {
   StructureData,
   StrategyData,
@@ -13,7 +13,7 @@ import type {
   ReportingLine,
   SpanMetrics,
   LayerMetrics
-} from '../../types/structure-types.js';
+} from '../../types/structure-types';
 
 export interface StructureAnalysisInput extends Record<string, unknown> {
   tenantId: string;

@@ -13,9 +13,9 @@ import {
   okrs,
   keyResults,
   performanceRecommendations
-} from '../../db/schema/performance.js';
+} from '../../db/schema/performance';
 
-import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared.js';
+import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 
 // ============================================================================
 // DATABASE INFERRED TYPES

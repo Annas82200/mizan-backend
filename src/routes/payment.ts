@@ -1,9 +1,9 @@
 // routes/payment.ts
 import { Router, Request, Response } from 'express';
-import { stripeService } from '../services/stripe-service.js';
-import { authenticateToken } from '../middleware/auth.js';
-import { db } from '../../db/index.js';
-import { demoRequests } from '../../db/schema/payments.js';
+import { stripeService } from '../services/stripe-service';
+import { authenticateToken } from '../middleware/auth';
+import { db } from '../../db/index';
+import { demoRequests } from '../../db/schema/payments';
 import { eq } from 'drizzle-orm';
 
 const router = Router();

@@ -3,12 +3,12 @@
 // Triggered by Structure Analysis recommendations
 // NO PLACEHOLDERS - Production-ready implementation
 
-import { db } from '../../../../db/index.js';
-import { hiringRequisitions, jobPostings, candidates } from '../../../../db/schema.js';
+import { db } from '../../../../db/index';
+import { hiringRequisitions, jobPostings, candidates } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
-import logger from '../../../utils/logger.js';
+import logger from '../../../utils/logger';
 import { randomUUID } from 'node:crypto';
-import { assessCultureFit } from './core/culture-fit-assessor.js';
+import { assessCultureFit } from './core/culture-fit-assessor';
 
 export interface StructureRecommendation {
   positionTitle: string;

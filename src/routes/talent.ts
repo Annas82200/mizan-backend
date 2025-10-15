@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { talentAgent, TalentTriggerSchema } from '../services/agents/talent/talent-agent.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { talentAgent, TalentTriggerSchema } from '../services/agents/talent/talent-agent';
+import { authenticate, authorize } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();

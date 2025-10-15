@@ -2,10 +2,10 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../middleware/auth.js';
-import { runArchitectAI, ArchitectAIInput } from '../services/orchestrator/architect-ai.js';
-import { db } from '../../db/index.js';
-import { analyses, companies } from '../../db/schema.js';
+import { authenticate, authorize } from '../middleware/auth';
+import { runArchitectAI, ArchitectAIInput } from '../services/orchestrator/architect-ai';
+import { db } from '../../db/index';
+import { analyses, companies } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();

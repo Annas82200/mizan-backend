@@ -8,7 +8,7 @@
 
 import { pgTable, uuid, text, timestamp, decimal, jsonb, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { tenants, users, departments } from './core.js';
+import { tenants, users, departments } from './core';
 
 // ============================================================================
 // ENUMS

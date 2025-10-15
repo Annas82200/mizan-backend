@@ -4,9 +4,9 @@
  */
 
 import request from 'supertest';
-import { app } from '../index.js';
-import { db } from '../db/index.js';
-import { tenants, users, departments } from '../db/schema.js';
+import { app } from '../index';
+import { db } from '../db/index';
+import { tenants, users, departments } from '../db/schema';
 
 describe('API Integration Tests', () => {
   let testTenantId: string;

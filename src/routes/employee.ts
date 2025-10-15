@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth.js';
-import { db } from '../../db/index.js';
+import { authenticate } from '../middleware/auth';
+import { db } from '../../db/index';
 import {
   cultureAssessments,
   employeeProfiles,
   courseEnrollments,
   users
-} from '../../db/schema.js';
+} from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 const router = Router();

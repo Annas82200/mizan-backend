@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { db } from '../../../db/index.js';
-import { performanceCycles, performanceGoals, performanceReviews, performanceMetrics, performanceFeedback, performanceImprovementPlans, performanceAnalytics, oneOnOneMeetings, users, departments } from '../../../db/schema.js';
-import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine.js';
-import { DataEngine } from '../../../ai/engines/DataEngine.js';
-import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine.js';
+import { db } from '../../../db/index';
+import { performanceCycles, performanceGoals, performanceReviews, performanceMetrics, performanceFeedback, performanceImprovementPlans, performanceAnalytics, oneOnOneMeetings, users, departments } from '../../../db/schema';
+import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
+import { DataEngine } from '../../../ai/engines/DataEngine';
+import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-import { cultureAgent, CultureAnalysisInput, CultureAnalysisOutput } from '../culture/culture-agent.js';
-import { skillsAgent, SkillsAnalysisInput, SkillsAnalysisResult, SkillCategoryAnalysis } from '../skills/skills-agent.js';
+import { cultureAgent, CultureAnalysisInput, CultureAnalysisOutput } from '../culture/culture-agent';
+import { skillsAgent, SkillsAnalysisInput, SkillsAnalysisResult, SkillCategoryAnalysis } from '../skills/skills-agent';
 
 // Zod schemas for validation, derived from db/schema/performance.ts and AGENT_CONTEXT_ULTIMATE.md
 // This ensures type safety and compliance.
