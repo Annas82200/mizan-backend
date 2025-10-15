@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
 import { demoRequests } from '../../db/schema/payments';
 import { eq, desc } from 'drizzle-orm';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { emailService } from '../services/email';
 
 const router = Router();
@@ -128,7 +128,7 @@ router.post('/submit', async (req: Request, res: Response) => {
  * Get all demo requests (for superadmin dashboard)
  * AUTH: Superadmin only
  */
-router.get('/requests', authenticateToken, async (req: Request, res: Response) => {
+router.get('/requests', authenticate, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
     if (!req.user) {
@@ -186,7 +186,7 @@ router.get('/requests', authenticateToken, async (req: Request, res: Response) =
  * Get a single demo request by ID
  * AUTH: Superadmin only
  */
-router.get('/requests/:id', authenticateToken, async (req: Request, res: Response) => {
+router.get('/requests/:id', authenticate, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
     if (!req.user) {
@@ -237,7 +237,7 @@ router.get('/requests/:id', authenticateToken, async (req: Request, res: Respons
  * Update demo request status
  * AUTH: Superadmin only
  */
-router.patch('/requests/:id/status', authenticateToken, async (req: Request, res: Response) => {
+router.patch('/requests/:id/status', authenticate, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
     if (!req.user) {

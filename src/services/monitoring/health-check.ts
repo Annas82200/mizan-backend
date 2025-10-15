@@ -3,7 +3,7 @@
  * Monitors application health and dependencies
  */
 
-import { db } from '../../../db/index';
+import { db } from '../../db/index';
 import { sql } from 'drizzle-orm';
 import { metricsCollector } from './metrics';
 import { logger } from '../../utils/logger';

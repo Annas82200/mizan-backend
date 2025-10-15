@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../../../db/index';
-import { hiringRequisitions, jobPostings, candidates, candidateAssessments, interviews, offers } from '../../../db/schema';
+import { db } from '../../db/index';
+import { hiringRequisitions, jobPostings, candidates, candidateAssessments, interviews, offers } from '../../db/schema';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';

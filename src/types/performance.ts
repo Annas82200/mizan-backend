@@ -13,7 +13,7 @@ import {
   okrs,
   keyResults,
   performanceRecommendations
-} from '../../db/schema/performance';
+} from '../db/schema/performance';
 
 import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 

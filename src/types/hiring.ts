@@ -10,7 +10,7 @@ import {
   candidateAssessments,
   interviews,
   offers
-} from '../../db/schema/hiring';
+} from '../db/schema/hiring';
 
 import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 

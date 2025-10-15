@@ -1,8 +1,11 @@
-import skillsRoutes from './skills';
-import superadminRoutes from './superadmin';
-import testAiRoutes from './test-ai';
-import uploadRoutes from './upload';
-import webhooksRoutes from './webhooks';
-import workflowsRoutes from './workflows';
-import talentRoutes from './talent';
-import bonusRoutes from './bonus';
+// This file re-exports routes for organization
+// Routes are imported from the routes directory
+
+export { default as skillsRoutes } from './routes/skills';
+export { default as superadminRoutes } from './routes/superadmin';
+export { default as testAiRoutes } from './routes/test-ai';
+export { default as uploadRoutes } from './routes/upload';
+export { default as webhooksRoutes } from './routes/webhooks';
+// export { default as workflowsRoutes } from './routes/workflows'; // Route doesn't exist
+export { default as talentRoutes } from './routes/talent';
+export { default as bonusRoutes } from './routes/bonus';

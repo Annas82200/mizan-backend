@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../../db/index';
-import { users } from '../../db/schema';
+import { db } from '../db/index';
+import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyToken } from '../services/auth';
 
@@ -44,6 +44,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
 
     try {
         const decoded = verifyToken(token);
+        if (!decoded) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
         req.user = decoded;
         next();
     } catch (error: unknown) {

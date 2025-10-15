@@ -3,9 +3,9 @@ import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { authenticate } from "../middleware/auth";
 import { StructureAgentV2 } from "../services/agents/structure/structure-agent";
-import { db } from "./db/index";
-import { orgStructures, users, tenants } from "./db/schema/core";
-import { organizationStructure } from "./db/schema/strategy";
+import { db } from "../db/index";
+import { orgStructures, users, tenants } from "../db/schema/core";
+import { organizationStructure } from "../db/schema/strategy";
 import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared";
 import bcrypt from "bcryptjs";
@@ -350,7 +350,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     // Analyze the structure using the Three-Engine Architecture
     const result = await structureAgent.analyzeOrganizationStructure({
       tenantId: req.user!.tenantId,
-      structureId: structure.id
+      structureId: randomUUID() // Generate a new ID for this analysis
     });
 
     // Parse the org text into structured data for organization_structure table

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../../../db/index';
-import { bonusRecommendations } from '../../../db/schema/bonus';
+import { db } from '../../db/index';
+import { bonusRecommendations } from '../../db/schema/bonus';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';

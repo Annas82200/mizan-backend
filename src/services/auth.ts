@@ -1,12 +1,13 @@
 import * as bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
-import { db } from "./db/client";
-import { users, sessions, tenants } from "./db/schema";
+import { db } from "../db/client";
+import { users, sessions, tenants } from "../db/schema";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SALT_ROUNDS = 10; // Standard bcrypt salt rounds
 
 export const loginSchema = z.object({
   email: z.string().email(),

@@ -4,9 +4,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth';
-import { skillsAgent } from '../../services/agents/skills/skills-agent';
+import { skillsAgent } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
-import { skills, skillsAssessments, skillsGaps, skillsFrameworks, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
+import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -95,8 +95,8 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         const { tenantId } = req.user!;
 
         // First, get the strategic framework for the tenant
-        const framework = await db.query.skillsFrameworks.findFirst({
-            where: eq(skillsFrameworks.tenantId, tenantId)
+        const framework = await db.query.skillsFramework.findFirst({
+            where: eq(skillsFramework.tenantId, tenantId)
         });
 
         if (!framework) {

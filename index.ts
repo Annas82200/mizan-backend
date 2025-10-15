@@ -38,35 +38,35 @@ console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ SET' : '⚠️  NOT
 // Import database and utilities
 console.log('📚 Loading database module...');
 import bcrypt from 'bcryptjs';
-import { db } from './db/index';
-import { tenants, users } from './db/schema';
+import { db } from './src/db/index';
+import { tenants, users } from './src/db/schema';
 import { eq } from 'drizzle-orm';
-import { authenticate, authorize } from './middleware/auth';
-import { BillingService } from './services/stripe';
-import { CultureAgentV2 } from './services/agents/culture/culture-agent';
-import { SkillsAgent } from './services/agents/skills/skills-agent';
-import { StructureAgentV2 } from './services/agents/structure/structure-agent';
-import { EngagementAgent } from './services/agents/engagement/engagement-agent';
-import { RecognitionAgent } from './services/agents/recognition/recognition-agent';
-import entryRoutes from './routes/entry';
-import authRoutes from './routes/auth';
-import adminRoutes from './routes/admin';
-import employeeRoutes from './routes/employee';
-import agentRoutes from './routes/agents';
-import superadminRoutes from './routes/superadmin';
-import cultureRoutes from './routes/culture-assessment';
-import uploadRoutes from './routes/upload';
-import analysesRoutes from './routes/analyses';
-import billingRoutes from './routes/billing';
-import modulesRoutes from './routes/modules';
-import frameworkRoutes from './routes/framework';
-import exportRoutes from './routes/export';
-import testAiRoutes from './routes/test-ai';
-import publicStructureRoutes from './routes/public-structure';
-import paymentRoutes from './routes/payment';
-import webhookRoutes from './routes/webhooks';
-import demoRoutes from './routes/demo';
-import skillsRoutes from './routes/skills';
+import { authenticate, authorize } from './src/middleware/auth';
+import { BillingService } from './src/services/stripe';
+import { CultureAgentV2 } from './src/services/agents/culture/culture-agent';
+import { SkillsAgent } from './src/services/agents/skills/skills-agent';
+import { StructureAgentV2 } from './src/services/agents/structure/structure-agent';
+import { EngagementAgent } from './src/services/agents/engagement/engagement-agent';
+import { RecognitionAgent } from './src/services/agents/recognition/recognition-agent';
+// import entryRoutes from './src/routes/entry'; // File doesn't exist
+import authRoutes from './src/routes/auth';
+import adminRoutes from './src/routes/admin';
+import employeeRoutes from './src/routes/employee';
+import agentRoutes from './src/routes/agents';
+import superadminRoutes from './src/routes/superadmin';
+import cultureRoutes from './src/routes/culture-assessment';
+import uploadRoutes from './src/routes/upload';
+import analysesRoutes from './src/routes/analyses';
+import billingRoutes from './src/routes/billing';
+import modulesRoutes from './src/routes/modules';
+import frameworkRoutes from './src/routes/framework';
+import exportRoutes from './src/routes/export';
+import testAiRoutes from './src/routes/test-ai';
+import publicStructureRoutes from './src/routes/public-structure';
+import paymentRoutes from './src/routes/payment';
+import webhookRoutes from './src/routes/webhooks';
+import demoRoutes from './src/routes/demo';
+import skillsRoutes from './src/routes/skills';
 console.log('✅ Database module loaded');
 
 const app = express();
@@ -270,7 +270,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/agents', agentRoutes);
-app.use('/api/entry', entryRoutes); // Core analysis endpoints
+// app.use('/api/entry', entryRoutes); // Core analysis endpoints - File doesn't exist
 app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
@@ -312,7 +312,7 @@ app.use('*', (req, res) => {
 async function testDatabaseConnection(): Promise<boolean> {
   try {
     console.log('🔍 Testing database connection...');
-    const { pool } = await import('./db/index');
+    const { pool } = await import('./src/db/index');
     
     // Test query with reduced timeout for Railway (5s instead of 10s)
     const timeoutPromise = new Promise((_, reject) => 
@@ -444,7 +444,7 @@ async function startServer() {
         console.log('✅ HTTP server closed');
         
         try {
-          const { pool } = await import('./db/index');
+          const { pool } = await import('./src/db/index');
           await pool.end();
           console.log('✅ Database pool closed');
         } catch (error) {

@@ -1,8 +1,8 @@
 // server/services/agents/structure/structure-agent-v2.ts
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent';
-import { db } from '../../../../db/index';
-import { tenants, departments, users } from '../../../../db/schema';
+import { db } from '../../../db/index';
+import { tenants, departments, users } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 // ============================================================================

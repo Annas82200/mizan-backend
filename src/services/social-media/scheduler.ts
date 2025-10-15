@@ -2,8 +2,8 @@
 // Social Media Post Scheduler
 // NO PLACEHOLDERS - Production-ready implementation
 
-import { db } from '../../../db/index';
-import { socialMediaPosts, socialMediaAccounts } from '../../../db/schema';
+import { db } from '../../db/index';
+import { socialMediaPosts, socialMediaAccounts } from '../../db/schema';
 import { eq, and, lte } from 'drizzle-orm';
 import logger from '../../utils/logger';
 

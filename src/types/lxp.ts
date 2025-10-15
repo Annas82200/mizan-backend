@@ -11,7 +11,7 @@ import {
   courseAssessments,
   assessmentResults,
   learningAnalytics
-} from '../../db/schema/lxp-extended';
+} from '../db/schema/lxp-extended';
 
 import { BaseTriggerContext, BaseWorkflowInput, BaseWorkflowOutput } from './shared';
 

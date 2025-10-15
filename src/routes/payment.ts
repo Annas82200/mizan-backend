@@ -1,7 +1,7 @@
 // routes/payment.ts
 import { Router, Request, Response } from 'express';
 import { stripeService } from '../services/stripe-service';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { db } from '../../db/index';
 import { demoRequests } from '../../db/schema/payments';
 import { eq } from 'drizzle-orm';
@@ -13,7 +13,7 @@ const router = Router();
  * Create a Stripe Checkout session for a demo request
  * AUTH: Superadmin only
  */
-router.post('/create-checkout-session', authenticateToken, async (req: Request, res: Response) => {
+router.post('/create-checkout-session', authenticate, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
     if (!req.user) {

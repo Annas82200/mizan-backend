@@ -1,8 +1,8 @@
 // backend/src/services/agents/skills/skills-agent.ts
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent';
-import { db } from '../../../../db/index';
-import { tenants, users, departments, skills, skillsAssessments, skillsGaps } from '../../../../db/schema';
+import { db } from '../../../db/index';
+import { tenants, users, departments, skills, skillsAssessments, skillsGaps } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -133,7 +133,7 @@ export interface SkillsAnalysisResult {
   }>;
 }
 
-interface SkillCategoryAnalysis {
+export interface SkillCategoryAnalysis {
   score: number;
   coverage: number;
   criticalGaps: number;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AgentManager } from '../services/agents/agent-manager';
-import { authenticateToken, authorize } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -19,7 +19,7 @@ const multiAgentRequestSchema = z.object({
 });
 
 // Run single agent analysis
-router.post('/analyze', authenticateToken, authorize(['admin', 'manager']), async (req, res) => {
+router.post('/analyze', authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const { agentType, inputData, priority } = analysisRequestSchema.parse(req.body);
     
@@ -48,7 +48,7 @@ router.post('/analyze', authenticateToken, authorize(['admin', 'manager']), asyn
 });
 
 // Run multi-agent analysis
-router.post('/analyze/multi', authenticateToken, authorize(['admin']), async (req, res) => {
+router.post('/analyze/multi', authenticate, authorize(['admin']), async (req, res) => {
   try {
     const { agentTypes, inputData } = multiAgentRequestSchema.parse(req.body);
     
@@ -76,7 +76,7 @@ router.post('/analyze/multi', authenticateToken, authorize(['admin']), async (re
 });
 
 // Get analysis history
-router.get('/history', authenticateToken, async (req, res) => {
+router.get('/history', authenticate, async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -104,7 +104,7 @@ router.get('/history', authenticateToken, async (req, res) => {
 });
 
 // Get active recommendations
-router.get('/recommendations', authenticateToken, async (req, res) => {
+router.get('/recommendations', authenticate, async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -126,7 +126,7 @@ router.get('/recommendations', authenticateToken, async (req, res) => {
 });
 
 // Get pending triggers
-router.get('/triggers', authenticateToken, authorize(['admin']), async (req, res) => {
+router.get('/triggers', authenticate, authorize(['admin']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -148,7 +148,7 @@ router.get('/triggers', authenticateToken, authorize(['admin']), async (req, res
 });
 
 // Culture-specific endpoints
-router.post('/culture/assess', authenticateToken, async (req, res) => {
+router.post('/culture/assess', authenticate, async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -181,7 +181,7 @@ router.post('/culture/assess', authenticateToken, async (req, res) => {
 });
 
 // Structure-specific endpoints
-router.post('/structure/analyze', authenticateToken, authorize(['admin', 'manager']), async (req, res) => {
+router.post('/structure/analyze', authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });

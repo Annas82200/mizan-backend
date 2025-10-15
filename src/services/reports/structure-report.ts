@@ -1,7 +1,7 @@
 // server/services/reports/structure-report.ts
 
 import PDFDocument from 'pdfkit';
-import { Chart } from 'chart';
+import { Chart } from 'chart.js';
 
 interface Finding {
   title: string;
