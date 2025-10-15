@@ -37,8 +37,8 @@ COPY --from=builder --chown=mizan:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=mizan:nodejs /app/package*.json ./
 COPY --from=builder --chown=mizan:nodejs /app/db ./db
 
-# Create logs directory
-RUN mkdir -p /app/logs && chown mizan:nodejs /app/logs
+# Create logs and uploads directories with proper permissions
+RUN mkdir -p /app/logs /app/uploads && chown -R mizan:nodejs /app/logs /app/uploads
 
 # Switch to non-root user
 USER mizan
