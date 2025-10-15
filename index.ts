@@ -52,6 +52,11 @@ console.log('✅ All route modules loaded successfully');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
+const HOST = process.env.HOST || '0.0.0.0'; // Define HOST here
+
+// Log PORT and HOST immediately after definition
+console.log(`💡 Configured Port: ${PORT}`);
+console.log(`💡 Configured Host: ${HOST}`);
 
 // Middleware
 const allowedOrigins = [
@@ -91,6 +96,11 @@ let dbConnectionStatus = {
 app.get('/health', (req, res) => {
   // Server is healthy if it can respond to requests
   // Database connection is checked separately and reported in response
+  console.log('🏥 Health check requested. Reporting current status:');
+  console.log('  - Server Status: running');
+  console.log('  - Database Status: ' + (dbConnectionStatus.connected ? 'connected' : 'disconnected'));
+  console.log('  - DATABASE_URL: ' + (process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set'));
+
   res.status(200).json({ 
     status: 'healthy',
     server: 'running',
@@ -325,7 +335,6 @@ async function startServer() {
 
     // CRITICAL FIX: Start HTTP server FIRST so Railway healthcheck can reach /health endpoint
     // Database connection will be tested in the background
-    const HOST = process.env.HOST || '0.0.0.0';
     
     console.log('🌐 Starting HTTP server...');
     console.log(`   Binding to: ${HOST}:${PORT}`);
