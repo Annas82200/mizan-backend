@@ -1,8 +1,8 @@
-import bcrypt from "bcrypt";
+import * as bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
-import { db } from "../../db/client.js";
-import { users, sessions, tenants } from "../../db/schema.js";
+import { db } from "./db/client.js";
+import { users, sessions, tenants } from "./db/schema.js";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -32,11 +32,17 @@ export type AuthUser = {
 };
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+    const salt = await bcrypt.genSalt(SALT_ROUNDS);
+    return bcrypt.hash(password, salt);
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+export async function comparePasswords(password: string, hash: string): Promise<boolean> {
+    try {
+        return await bcrypt.compare(password, hash);
+    } catch (error: unknown) {
+        console.error('Password comparison error:', error);
+        return false;
+    }
 }
 
 export function generateToken(userId: string): string {
@@ -104,7 +110,7 @@ export async function login(email: string, password: string): Promise<{ user: Au
     },
   });
   
-  if (!user || !await verifyPassword(password, user.passwordHash)) {
+  if (!user || !await comparePasswords(password, user.passwordHash)) {
     return null;
   }
   
@@ -255,7 +261,7 @@ export async function changePassword(userId: string, oldPassword: string, newPas
     throw new Error("User not found");
   }
   
-  if (!await verifyPassword(oldPassword, user.passwordHash)) {
+  if (!await comparePasswords(oldPassword, user.passwordHash)) {
     throw new Error("Invalid current password");
   }
   

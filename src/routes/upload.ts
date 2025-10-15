@@ -3,9 +3,9 @@ import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { authenticate } from "../middleware/auth.js";
 import { StructureAgentV2 } from "../services/agents/structure/structure-agent.js";
-import { db } from "../../db/index.js";
-import { orgStructures, users, tenants } from "../../db/schema/core.js";
-import { organizationStructure } from "../../db/schema/strategy.js";
+import { db } from "./db/index.js";
+import { orgStructures, users, tenants } from "./db/schema/core.js";
+import { organizationStructure } from "./db/schema/strategy.js";
 import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared.js";
 import bcrypt from "bcryptjs";
@@ -228,7 +228,7 @@ router.post("/analyze", upload.single("file"), async (req: Request, res: Respons
     });
 
     return res.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Upload analysis failed:", error);
     if (error instanceof Error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
@@ -343,8 +343,15 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     }
 
     // Generate mock analysis results for now
-    // TODO: Replace with actual AI agent when APIs are configured
-    const result = generateMockStructureAnalysis(orgText);
+    // Use actual StructureAgent with Three-Engine Architecture
+    const { StructureAgent } = await import('../services/agents/structure-agent.js');
+    const structureAgent = new StructureAgent();
+    
+    // Analyze the structure using the Three-Engine Architecture
+    const result = await structureAgent.analyzeOrganizationStructure({
+      tenantId: req.user!.tenantId,
+      structureId: structure.id
+    });
 
     // Parse the org text into structured data for organization_structure table
     const parsedData = parseOrgTextToStructure(orgText);
@@ -375,7 +382,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       employeesCreated,
       ...result,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const e = error as Error;
     console.error("Save org structure failed:", e);
     console.error("Error stack:", e.stack);
@@ -474,106 +481,6 @@ interface StructureAnalysis {
   }>;
 }
 
-// Mock analysis generator
-function generateMockStructureAnalysis(orgText: string): StructureAnalysis {
-  // Count approximate employees and layers
-  const lines = orgText.split('\n').filter(l => l.trim());
-  const employeeCount = lines.length || 1; // Ensure at least 1
-  const indents = lines.length > 0 ? lines.map(l => l.search(/\S/)) : [0];
-  const maxIndent = Math.max(0, ...indents); // Ensure non-negative, default 0
-  const layers = Math.floor(maxIndent / 2) + 1;
-
-  return {
-    overallScore: Math.floor(70 + Math.random() * 20), // 70-90
-    spanAnalysis: {
-      average: Math.floor(4 + Math.random() * 4), // 4-8
-      distribution: {
-        '1-3': Math.floor(employeeCount * 0.2),
-        '4-7': Math.floor(employeeCount * 0.5),
-        '8-12': Math.floor(employeeCount * 0.2),
-        '13+': Math.floor(employeeCount * 0.1),
-      },
-      outliers: [
-        {
-          role: 'VP Engineering',
-          span: 15,
-          recommendation: 'Consider splitting into two teams with dedicated leads'
-        },
-        {
-          role: 'Sales Director',
-          span: 12,
-          recommendation: 'Add regional sales managers to reduce span'
-        }
-      ]
-    },
-    layerAnalysis: {
-      totalLayers: layers,
-      averageLayersToBottom: Math.floor(layers * 0.6),
-      bottlenecks: [
-        {
-          layer: 2,
-          roles: ['VP Operations', 'VP Sales'],
-          issue: 'High concentration of decision-making at this layer'
-        }
-      ]
-    },
-    strategyAlignment: {
-      score: Math.floor(65 + Math.random() * 25), // 65-90
-      misalignments: [
-        {
-          area: 'Product Development',
-          issue: 'Disconnect between product vision and team structure',
-          impact: 'high' as const
-        },
-        {
-          area: 'Customer Success',
-          issue: 'Insufficient representation at leadership level',
-          impact: 'medium' as const
-        }
-      ]
-    },
-    recommendations: [
-      {
-        category: 'span' as const,
-        priority: 'high' as const,
-        title: 'Reduce Management Span',
-        description: 'Several managers have spans exceeding optimal range of 7-8 direct reports',
-        actionItems: [
-          'Create team lead positions for large teams',
-          'Redistribute responsibilities based on workload',
-          'Consider promoting senior ICs to management'
-        ]
-      },
-      {
-        category: 'layers' as const,
-        priority: 'medium' as const,
-        title: 'Flatten Decision-Making',
-        description: 'Too many approval layers slow down execution',
-        actionItems: [
-          'Empower mid-level managers with more autonomy',
-          'Reduce required sign-offs for routine decisions',
-          'Implement clear decision-making frameworks'
-        ]
-      },
-      {
-        category: 'alignment' as const,
-        priority: 'high' as const,
-        title: 'Align Structure with Strategy',
-        description: 'Organization structure doesn\'t reflect stated strategic priorities',
-        actionItems: [
-          'Create dedicated product innovation team',
-          'Elevate customer success to VP level',
-          'Review and realign department goals with company vision'
-        ]
-      }
-    ],
-    roles: lines.map((line, idx) => ({
-      id: `role-${idx}`,
-      title: line.trim(),
-      level: Math.floor(line.search(/\S/) / 2)
-    }))
-  };
-}
 
 // Get saved org structures
 router.get("/structures", authenticate, async (req: Request, res: Response) => {

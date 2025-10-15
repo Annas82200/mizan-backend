@@ -28,113 +28,32 @@ declare global {
  * 3. Header-based (X-Tenant-ID)
  * 4. User-based (from authenticated user's tenant)
  */
-export const tenantMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    let tenantId: string | null = null;
-    let identificationMethod = 'unknown';
+export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
+    const tenantId = req.headers['x-tenant-id'] as string;
 
-    // Method 1: Extract from subdomain
-    const host = req.get('host') || '';
-    const subdomain = extractSubdomain(host);
-    
-    if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
-      const tenant = await db.select()
-        .from(tenants)
-        .where(eq(tenants.domain, subdomain))
-        .limit(1);
-      
-      if (tenant.length > 0) {
-        tenantId = tenant[0].id;
-        identificationMethod = 'subdomain';
-      }
-    }
-
-    // Method 2: Check for custom domain
     if (!tenantId) {
-      const tenant = await db.select()
-        .from(tenants)
-        .where(eq(tenants.domain, host))
-        .limit(1);
-      
-      if (tenant.length > 0) {
-        tenantId = tenant[0].id;
-        identificationMethod = 'custom_domain';
-      }
+        return res.status(400).json({ error: 'X-Tenant-ID header is required' });
     }
 
-    // Method 3: Check X-Tenant-ID header
-    if (!tenantId) {
-      const headerTenantId = req.get('X-Tenant-ID');
-      if (headerTenantId) {
-        const tenant = await db.select()
-          .from(tenants)
-          .where(eq(tenants.id, headerTenantId))
-          .limit(1);
-        
-        if (tenant.length > 0) {
-          tenantId = tenant[0].id;
-          identificationMethod = 'header';
-        }
-      }
-    }
+    try {
+        const tenant = await db.query.tenants.findFirst({
+            where: eq(tenants.id, tenantId),
+        });
 
-    // Method 4: Extract from authenticated user
-    if (!tenantId && req.user) {
-      const user = await db.select()
-        .from(users)
-        .where(eq(users.id, req.user.id))
-        .limit(1);
-      
-      if (user.length > 0 && user[0].tenantId) {
-        tenantId = user[0].tenantId;
-        identificationMethod = 'user';
-      }
-    }
-
-    // If tenant identified, load full tenant information
-    if (tenantId) {
-      const tenant = await db.select()
-        .from(tenants)
-        .where(eq(tenants.id, tenantId))
-        .limit(1);
-      
-      if (tenant.length > 0) {
-        const tenantData = tenant[0];
-        
-        // Check if tenant is active
-        if (tenantData.status !== 'active') {
-          return res.status(403).json({
-            error: 'Tenant account is inactive',
-            code: 'TENANT_INACTIVE'
-          });
+        if (!tenant) {
+            return res.status(404).json({ error: 'Tenant not found' });
         }
 
-        // Attach tenant information to request
-        req.tenant = {
-          id: tenantData.id,
-          name: tenantData.name,
-          domain: tenantData.domain,
-          plan: tenantData.plan,
-          status: tenantData.status,
-          industry: tenantData.industry,
-          employeeCount: tenantData.employeeCount
-        };
-
-        // Add tenant context to response headers for debugging
-        res.set('X-Tenant-Context', tenantData.id);
-        res.set('X-Tenant-Method', identificationMethod);
-      }
+        req.tenant = tenant;
+        next();
+    } catch (error: unknown) {
+        console.error('Error in tenant middleware:', error);
+        if (error instanceof Error) {
+            return res.status(500).json({ error: `Internal server error: ${error.message}` });
+        }
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    return next();
-  } catch (error) {
-    console.error('Tenant middleware error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      code: 'TENANT_MIDDLEWARE_ERROR'
-    });
-  }
-};
+}
 
 /**
  * Middleware to require tenant identification

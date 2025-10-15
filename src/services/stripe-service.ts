@@ -139,10 +139,12 @@ export class StripeService {
         sessionId: session.id,
         url: session.url || '',
       };
-    } catch (error) {
-      const e = error as Error;
-      console.error('Stripe checkout session creation failed:', e);
-      throw new Error(e.message || 'Failed to create checkout session');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Stripe checkout session creation failed:', error);
+        throw new Error(error.message || 'Failed to create checkout session');
+      }
+      throw new Error('Failed to create checkout session');
     }
   }
 
@@ -237,14 +239,21 @@ export class StripeService {
             employeeCount,
           }
         });
-      } catch (emailError) {
-        console.error('Failed to send payment success email:', emailError);
+      } catch (emailError: unknown) {
+        if (emailError instanceof Error) {
+          console.error('Failed to send payment success email:', emailError);
+        } else {
+          console.error('Failed to send payment success email:', emailError);
+        }
       }
 
       console.log(`✅ Checkout complete: Demo ${demoRequestId} → Tenant ${tenantId}`);
-    } catch (error) {
-      console.error('Checkout completion handling failed:', error);
-      throw error;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Checkout completion handling failed:', error);
+        throw error;
+      }
+      throw new Error('Checkout completion handling failed');
     }
   }
 
@@ -276,9 +285,12 @@ export class StripeService {
         .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
       console.log(`✅ Subscription ${subscription.id} updated to status: ${subscription.status}`);
-    } catch (error) {
-      console.error('Subscription update handling failed:', error);
-      throw error;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Subscription update handling failed:', error);
+        throw error;
+      }
+      throw new Error('Subscription update handling failed');
     }
   }
 
@@ -330,14 +342,21 @@ export class StripeService {
             }
           });
         }
-      } catch (emailError) {
-        console.error('Failed to send payment failed email:', emailError);
+      } catch (emailError: unknown) {
+        if (emailError instanceof Error) {
+          console.error('Failed to send payment failed email:', emailError);
+        } else {
+          console.error('Failed to send payment failed email:', emailError);
+        }
       }
 
       console.log(`⚠️ Payment failed for subscription ${subscriptionId}`);
-    } catch (error) {
-      console.error('Invoice payment failure handling failed:', error);
-      throw error;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Invoice payment failure handling failed:', error);
+        throw error;
+      }
+      throw new Error('Invoice payment failure handling failed');
     }
   }
 
@@ -353,9 +372,11 @@ export class StripeService {
 
     try {
       return stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (error) {
-      const e = error as Error;
-      throw new Error(`Webhook signature verification failed: ${e.message}`);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(`Webhook signature verification failed: ${error.message}`);
+      }
+      throw new Error('Webhook signature verification failed');
     }
   }
 
@@ -390,9 +411,12 @@ export class StripeService {
         default:
           console.log(`ℹ️ Unhandled webhook event type: ${event.type}`);
       }
-    } catch (error) {
-      console.error(`❌ Webhook handler error for ${event.type}:`, error);
-      throw error;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(`❌ Webhook handler error for ${event.type}:`, error);
+        throw error;
+      }
+      throw new Error('Webhook handler error');
     }
   }
 }

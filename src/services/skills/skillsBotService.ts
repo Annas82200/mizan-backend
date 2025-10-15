@@ -17,32 +17,31 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { SkillsAnalysisService } from './skillsAnalysisService.js';
 
-export interface BotResponse {
-  response: string;
-  suggestions?: string[];
-  nextSteps?: string[];
-  resources?: Array<{
-    title: string;
-    url: string;
-    type: 'course' | 'article' | 'video' | 'tool';
-  }>;
-  requiresAction?: boolean;
-  actionType?: 'upload_resume' | 'complete_assessment' | 'schedule_meeting' | 'review_gaps';
+// Define strict types to replace 'any'
+interface BotContext {
+    employeeId: string;
+    tenantId: string;
+    currentIntent: string;
+    employeeProfile?: Record<string, unknown>;
+    skillsGaps?: SkillGap[];
+    interactionHistory?: Record<string, unknown>[];
 }
 
-export interface BotContext {
-  userId: string;
-  tenantId: string;
-  sessionId?: string;
-  employeeProfile?: any;
-  skillsGaps?: any[];
-  currentStep?: string;
-  interactionHistory?: any[];
+interface SkillGap {
+    skill: string;
+    currentLevel: string;
+    requiredLevel: string;
+    gap: number;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+}
+
+interface ResumeData {
+    [key: string]: unknown;
 }
 
 /**
- * Skills BOT Service - Interactive Assistance System
- * As per AGENT_CONTEXT_ULTIMATE.md Lines 115-137
+ * Mizan Skills BOT - Interactive Assistant
+ * As per AGENT_CONTEXT_ULTIMATE.md (Lines 114-226)
  */
 export class SkillsBotService {
   private skillsAnalysisService: SkillsAnalysisService;
@@ -380,9 +379,9 @@ export class SkillsBotService {
     });
 
     return {
-      userId,
+      employeeId: userId,
       tenantId,
-      sessionId,
+      currentIntent: 'general_help', // Placeholder, will be updated by analyzeQueryIntent
       employeeProfile: employeeProfile || undefined,
       skillsGaps: skillsGaps || [],
       interactionHistory: interactionHistory || []
@@ -539,7 +538,7 @@ export class SkillsBotService {
   }
 
   // Additional helper methods for specific functionalities
-  private async validateResumeData(resumeData: any): Promise<{ isValid: boolean; errors: string[] }> {
+  private async validateResumeData(resumeData: ResumeData): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
     
     if (!resumeData.name) errors.push('Name is required');
@@ -554,7 +553,7 @@ export class SkillsBotService {
     };
   }
 
-  private async extractSkillsFromResume(resumeData: any): Promise<any[]> {
+  private async extractSkillsFromResume(resumeData: ResumeData): Promise<any[]> {
     // Implementation would use AI/NLP to extract skills
     return [
       { skill: 'JavaScript', level: 'intermediate', evidence: '2 years experience' },
@@ -562,7 +561,7 @@ export class SkillsBotService {
     ];
   }
 
-  private async analyzeResumeCompleteness(currentData: any): Promise<{ percentage: number; missing: string[] }> {
+  private async analyzeResumeCompleteness(currentData: Record<string, unknown>): Promise<{ percentage: number; missing: string[] }> {
     let score = 0;
     const missing: string[] = [];
     
@@ -584,7 +583,7 @@ export class SkillsBotService {
     return { percentage: score, missing };
   }
 
-  private async suggestResumeImprovements(currentData: any): Promise<{ suggestions: string[]; resources: any[] }> {
+  private async suggestResumeImprovements(currentData: Record<string, unknown>): Promise<{ suggestions: string[]; resources: any[] }> {
     return {
       suggestions: [
         'Add quantifiable achievements to your work experience',
@@ -602,7 +601,7 @@ export class SkillsBotService {
     };
   }
 
-  private async getEmployeeSkillGaps(userId: string, tenantId: string): Promise<any[]> {
+  private async getEmployeeSkillGaps(userId: string, tenantId: string): Promise<SkillGap[]> {
     const gaps = await db.query.skillsGapAnalysis.findMany({
       where: and(
         eq(skillsGapAnalysis.tenantId, tenantId),
@@ -615,13 +614,13 @@ export class SkillsBotService {
     return gaps || [];
   }
 
-  private async explainGapsInSimpleTerms(gaps: any[]): Promise<string> {
+  private async explainGapsInSimpleTerms(gaps: SkillGap[]): Promise<string> {
     return `Here are your skill gaps explained in simple terms: ${gaps.map(gap => 
       `${gap.skill}: You're currently at ${gap.currentLevel} level but need ${gap.requiredLevel} level.`
     ).join(' ')}`;
   }
 
-  private async getLearningResourcesForGaps(gaps: any[]): Promise<any[]> {
+  private async getLearningResourcesForGaps(gaps: SkillGap[]): Promise<any[]> {
     return [
       {
         title: 'Skills Development Courses',

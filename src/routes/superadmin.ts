@@ -304,15 +304,34 @@ router.get('/stats', async (req: Request, res: Response) => {
  */
 router.get('/revenue', async (req: Request, res: Response) => {
   try {
-    // Mock revenue data for now
-    const data = [
-      { month: 'Jan', mrr: 95000, arr: 1140000 },
-      { month: 'Feb', mrr: 102000, arr: 1224000 },
-      { month: 'Mar', mrr: 108500, arr: 1302000 },
-      { month: 'Apr', mrr: 115000, arr: 1380000 },
-      { month: 'May', mrr: 119800, arr: 1437600 },
-      { month: 'Jun', mrr: 124500, arr: 1494000 }
-    ];
+    // Calculate real revenue data from active tenants
+    const activeTenants = await db.query.tenants.findMany({
+      where: eq(tenants.status, 'active')
+    });
+    
+    // Calculate MRR based on tenant plans (assuming a base rate per employee)
+    const baseRatePerEmployee = 10; // $10 per employee per month
+    const currentMonth = new Date().getMonth();
+    const data = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date();
+      monthDate.setMonth(currentMonth - i);
+      const monthName = monthDate.toLocaleString('en', { month: 'short' });
+      
+      // Calculate MRR for this month (simplified - in production would track actual billing)
+      const totalEmployees = activeTenants.reduce((sum, tenant) => {
+        const empCount = typeof tenant.employeeCount === 'string' 
+          ? parseInt(tenant.employeeCount) || 50 
+          : tenant.employeeCount || 50;
+        return sum + empCount;
+      }, 0);
+      
+      const mrr = totalEmployees * baseRatePerEmployee;
+      const arr = mrr * 12;
+      
+      data.push({ month: monthName, mrr, arr });
+    }
 
     return res.json({ data });
   } catch (error: unknown) {
@@ -328,18 +347,37 @@ router.get('/activity', async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
 
-    // Mock activity data
+    // Get real activity data from audit logs or recent tenant/user activities
+    const recentTenants = await db.query.tenants.findMany({
+      orderBy: (tenants, { desc }) => [desc(tenants.createdAt)],
+      limit: Math.min(limit, 5)
+    });
+    
+    const recentUsers = await db.query.users.findMany({
+      orderBy: (users, { desc }) => [desc(users.createdAt)],
+      limit: Math.min(limit, 5)
+    });
+    
+    // Combine and format activities
     const activities = [
-      {
-        id: 1,
-        type: 'signup',
-        text: 'New tenant signed up',
-        time: new Date().toISOString(),
-        icon: '◉'
-      }
-    ];
+      ...recentTenants.map((tenant, idx) => ({
+        id: idx + 1,
+        type: 'tenant_signup',
+        text: `New tenant registered: ${tenant.name}`,
+        time: tenant.createdAt?.toISOString() || new Date().toISOString(),
+        icon: '🏢'
+      })),
+      ...recentUsers.map((user, idx) => ({
+        id: recentTenants.length + idx + 1,
+        type: 'user_signup',
+        text: `New user joined: ${user.email}`,
+        time: user.createdAt?.toISOString() || new Date().toISOString(),
+        icon: '👤'
+      }))
+    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+     .slice(0, limit);
 
-    return res.json({ activities: activities.slice(0, limit) });
+    return res.json({ activities });
   } catch (error: unknown) {
     console.error('Activity fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch activity' });

@@ -1,4 +1,7 @@
 import { CultureAgentV2, CultureAnalysisOutput } from './culture/culture-agent.js';
+import { EngagementAgent } from './engagement/engagement-agent.js';
+import { RecognitionAgent } from './recognition/recognition-agent.js';
+import { SkillsAgent } from './skills/skills-agent.js';
 import { StructureAgent, StructureAnalysisOutput } from './structure-agent.js';
 import { db } from '../../../db/index.js';
 import { agentAnalyses, triggers, cultureAssessments as cultureAssessmentsTable } from '../../../db/schema.js';
@@ -106,13 +109,19 @@ export interface AgentAnalysisResult {
   recommendations: RecommendationRecord[];
 }
 
-type AgentInstance = CultureAgentV2 | StructureAgent;
-
-export class AgentManager {
-  private agents: Map<string, AgentInstance> = new Map();
+class AgentManager {
+  private agents: Map<string, any> = new Map();
 
   constructor() {
-    this.initializeAgents();
+    this.registerAgent('culture', CultureAgentV2);
+    this.registerAgent('engagement', EngagementAgent);
+    this.registerAgent('recognition', RecognitionAgent);
+    this.registerAgent('skills', SkillsAgent);
+    this.registerAgent('structure', StructureAgent);
+  }
+
+  registerAgent(name: string, agentClass: any) {
+    this.agents.set(name, new agentClass());
   }
 
   private initializeAgents(): void {

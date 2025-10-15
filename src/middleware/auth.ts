@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { verifyToken } from '../services/auth.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -22,71 +23,36 @@ declare global {
   }
 }
 
-export const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
+export function authenticate(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-    if (!token) {
-      res.status(401).json({ error: 'Access token required' });
-      return;
+    if (!authHeader) {
+        return res.status(401).json({ error: 'No token provided' });
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      console.error('JWT_SECRET not configured');
-      res.status(500).json({ error: 'Server configuration error' });
-      return;
+    const parts = authHeader.split(' ');
+
+    if (parts.length !== 2) {
+        return res.status(401).json({ error: 'Token error' });
     }
 
-    interface JWTPayload {
-      id?: string;
-      userId?: string;
-      [key: string]: unknown;
+    const [scheme, token] = parts;
+
+    if (!/^Bearer$/i.test(scheme)) {
+        return res.status(401).json({ error: 'Token malformatted' });
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
-
-    // Get user from database to ensure they still exist and are active
-    // Support both 'id' and 'userId' for backwards compatibility
-    const userId = decoded.id || decoded.userId;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Invalid token format' });
-      return;
+    try {
+        const decoded = verifyToken(token);
+        req.user = decoded;
+        next();
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            return res.status(401).json({ error: 'Token invalid', details: error.message });
+        }
+        return res.status(401).json({ error: 'Token invalid' });
     }
-
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (user.length === 0 || !user[0].isActive) {
-      res.status(401).json({ error: 'Invalid or inactive user' });
-      return;
-    }
-
-    req.user = {
-      id: user[0].id,
-      tenantId: user[0].tenantId,
-      email: user[0].email,
-      name: user[0].name,
-      role: user[0].role,
-      departmentId: user[0].departmentId || undefined,
-      managerId: user[0].managerId || undefined
-    };
-
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(401).json({ error: 'Invalid token' });
-    return;
-  }
-};
-
-// Alias for backwards compatibility
-export const authenticate = authenticateToken;
+}
 
 export const authorize = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
