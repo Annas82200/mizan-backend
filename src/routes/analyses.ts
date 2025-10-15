@@ -59,69 +59,52 @@ router.post("/structure", async (req, res) => {
     }
 
     const rawStructureData = structures[0].structureData as Record<string, unknown>;
-    
+
     // Get tenant strategy from database
     const tenant = await db
       .select()
       .from(tenants)
       .where(eq(tenants.id, tenantId));
-    
-    const tenantStrategy = tenant.length > 0 ? (tenant[0] as TenantStrategy) : undefined;
-    
-    // Ensure structureData has all required StructureData fields
+
+    const tenantData = tenant.length > 0 ? tenant[0] : undefined;
+    const companyName = tenantData?.name || 'Unknown Company';
+
+    // Ensure structureData has all required StructureData fields with proper type guards
+    const totalEmp = rawStructureData.totalEmployees;
+    const orgLevels = rawStructureData.organizationLevels;
+
     const structureData: StructureData = {
       roles: (rawStructureData.roles || []) as Role[],
       departments: (rawStructureData.departments || []) as Department[],
       reportingLines: (rawStructureData.reportingLines || []) as ReportingLine[],
-      totalEmployees: rawStructureData.totalEmployees || 0,
-      organizationLevels: rawStructureData.organizationLevels || 0
+      totalEmployees: (typeof totalEmp === 'number' ? totalEmp : 0),
+      organizationLevels: (typeof orgLevels === 'number' ? orgLevels : 0)
     };
 
     // Run rich AI-powered structure analysis for human, contextual insights
     const structureAgent = new StructureAgent();
-    let richAnalysis: StructureAnalysisOutput;
-    try {
-      richAnalysis = await structureAgent.generateRichStructureAnalysis({
-        tenantId,
-        structureData: structureData,
-        strategyData: {
-          id: tenantStrategy.id || '',
-          vision: tenantStrategy.vision,
-          mission: tenantStrategy.mission,
-          strategy: tenantStrategy.strategy,
-          values: tenantStrategy.values
-        } as StrategyData,
-      });
-    } catch (error: unknown) {
-      console.error('Failed to generate rich structure analysis:', error);
-      // Create a default structure analysis output that matches the interface
-      richAnalysis = {
-        overallScore: 0.2,
-        overallHealthInterpretation: "AI analysis failed, showing basic analysis only.",
-        spanAnalysis: {
-          average: 0,
-          distribution: {},
-          outliers: []
-        },
-        layerAnalysis: {
-          totalLayers: 0,
-          layerDistribution: {},
-          recommendations: []
-        },
-        recommendations: [],
-        confidenceScore: 0.2
-      } as StructureAnalysisOutput;
-    }
-    
+    const richAnalysis = await structureAgent.generateRichStructureAnalysis({
+      tenantId,
+      companyName,
+      structureData: structureData,
+      strategyData: {
+        id: tenantData?.id || '',
+        vision: tenantData?.vision || undefined,
+        mission: tenantData?.mission || undefined,
+        strategy: tenantData?.strategy || undefined,
+        values: (tenantData?.values as string[]) || undefined
+      } as StrategyData,
+    });
+
     const expertAnalysis = await analyzeStructure({
       tenantId,
       structureData,
       strategyData: {
-        id: tenantStrategy.id || '',
-        vision: tenantStrategy.vision,
-        mission: tenantStrategy.mission,
-        strategy: tenantStrategy.strategy,
-        values: tenantStrategy.values
+        id: tenantData?.id || '',
+        vision: tenantData?.vision || undefined,
+        mission: tenantData?.mission || undefined,
+        strategy: tenantData?.strategy || undefined,
+        values: (tenantData?.values as string[]) || undefined
       } as StrategyData
     });
 

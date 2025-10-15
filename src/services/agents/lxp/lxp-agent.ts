@@ -42,24 +42,22 @@ class LXPAgent {
         // 1. Find relevant courses for the skills gaps
         const relevantCourses = await this.findCoursesForSkills(tenantId, skillsGaps.map(g => g.skill));
 
-        // 2. Use Data Engine to process the data
+        // 2. Use Knowledge Engine for learning path design context
+        const learningContext = await this.knowledgeEngine.getContext('learning_path_design');
+
+        // 3. Use Data Engine to process the data
         const processedData = await this.dataEngine.process(
             {
                 skillsGaps,
                 availableCourses: relevantCourses,
             },
-            {
-                domain: 'learning_path_design'
-            }
+            learningContext
         );
-        
-        // 3. Use Reasoning Engine to construct a logical learning path
+
+        // 4. Use Reasoning Engine to construct a logical learning path
         const pathStructure = await this.reasoningEngine.analyze(
             processedData,
-            {
-                domain: 'learning_path_design',
-                prompt: 'Design a personalized learning path to close the identified skill gaps using the available courses. Prioritize critical gaps and create a logical sequence of courses.'
-            }
+            learningContext
         );
         
         // 3. Create and persist the learning path

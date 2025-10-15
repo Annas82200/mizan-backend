@@ -4,9 +4,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth';
-import { skillsAgent } from '../services/agents/skills/skills-agent';
-import { db } from '../../db/index';
-import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
+import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
+import { db } from '../db/index';
+import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -48,8 +48,8 @@ const SkillsAnalysisInputSchema = z.object({
  */
 router.post('/analyze', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
-    const analysisInput = SkillsAnalysisInputSchema.parse(req.body);
-    const result = await skillsAgent.analyzeSkills(analysisInput);
+    const validatedInput = SkillsAnalysisInputSchema.parse(req.body);
+    const result = await skillsAgent.analyzeSkills(validatedInput as Parameters<typeof skillsAgent.analyzeSkills>[0]);
     res.json({ success: true, analysis: result });
   } catch (error: unknown) {
     console.error('Skills analysis error:', error);
@@ -95,25 +95,25 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         const { tenantId } = req.user!;
 
         // First, get the strategic framework for the tenant
-        const framework = await db.query.skillsFramework.findFirst({
+        const frameworkFromDb = await db.query.skillsFramework.findFirst({
             where: eq(skillsFramework.tenantId, tenantId)
         });
 
-        if (!framework) {
+        if (!frameworkFromDb) {
             return res.status(404).json({ success: false, error: 'Skills framework not found for this tenant.' });
         }
 
         // Map database framework to SkillsFramework interface
-        const skillsFramework: SkillsFramework = {
-            tenantId: framework.tenantId,
-            strategicSkills: (framework.strategicSkills as Skill[]) || [],
+        const mappedFramework: SkillsFramework = {
+            tenantId: frameworkFromDb.tenantId,
+            strategicSkills: (frameworkFromDb.strategicSkills as Skill[]) || [],
             industryBenchmarks: [],  // These should be populated from the database if available
             criticalSkills: [],      // These should be populated from the database if available
             emergingSkills: [],      // These should be populated from the database if available
             obsoleteSkills: []       // These should be populated from the database if available
         };
-        
-        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(employeeId, tenantId, skillsFramework);
+
+        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(employeeId, tenantId, mappedFramework);
         res.json({ success: true, gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);

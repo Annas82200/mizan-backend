@@ -1,17 +1,30 @@
 import { z } from 'zod';
 import { db } from '../../../db/index';
-import { performanceCycles, performanceGoals, performanceReviews, performanceMetrics, performanceFeedback, performanceImprovementPlans, performanceAnalytics, oneOnOneMeetings } from '../../../db/schema/performance';
-import { users, departments } from '../../../db/schema/core';
+import { performanceCycles, performanceGoals } from '../../../db/schema/performance';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
-import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-import { CultureAgent } from '../culture/culture-agent';
-import { SkillsAgent } from '../skills/skills-agent';
+import { cultureAgent } from '../culture/culture-agent';
+import { skillsAgent, type SkillsAnalysisResult, type SkillCategoryAnalysis, type SkillsAnalysisInput } from '../skills/skills-agent';
 
 // Zod schemas for validation, derived from db/schema/performance.ts and AGENT_CONTEXT_ULTIMATE.md
 // This ensures type safety and compliance.
+
+// Culture Analysis types - simplified for integration
+interface CultureAnalysisOutput {
+  recommendations: {
+    immediate: string[];
+    shortTerm?: string[];
+    longTerm?: string[];
+  };
+}
+
+interface CultureAnalysisInput extends Record<string, unknown> {
+  tenantId: string;
+  companyId: string;
+  companyValues: string[];
+}
 
 export const PerformanceAnalysisInputSchema = z.object({
   tenantId: z.string().uuid(),
@@ -70,18 +83,11 @@ class PerformanceAgent {
     private knowledgeEngine: KnowledgeEngine;
     private dataEngine: DataEngine;
     private reasoningEngine: ReasoningEngine;
-    private cultureAgent: any; // Will be initialized when needed
-    private skillsAgent: any; // Will be initialized when needed
 
     constructor() {
         this.knowledgeEngine = new KnowledgeEngine();
         this.dataEngine = new DataEngine();
         this.reasoningEngine = new ReasoningEngine();
-        // Initialize agents when needed to avoid circular dependencies
-        this.cultureAgent = null;
-        this.skillsAgent = null;
-        this.cultureAgent = cultureAgent;
-        this.skillsAgent = skillsAgent;
     }
 
     public async processPerformanceCycle(input: PerformanceAnalysisInput): Promise<PerformanceAnalysisOutput> {
@@ -109,14 +115,16 @@ class PerformanceAgent {
         // Step 4-9: Generate complete performance workflow using Reasoning Engine
         const reasoningResult = await this.reasoningEngine.analyze(processedData, {
             ...context,
-            industryBenchmarks: industryStandards as any,
-            cultureGoals: culturePriorities,
-            skillsGaps: skillsGaps.criticalGaps
+            industryBenchmarks: industryStandards.benchmarks,
+            strategicRequirements: [
+                ...(culturePriorities.recommendations.immediate || []),
+                ...(skillsGaps.criticalGaps.map((g: { skill: string }) => `Develop ${g.skill}`) || [])
+            ]
         });
-        
+
         // Map reasoning result to PerformanceAnalysisResult
         const analysisResult: PerformanceAnalysisResult = {
-            confidence: reasoningResult.confidenceScore || 0.8,
+            confidence: reasoningResult.confidence || 0.8,
             summary: reasoningResult.recommendations?.[0]?.rationale || 'Performance analysis completed'
         };
         
@@ -163,12 +171,12 @@ class PerformanceAgent {
                 companyId: tenantId, // Assuming tenantId can stand in for companyId for now
                 companyValues,
             };
-            const cultureAnalysis: CultureAnalysisOutput = await this.cultureAgent.analyzeCulture(cultureInput);
+            const cultureAnalysis: CultureAnalysisOutput = await cultureAgent.analyzeCulture(cultureInput) as unknown as CultureAnalysisOutput;
             // Extract and return high-priority recommendations or goals from the analysis
             return cultureAnalysis;
         } catch (error) {
             console.error('Error getting culture priorities:', error);
-            return { recommendations: { immediate: [] } } as any; // Return a default structure
+            return { recommendations: { immediate: [] } };
         }
     }
 
@@ -181,7 +189,7 @@ class PerformanceAgent {
                 organizationName: '', // This might be needed from tenant data
                 strategy: strategy,
             };
-            const skillsAnalysis = await this.skillsAgent.analyzeSkills(skillsInput);
+            const skillsAnalysis = await skillsAgent.analyzeSkills(skillsInput);
             return skillsAnalysis;
         } catch (error) {
             console.error('Error getting skills gaps:', error);

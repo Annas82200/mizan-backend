@@ -89,16 +89,15 @@ class BonusAgent {
         analysis: BonusAnalysisResult
     ) {
         const [recommendation] = await db.insert(bonusRecommendations).values({
-            id: randomUUID(),
-            tenantId,
-            employeeId,
-            triggerSource,
-            triggerData,
+            tenantId: tenantId,
+            employeeId: employeeId,
+            triggerSource: triggerSource,
+            triggerData: triggerData,
             bonusType: analysis.bonusType || 'performance',
-            recommendedAmount: analysis.recommendedAmount,
-            currency: 'USD',
+            recommendedAmount: analysis.recommendedAmount.toString(),
+            currency: 'USD' as const,
             rationale: analysis.rationale || 'Based on recent performance or achievement.',
-            status: 'recommended',
+            status: 'recommended' as const,
         }).returning();
 
         return recommendation;

@@ -452,13 +452,25 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
       }
     });
 
-    // Type the departments data properly
+    // Calculate hierarchy levels for each department
+    const calculateLevel = (deptId: string, deptMap: Map<string, typeof departmentsData[0]>, visited = new Set<string>()): number => {
+      const dept = deptMap.get(deptId);
+      if (!dept || !dept.parentDepartmentId || visited.has(deptId)) {
+        return 1; // Root level or circular reference protection
+      }
+      visited.add(deptId);
+      return 1 + calculateLevel(dept.parentDepartmentId, deptMap, visited);
+    };
+
+    const deptMap = new Map(departmentsData.map(d => [d.id, d]));
+
+    // Type the departments data properly with calculated hierarchy levels
     const typedDepartments: DepartmentData[] = departmentsData.map((d) => ({
       id: d.id,
       name: d.name,
-      level: d.level || 1,
-      users: d.users || [],
-      parentId: d.parentId || undefined
+      level: calculateLevel(d.id, deptMap),
+      users: (d.users || []).map(u => ({ id: u.id, name: u.name || '' })),
+      parentId: d.parentDepartmentId || undefined
     }));
 
     const structure: OrganizationalStructure = {

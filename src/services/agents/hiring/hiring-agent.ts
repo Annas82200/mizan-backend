@@ -105,10 +105,10 @@ class HiringAgent {
         }, context);
 
         // Step 3: Reasoning and Analysis
+        const marketCompData = await this.getMarketCompensationData(clientContext);
         const reasoningResult = await this.reasoningEngine.analyze(processedData, {
             ...context,
-            industryBenchmarks: industryData as any,
-            compensationData: await this.getMarketCompensationData(clientContext)
+            industryBenchmarks: industryData.benchmarks
         });
         
         // Map reasoning result to HiringAnalysisResult

@@ -19,14 +19,15 @@ import { SkillsAgent } from '../agents/skills/skills-agent';
 
 // Define BotResponse type
 interface BotResponse {
-  message: string;
-  response?: string; // Added for backward compatibility
-  data?: any;
+  message?: string;
+  response?: string;
+  data?: unknown;
   suggestions?: string[];
   error?: boolean;
-  resources?: string[];
+  resources?: Array<{ title: string; url: string; type: string }>;
   nextSteps?: string[];
   requiresAction?: boolean;
+  actionType?: string;
 }
 
 // Define strict types to replace 'any'
@@ -35,8 +36,27 @@ interface BotContext {
     tenantId: string;
     currentIntent: string;
     employeeProfile?: Record<string, unknown>;
-    skillsGaps?: SkillGap[];
+    skillsGaps?: GapAnalysisRecord[];
     interactionHistory?: Record<string, unknown>[];
+}
+
+interface GapAnalysisRecord {
+    id: string;
+    tenantId: string;
+    employeeId: string;
+    profileId: string;
+    analysisType: string;
+    criticalGaps: unknown;
+    moderateGaps: unknown;
+    strengthAreas: unknown;
+    trainingRecommendations: unknown;
+    developmentPlan: unknown;
+    estimatedTimeToClose: number | null;
+    overallSkillScore: number | null;
+    strategicAlignmentScore: number | null;
+    readinessScore: number | null;
+    analyzedAt: Date;
+    analyzedBy: string;
 }
 
 interface SkillGap {
@@ -59,7 +79,7 @@ export class SkillsBotService {
   private skillsAgent: SkillsAgent;
 
   constructor() {
-    this.skillsAgent = new SkillsAgent('skills', { model: 'gpt-4' });
+    this.skillsAgent = new SkillsAgent();
   }
 
   /**
@@ -147,13 +167,20 @@ export class SkillsBotService {
 
       // Extract skills from resume
       const extractedSkills = await this.extractSkillsFromResume(resumeData);
-      
-      // Save resume data
-      await this.skillsAnalysisService.collectEmployeeSkills(
+
+      // Save extracted skills to employee profile
+      const profileData = typeof resumeData === 'object' && resumeData !== null ? resumeData as Record<string, unknown> : {};
+      await db.insert(employeeSkillsProfiles).values({
         tenantId,
-        userId,
-        resumeData
-      );
+        employeeId: userId,
+        profileType: 'resume_upload',
+        resumeText: JSON.stringify(resumeData),
+        technicalSkills: extractedSkills.filter((s: { type?: string }) => s.type === 'technical'),
+        softSkills: extractedSkills.filter((s: { type?: string }) => s.type === 'soft'),
+        currentExperience: Array.isArray(profileData.experience) ? profileData.experience : null,
+        education: Array.isArray(profileData.education) ? profileData.education : null,
+        lastUpdated: new Date(),
+      });
 
       return {
         response: `Great! I've successfully processed your resume and identified ${extractedSkills.length} skills. Your skills profile has been updated.`,
@@ -552,13 +579,13 @@ export class SkillsBotService {
   // Additional helper methods for specific functionalities
   private async validateResumeData(resumeData: ResumeData): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
-    
+
     if (!resumeData.name) errors.push('Name is required');
     if (!resumeData.email) errors.push('Email is required');
-    if (!resumeData.experience || resumeData.experience.length === 0) {
+    if (!resumeData.experience || !Array.isArray(resumeData.experience) || resumeData.experience.length === 0) {
       errors.push('Work experience is required');
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors
@@ -576,22 +603,22 @@ export class SkillsBotService {
   private async analyzeResumeCompleteness(currentData: Record<string, unknown>): Promise<{ percentage: number; missing: string[] }> {
     let score = 0;
     const missing: string[] = [];
-    
+
     if (currentData.name) score += 20;
     else missing.push('Name');
-    
+
     if (currentData.email) score += 20;
     else missing.push('Email');
-    
-    if (currentData.experience && currentData.experience.length > 0) score += 30;
+
+    if (currentData.experience && Array.isArray(currentData.experience) && currentData.experience.length > 0) score += 30;
     else missing.push('Work Experience');
-    
-    if (currentData.education && currentData.education.length > 0) score += 20;
+
+    if (currentData.education && Array.isArray(currentData.education) && currentData.education.length > 0) score += 20;
     else missing.push('Education');
-    
-    if (currentData.skills && currentData.skills.length > 0) score += 10;
+
+    if (currentData.skills && Array.isArray(currentData.skills) && currentData.skills.length > 0) score += 10;
     else missing.push('Skills');
-    
+
     return { percentage: score, missing };
   }
 
@@ -613,7 +640,7 @@ export class SkillsBotService {
     };
   }
 
-  private async getEmployeeSkillGaps(userId: string, tenantId: string): Promise<SkillGap[]> {
+  private async getEmployeeSkillGaps(userId: string, tenantId: string): Promise<GapAnalysisRecord[]> {
     const gaps = await db.query.skillsGapAnalysis.findMany({
       where: and(
         eq(skillsGapAnalysis.tenantId, tenantId),
@@ -622,17 +649,26 @@ export class SkillsBotService {
       orderBy: desc(skillsGapAnalysis.analyzedAt),
       limit: 10
     });
-    
+
     return gaps || [];
   }
 
-  private async explainGapsInSimpleTerms(gaps: SkillGap[]): Promise<string> {
-    return `Here are your skill gaps explained in simple terms: ${gaps.map(gap => 
-      `${gap.skill}: You're currently at ${gap.currentLevel} level but need ${gap.requiredLevel} level.`
+  private async explainGapsInSimpleTerms(gaps: GapAnalysisRecord[]): Promise<string> {
+    // Extract critical gaps from the first gap analysis record
+    const criticalGaps = gaps.length > 0 && Array.isArray(gaps[0].criticalGaps)
+      ? (gaps[0].criticalGaps as Array<{ skill: string; currentLevel?: string; requiredLevel?: string }>)
+      : [];
+
+    if (criticalGaps.length === 0) {
+      return 'No critical skill gaps identified. Keep up the good work!';
+    }
+
+    return `Here are your skill gaps explained in simple terms: ${criticalGaps.map(gap =>
+      `${gap.skill}: You're currently at ${gap.currentLevel || 'beginner'} level but need ${gap.requiredLevel || 'advanced'} level.`
     ).join(' ')}`;
   }
 
-  private async getLearningResourcesForGaps(gaps: SkillGap[]): Promise<any[]> {
+  private async getLearningResourcesForGaps(gaps: GapAnalysisRecord[]): Promise<Array<{ title: string; url: string; type: string }>> {
     return [
       {
         title: 'Skills Development Courses',
