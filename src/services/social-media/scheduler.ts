@@ -177,7 +177,6 @@ async function publishToPlatform(
  */
 export async function schedulePost(
   tenantId: string,
-  companyId: string,
   platform: string,
   content: string,
   scheduledFor: Date
@@ -187,7 +186,7 @@ export async function schedulePost(
       .values({
         id: crypto.randomUUID(),
         tenantId,
-        companyId,
+        companyId: tenantId, // Use tenantId as companyId for now
         platform,
         content,
         scheduledFor,

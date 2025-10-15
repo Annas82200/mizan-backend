@@ -152,7 +152,7 @@ export function classifyMintzbergConfiguration(
 
   // Calculate management ratio
   const managersCount = new Set(roles.map(r => getRoleReports(r)).filter(Boolean)).size;
-  const managementRatio = managersCount / employeeCount;
+  const managementRatio = employeeCount > 0 ? managersCount / employeeCount : 0;
 
   // Detect configuration
   if (employeeCount < 50 && totalLayers <= 3) {

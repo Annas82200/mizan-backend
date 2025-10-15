@@ -36,7 +36,7 @@ export interface JobPosting {
   description: string;
   requirements: string[];
   platforms: string[]; // ['linkedin', 'indeed', 'career-page']
-  status: 'draft' | 'active' | 'closed';
+  status: 'draft' | 'active' | 'paused' | 'closed';
 }
 
 /**
@@ -82,7 +82,9 @@ export async function createJobRequisition(
       title: requisition.positionTitle,
       department: requisition.department,
       description: requisition.description,
-      requirements: requisition.requiredSkills ? (Array.isArray(requisition.requiredSkills) ? requisition.requiredSkills : [requisition.requiredSkills]) : [],
+      requirements: Array.isArray(requisition.requiredSkills) 
+        ? requisition.requiredSkills.map((skill: any) => typeof skill === 'string' ? skill : skill.name || JSON.stringify(skill))
+        : [],
       status: requisition.status === 'draft' ? 'draft' : requisition.status === 'pending_approval' ? 'pending_approval' : requisition.status === 'approved' ? 'approved' : requisition.status === 'filled' ? 'filled' : 'draft'
     };
 
@@ -124,7 +126,7 @@ export async function createJobPosting(
         remote: requisition.remote || false,
         publishedPlatforms: platforms,
         status: 'draft',
-        createdBy: requisition.tenantId,
+        createdBy: requisition.requestedBy || requisition.tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -132,14 +134,24 @@ export async function createJobPosting(
 
     logger.info(`Job posting ${posting.id} created and posted to: ${platforms.join(', ')}`);
 
+    // Extract requirements (it's a string field in schema)
+    const requirementsArray = typeof posting.requirements === 'string' 
+      ? posting.requirements.split('\n').filter(r => r.trim()) 
+      : [];
+    
+    // Extract published platforms (jsonb array)
+    const platformsArray = Array.isArray(posting.publishedPlatforms) 
+      ? posting.publishedPlatforms as string[]
+      : platforms;
+    
     return {
       id: posting.id,
       requisitionId: posting.requisitionId,
       title: posting.title,
       description: posting.description,
-      requirements: Array.isArray(posting.requirements) ? posting.requirements : [posting.requirements],
-      platforms: Array.isArray(posting.publishedPlatforms) ? posting.publishedPlatforms : platforms,
-      status: posting.status === 'draft' ? 'draft' : posting.status === 'published' ? 'active' : 'closed'
+      requirements: requirementsArray,
+      platforms: platformsArray,
+      status: posting.status === 'draft' ? 'draft' : posting.status === 'published' ? 'active' : posting.status === 'paused' ? 'paused' : 'closed'
     };
 
   } catch (error) {
@@ -203,7 +215,7 @@ export async function processApplication(
     // Update application with culture fit results
     await db.update(candidates)
       .set({
-        cultureScore: cultureFit.overallFitScore.toString(),
+        cultureScore: cultureFit.overallFitScore.toFixed(2),
         updatedAt: new Date()
       })
       .where(eq(candidates.id, application.id));

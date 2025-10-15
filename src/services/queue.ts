@@ -101,7 +101,6 @@ const socialMediaWorker = new Worker('social-media', async (job: Job) => {
 
   const postId = await schedulePost(
     tenantId,
-    tenantId, // companyId
     platform,
     content,
     scheduledTime || new Date()

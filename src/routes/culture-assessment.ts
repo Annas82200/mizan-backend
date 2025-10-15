@@ -74,7 +74,7 @@ interface CultureReport {
   tenantId: string;
   assessmentId?: string;
   reportType: string;
-  reportData: EmployeeReportData | CompanyReportData | DepartmentReportData;
+  reportData: EmployeeReportData | CompanyReportData | DepartmentReportData | DepartmentReportData[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -205,9 +205,9 @@ interface AggregatedAssessmentData {
   currentValuesDistribution: Record<string, number>;
   desiredValuesDistribution: Record<string, number>;
   alignmentScore: number;
-  personalValues?: Array<{ value: string; count: number }>;
-  currentExperience?: Array<{ value: string; count: number }>;
-  desiredExperience?: Array<{ value: string; count: number }>;
+  personalValues: Array<{ value: string; count: number }>;
+  currentExperience: Array<{ value: string; count: number }>;
+  desiredExperience: Array<{ value: string; count: number }>;
   cylinderDistribution?: Record<number, number>;
 }
 

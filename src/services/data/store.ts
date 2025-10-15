@@ -5,8 +5,8 @@ interface Tenant {
   name: string;
   plan: string;
   status: 'active' | 'inactive' | 'suspended' | 'trial';
-  createdAt: Date | string;
-  updatedAt?: Date | string;
+  createdAt: Date;
+  updatedAt?: Date;
   aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }> | Record<string, string[]>;
   features?: Record<string, boolean>;
   integrations?: Record<string, unknown>;
@@ -16,7 +16,7 @@ interface Tenant {
     enablingValues: Array<{ name: string; description: string; }>;
     limitingValues: Array<{ name: string; description: string; }>;
   }>;
-  lastAnalysisAt?: Date | string;
+  lastAnalysisAt?: Date;
   primaryContact?: string;
 }
 
@@ -59,7 +59,7 @@ interface EmployeeProgress {
   employeeId: string;
   tenantId: string;
   progress: number;
-  completedAt?: Date | string | null;
+  completedAt?: Date | null;
   assignments: unknown[];
 }
 
@@ -79,10 +79,10 @@ interface LearningExperience {
 interface OrgSnapshotRecord {
   id: string;
   tenantId: string;
-  timestamp?: Date | string;
+  timestamp?: Date;
   data?: Record<string, unknown>;
   overallHealthScore: number;
-  createdAt: Date | string;
+  createdAt: Date;
   trend?: string;
   highlights?: string[];
 }
@@ -101,7 +101,7 @@ interface TenantSnapshot {
   tenantId: string;
   data?: Record<string, unknown>;
   healthScore: number;
-  lastAnalysis?: Date | string;
+  lastAnalysis?: Date;
 }
 interface TriggeredAction {
   id?: string;
@@ -115,15 +115,15 @@ interface TriggeredAction {
   createdAt?: string;
 }
 interface TenantFeatureToggles {
-  [key: string]: boolean;
-  cultureAnalysis: boolean;
-  structureAnalysis: boolean;
-  skillsAnalysis: boolean;
-  performanceModule: boolean;
-  hiringModule: boolean;
-  lxpModule: boolean;
-  talentModule: boolean;
-  bonusModule: boolean;
+  cultureAnalysis?: boolean;
+  structureAnalysis?: boolean;
+  skillsAnalysis?: boolean;
+  performanceModule?: boolean;
+  hiringModule?: boolean;
+  lxpModule?: boolean;
+  talentModule?: boolean;
+  bonusModule?: boolean;
+  [key: string]: boolean | undefined;
 }
 import {
   actionModules as actionModuleSeed,
@@ -145,6 +145,9 @@ type DeepPartial<T> = {
 function cloneTenant(input: Tenant): Tenant {
   return {
     ...input,
+    createdAt: input.createdAt instanceof Date ? input.createdAt : new Date(input.createdAt),
+    updatedAt: input.updatedAt ? (input.updatedAt instanceof Date ? input.updatedAt : new Date(input.updatedAt)) : undefined,
+    lastAnalysisAt: input.lastAnalysisAt ? (input.lastAnalysisAt instanceof Date ? input.lastAnalysisAt : new Date(input.lastAnalysisAt)) : undefined,
     aiProviders: input.aiProviders ? { ...input.aiProviders } : undefined,
     features: input.features ? { ...input.features } : undefined,
     integrations: input.integrations ? { ...input.integrations } : undefined,
@@ -152,14 +155,27 @@ function cloneTenant(input: Tenant): Tenant {
   };
 }
 
-const tenantStore: Tenant[] = tenantSeed.map(cloneTenant);
+const tenantStore: Tenant[] = tenantSeed.map((t: any) => cloneTenant({
+  ...t,
+  createdAt: t.createdAt instanceof Date ? t.createdAt : new Date(t.createdAt),
+  updatedAt: t.updatedAt ? (t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt)) : undefined,
+  lastAnalysisAt: t.lastAnalysisAt ? (t.lastAnalysisAt instanceof Date ? t.lastAnalysisAt : new Date(t.lastAnalysisAt)) : undefined,
+} as Tenant));
 const assessmentStore: AssessmentRecord[] = assessmentSeed.map((item) => ({ ...item }));
-const snapshotStore: OrgSnapshotRecord[] = snapshotSeed.map((item) => ({ ...item }));
-const snapshotSummary: TenantSnapshot[] = snapshotSummarySeed.map((item) => ({ ...item }));
+const snapshotStore: OrgSnapshotRecord[] = snapshotSeed.map((item: any) => ({ 
+  ...item,
+  timestamp: item.timestamp ? (item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp)) : undefined,
+  createdAt: item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt),
+}));
+const snapshotSummary: TenantSnapshot[] = snapshotSummarySeed.map((item: any) => ({ 
+  ...item,
+  lastAnalysis: item.lastAnalysis ? (item.lastAnalysis instanceof Date ? item.lastAnalysis : new Date(item.lastAnalysis)) : undefined,
+}));
 const actionModuleStore: ActionModule[] = actionModuleSeed.map((item) => ({ ...item, triggerTags: [...item.triggerTags] }));
 const triggeredStore: TriggeredAction[] = triggeredSeed.map((item) => ({ ...item }));
-const employeeProgressStore: EmployeeProgress[] = employeeProgressSeed.map((item) => ({
+const employeeProgressStore: EmployeeProgress[] = employeeProgressSeed.map((item: any) => ({
   ...item,
+  completedAt: item.completedAt ? (item.completedAt instanceof Date ? item.completedAt : new Date(item.completedAt)) : null,
   assignments: item.assignments.map((assignment: any) => ({ ...assignment })),
 }));
 const pipelineStore: PipelineAgentStatus[] = pipelineSeed.map((item) => ({ ...item }));
@@ -178,7 +194,13 @@ export function getTenant(tenantId: string): Tenant | undefined {
 export function updateTenantFeatures(tenantId: string, patch: DeepPartial<TenantFeatureToggles>): Tenant | undefined {
   const tenant = tenantStore.find((t) => t.id === tenantId);
   if (!tenant) return undefined;
-  tenant.features = { ...tenant.features, ...patch } as Record<string, boolean>;
+  
+  // Filter out undefined values before assigning
+  const filteredPatch = Object.fromEntries(
+    Object.entries(patch).filter(([_, value]) => value !== undefined)
+  ) as Record<string, boolean>;
+  
+  tenant.features = { ...tenant.features, ...filteredPatch };
   return cloneTenant(tenant);
 }
 

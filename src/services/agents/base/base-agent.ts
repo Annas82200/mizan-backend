@@ -401,11 +401,13 @@ export abstract class MizanAgent extends BaseAgent {
     // Execute multi-provider analysis
     const consensus = await this.multiProviderAnalysis(analysisPrompt, true);
     
-    // Validate the analysis is fact-based (disabled for now due to type issues)
-    // const dataRecord: Record<string, unknown> = typeof data === 'string' ? { text: data } : (data as Record<string, unknown>);
-    // if (!this.validateFactBased(consensus.finalResult, dataRecord)) {
-    //   console.warn(`Analysis may contain assumptions: ${analysisName}`);
-    // }
+    // Validate the analysis is fact-based with proper type guards
+    if (typeof data !== 'string' && typeof consensus.finalResult !== 'string') {
+      const dataRecord = data as Record<string, unknown>;
+      if (!this.validateFactBased(consensus.finalResult, dataRecord)) {
+        console.warn(`Analysis may contain assumptions: ${analysisName}`);
+      }
+    }
     
     // Return result with metadata
     return {
