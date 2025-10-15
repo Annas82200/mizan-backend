@@ -1,12 +1,37 @@
+// CRITICAL: Log immediately to prove process started
+console.log('========================================');
+console.log('🚀 Mizan Server Process Starting...');
+console.log('📅 Timestamp:', new Date().toISOString());
+console.log('🌍 Node Version:', process.version);
+console.log('📦 Environment:', process.env.NODE_ENV || 'development');
+console.log('========================================');
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Load environment variables FIRST
+console.log('⚙️  Loading environment variables...');
+dotenv.config();
+console.log('✅ Environment variables loaded');
+
+// Log critical environment variables (without exposing secrets)
+console.log('📊 Environment Check:');
+console.log('  - PORT:', process.env.PORT || '3001');
+console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
+console.log('  - SESSION_SECRET:', process.env.SESSION_SECRET ? '✅ SET' : '⚠️  NOT SET');
+console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ SET' : '⚠️  NOT SET');
+
+// Import database and utilities
+console.log('📚 Loading database module...');
 import bcrypt from 'bcryptjs';
 import { db } from './db/index.js';
 import { users, tenants } from './db/schema.js';
 import { eq } from 'drizzle-orm';
+console.log('✅ Database module loaded');
 
 // Import routes from src directory (AGENT_CONTEXT_ULTIMATE.md Line 383)
+console.log('🛣️  Loading route modules...');
 import authRoutes from './src/routes/auth.js';
 import adminRoutes from './src/routes/admin.js';
 import employeeRoutes from './src/routes/employee.js';
@@ -25,9 +50,7 @@ import publicStructureRoutes from './src/routes/public-structure.js';
 import paymentRoutes from './src/routes/payment.js';
 import webhookRoutes from './src/routes/webhooks.js';
 import demoRoutes from './src/routes/demo.js';
-
-// Load environment variables
-dotenv.config();
+console.log('✅ All route modules loaded successfully');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -278,35 +301,49 @@ async function testDatabaseConnection(): Promise<boolean> {
 // Start server with proper error handling (AGENT_CONTEXT_ULTIMATE.md Line 1114)
 async function startServer() {
   try {
-    console.log('🚀 Starting Mizan Platform Server v2.0.0...');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🚀 STARTING MIZAN PLATFORM SERVER v2.0.0');
+    console.log('═══════════════════════════════════════════════════════════');
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔌 Port: ${PORT}`);
+    console.log(`🖥️  Host: ${process.env.HOST || '0.0.0.0'}`);
+    console.log('');
     
     // Validate required environment variables
+    console.log('🔐 Security Configuration:');
     if (!process.env.DATABASE_URL) {
-      console.warn('⚠️  WARNING: DATABASE_URL not set, using default connection string');
+      console.warn('  ⚠️  WARNING: DATABASE_URL not set, using default connection string');
     } else {
-      console.log('✅ DATABASE_URL is set');
+      console.log('  ✅ DATABASE_URL is configured');
     }
 
     if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
-      console.warn('⚠️  WARNING: SESSION_SECRET/JWT_SECRET not set, using default (insecure for production)');
+      console.warn('  ⚠️  WARNING: SESSION_SECRET/JWT_SECRET not set, using default (insecure for production)');
     } else {
-      console.log('✅ JWT_SECRET is set');
+      console.log('  ✅ JWT/SESSION_SECRET is configured');
     }
+    console.log('');
 
     // CRITICAL FIX: Start HTTP server FIRST so Railway healthcheck can reach /health endpoint
     // Database connection will be tested in the background
     const HOST = process.env.HOST || '0.0.0.0';
+    
+    console.log('🌐 Starting HTTP server...');
+    console.log(`   Binding to: ${HOST}:${PORT}`);
+    
     const server = app.listen(PORT, HOST, () => {
+      console.log('');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`🚀 Mizan Platform Server v2.0.0 ONLINE`);
-      console.log(`📍 Listening on: ${HOST}:${PORT}`);
+      console.log('✅ MIZAN PLATFORM SERVER ONLINE');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`🌐 Server: http://${HOST}:${PORT}`);
+      console.log(`🏥 Health: http://${HOST}:${PORT}/health`);
       console.log(`📊 Features: Three-Engine AI, Multi-Provider Consensus`);
-      console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
-      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('💾 Database: Testing connection in background...');
+      console.log(`🔒 Security: CORS, Helmet, Rate Limiting`);
+      console.log(`🗄️  Database: Testing connection in background...`);
       console.log('═══════════════════════════════════════════════════════════');
+      console.log('');
     });
 
     // Handle server errors
@@ -407,7 +444,48 @@ async function startServer() {
   }
 }
 
-// Start the server
-startServer();
+// Global error handlers BEFORE starting server
+process.on('uncaughtException', (error) => {
+  console.error('');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('🚨 FATAL: Uncaught Exception During Startup');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('Error:', error);
+  console.error('Stack:', error.stack);
+  console.error('═══════════════════════════════════════════════════════════');
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('🚨 FATAL: Unhandled Promise Rejection During Startup');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('Reason:', reason);
+  console.error('Promise:', promise);
+  console.error('═══════════════════════════════════════════════════════════');
+  process.exit(1);
+});
+
+// Start the server with top-level error handling
+console.log('🎬 Invoking startServer() function...');
+(async () => {
+  try {
+    await startServer();
+    console.log('✅ startServer() invocation completed successfully');
+  } catch (error) {
+    console.error('');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('🚨 FATAL: Failed to start server');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('Error:', error);
+    if (error instanceof Error) {
+      console.error('Message:', error.message);
+      console.error('Stack:', error.stack);
+    }
+    console.error('═══════════════════════════════════════════════════════════');
+    process.exit(1);
+  }
+})();
 
 export default app;
