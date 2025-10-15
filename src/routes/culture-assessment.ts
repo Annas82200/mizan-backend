@@ -134,12 +134,57 @@ interface CompanyReportData {
 }
 
 interface DepartmentReportData {
-  departmentId: string;
+  departmentId?: string;
   departmentName?: string;
-  employeeCount: number;
-  engagement: number;
-  recognition: number;
-  status: string;
+  employeeCount?: number;
+  engagement?: number | {
+    average: number;
+    median: number;
+    distribution: Record<number, number>;
+    trend: string;
+  };
+  recognition?: number | {
+    average: number;
+    median: number;
+    distribution: Record<number, number>;
+    trend: string;
+  };
+  status?: string;
+  reportType?: string;
+  targetId?: string;
+  generatedAt?: Date;
+  participationRate?: number;
+  tenantValues?: {
+    values: string[];
+    mappings: Array<{ value: string; cylinder: number }>;
+    analysis: string;
+    dominantCylinders: Array<{ cylinder: number; name: string; count: number }>;
+    culturalOrientation: string;
+  };
+  employeeExperience?: {
+    current: {
+      topValues: Array<{ value: string; count: number }>;
+      analysis: string;
+      alignment: number;
+      gaps: string[];
+    };
+    desired: {
+      topValues: Array<{ value: string; count: number }>;
+      analysis: string;
+      alignment: number;
+      aspirationalGaps: string[];
+    };
+  };
+  culturalHealth?: {
+    overallScore: number;
+    status: string;
+    strengths: string[];
+    challenges: string[];
+    cylinderDistribution: Record<number, number>;
+  };
+  departmentalBreakdown?: any;
+  recommendations?: string[];
+  nextSteps?: string[];
 }
 
 interface UserWithPermissions {
@@ -1348,7 +1393,7 @@ async function getDepartmentReport(
   departmentId: string,
   companyId: string,
   tenantId: string
-): Promise<EmployeeReportData | CompanyReportData | DepartmentReportData[]> {
+): Promise<any> {
   // Check if report already exists
   const existingReport = await db.query.cultureReports.findFirst({
     where: and(
@@ -1410,7 +1455,7 @@ async function getDepartmentReport(
   const report = await generateTenantReport(tenantId, mappedAssessments, 'department', departmentId);
 
   // Extract the reportData from the CultureReport
-  return report.reportData as DepartmentReportData;
+  return report.reportData as any as DepartmentReportData;
 }
 
 async function generateTenantReport(
@@ -1464,14 +1509,14 @@ async function generateTenantReport(
 
   // Analyze: How employees experience the company vs. tenant values
   const currentExperienceAnalysis = await analyzeEmployeeExperienceVsTenantValues(
-    aggregatedData.currentExperience,
+    aggregatedData.currentExperience || [],
     tenantValues,
     cylinders as Cylinder[]
   );
 
   // Analyze: How employees want to experience vs. tenant values
   const desiredExperienceAnalysis = await analyzeEmployeeExperienceVsTenantValues(
-    aggregatedData.desiredExperience,
+    aggregatedData.desiredExperience || [],
     tenantValues,
     cylinders as Cylinder[]
   );
@@ -1510,13 +1555,13 @@ async function generateTenantReport(
 
     employeeExperience: {
       current: {
-        topValues: aggregatedData.currentExperience.slice(0, 10),
+        topValues: (aggregatedData.currentExperience || []).slice(0, 10),
         analysis: currentExperienceAnalysis.analysis,
         alignment: currentExperienceAnalysis.alignment,
         gaps: currentExperienceAnalysis.gaps
       },
       desired: {
-        topValues: aggregatedData.desiredExperience.slice(0, 10),
+        topValues: (aggregatedData.desiredExperience || []).slice(0, 10),
         analysis: desiredExperienceAnalysis.analysis,
         alignment: desiredExperienceAnalysis.alignment,
         aspirationalGaps: desiredExperienceAnalysis.gaps
@@ -1674,6 +1719,7 @@ async function analyzeEmployeeExperienceVsTenantValues(
   analysis: string;
   alignment: number;
   gaps: string[];
+  dominantCylinders: Array<{ cylinder: number; name: string; count: number }>;
 }> {
   const tenantSet = new Set(tenantValues.map(v => v.toLowerCase()));
   const employeeSet = new Set(employeeValues.map(v => v.value.toLowerCase()));
@@ -1690,10 +1736,32 @@ async function analyzeEmployeeExperienceVsTenantValues(
 
   const analysis = `Employees are experiencing ${experiencedTenantValues.length} out of ${tenantValues.length} organizational values (${alignment}% alignment). ${gaps.length > 0 ? `Gap areas include: ${gaps.join(', ')}.` : 'Strong value alignment across the organization.'}`;
 
+  // Calculate dominant cylinders from employee values
+  const cylinderCounts: Record<number, number> = {};
+  employeeValues.forEach(empVal => {
+    const valueLower = empVal.value.toLowerCase();
+    cylinders.forEach((cyl, idx) => {
+      const enablingValues = (cyl.enablingValues || cyl.enabling_values || []).map((v: string) => v.toLowerCase());
+      if (enablingValues.includes(valueLower)) {
+        cylinderCounts[idx] = (cylinderCounts[idx] || 0) + empVal.count;
+      }
+    });
+  });
+
+  const dominantCylinders = Object.entries(cylinderCounts)
+    .map(([cyl, count]) => ({
+      cylinder: parseInt(cyl),
+      name: cylinders[parseInt(cyl)]?.name || `Cylinder ${cyl}`,
+      count
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
   return {
     analysis,
     alignment,
-    gaps
+    gaps,
+    dominantCylinders
   };
 }
 

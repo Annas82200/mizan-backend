@@ -5,12 +5,19 @@ interface Tenant {
   name: string;
   plan: string;
   status: 'active' | 'inactive' | 'suspended' | 'trial';
-  createdAt: Date;
-  updatedAt: Date;
-  aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }>;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }> | Record<string, string[]>;
   features?: Record<string, boolean>;
   integrations?: Record<string, unknown>;
-  valuesFramework?: Record<string, unknown>;
+  valuesFramework?: Record<string, unknown> | Array<{
+    level: number;
+    name: string;
+    enablingValues: Array<{ name: string; description: string; }>;
+    limitingValues: Array<{ name: string; description: string; }>;
+  }>;
+  lastAnalysisAt?: Date | string;
+  primaryContact?: string;
 }
 
 interface User {
@@ -52,7 +59,7 @@ interface EmployeeProgress {
   employeeId: string;
   tenantId: string;
   progress: number;
-  completedAt?: Date | null;
+  completedAt?: Date | string | null;
   assignments: unknown[];
 }
 
@@ -72,10 +79,10 @@ interface LearningExperience {
 interface OrgSnapshotRecord {
   id: string;
   tenantId: string;
-  timestamp?: Date;
+  timestamp?: Date | string;
   data?: Record<string, unknown>;
   overallHealthScore: number;
-  createdAt: Date;
+  createdAt: Date | string;
   trend?: string;
   highlights?: string[];
 }
@@ -94,7 +101,7 @@ interface TenantSnapshot {
   tenantId: string;
   data?: Record<string, unknown>;
   healthScore: number;
-  lastAnalysis?: Date;
+  lastAnalysis?: Date | string;
 }
 interface TriggeredAction {
   id?: string;
@@ -107,15 +114,16 @@ interface TriggeredAction {
   priority?: string;
   createdAt?: string;
 }
-interface TenantFeatureToggles extends Record<string, boolean> {
-  cultureAnalysis?: boolean;
-  structureAnalysis?: boolean;
-  skillsAnalysis?: boolean;
-  performanceModule?: boolean;
-  hiringModule?: boolean;
-  lxpModule?: boolean;
-  talentModule?: boolean;
-  bonusModule?: boolean;
+interface TenantFeatureToggles {
+  [key: string]: boolean;
+  cultureAnalysis: boolean;
+  structureAnalysis: boolean;
+  skillsAnalysis: boolean;
+  performanceModule: boolean;
+  hiringModule: boolean;
+  lxpModule: boolean;
+  talentModule: boolean;
+  bonusModule: boolean;
 }
 import {
   actionModules as actionModuleSeed,
@@ -170,7 +178,7 @@ export function getTenant(tenantId: string): Tenant | undefined {
 export function updateTenantFeatures(tenantId: string, patch: DeepPartial<TenantFeatureToggles>): Tenant | undefined {
   const tenant = tenantStore.find((t) => t.id === tenantId);
   if (!tenant) return undefined;
-  tenant.features = { ...tenant.features, ...patch };
+  tenant.features = { ...tenant.features, ...patch } as Record<string, boolean>;
   return cloneTenant(tenant);
 }
 

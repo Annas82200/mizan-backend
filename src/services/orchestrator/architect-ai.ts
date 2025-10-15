@@ -54,7 +54,7 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
     };
     const structureAgent = new StructureAgentV2('structure', agentConfig);
     const cultureAgent = new CultureAgentV2('culture', agentConfig);
-    const skillsAgent = new SkillsAgent('skills', agentConfig);
+    const skillsAgent = new SkillsAgent();
     
     // Run analyses in parallel
     const [structureResult, cultureResult, skillsResult] = await Promise.allSettled([

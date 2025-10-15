@@ -82,7 +82,7 @@ export async function createJobRequisition(
       title: requisition.positionTitle,
       department: requisition.department,
       description: requisition.description,
-      requirements: requisition.requiredSkills || [],
+      requirements: requisition.requiredSkills ? (Array.isArray(requisition.requiredSkills) ? requisition.requiredSkills : [requisition.requiredSkills]) : [],
       status: requisition.status === 'draft' ? 'draft' : requisition.status === 'pending_approval' ? 'pending_approval' : requisition.status === 'approved' ? 'approved' : requisition.status === 'filled' ? 'filled' : 'draft'
     };
 
@@ -124,7 +124,7 @@ export async function createJobPosting(
         remote: requisition.remote || false,
         publishedPlatforms: platforms,
         status: 'draft',
-        createdBy: tenantId,
+        createdBy: requisition.tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -137,9 +137,9 @@ export async function createJobPosting(
       requisitionId: posting.requisitionId,
       title: posting.title,
       description: posting.description,
-      requirements: posting.requirements,
+      requirements: Array.isArray(posting.requirements) ? posting.requirements : [posting.requirements],
       platforms: Array.isArray(posting.publishedPlatforms) ? posting.publishedPlatforms : platforms,
-      status: posting.status === 'draft' ? 'draft' : posting.status === 'active' ? 'active' : 'closed'
+      status: posting.status === 'draft' ? 'draft' : posting.status === 'published' ? 'active' : 'closed'
     };
 
   } catch (error) {
@@ -203,7 +203,7 @@ export async function processApplication(
     // Update application with culture fit results
     await db.update(candidates)
       .set({
-        cultureScore: cultureFit.overallFitScore,
+        cultureScore: cultureFit.overallFitScore.toString(),
         updatedAt: new Date()
       })
       .where(eq(candidates.id, application.id));
@@ -238,10 +238,63 @@ export async function getApplicationsForJob(jobId: string): Promise<any[]> {
   }
 }
 
+/**
+ * Check module health status
+ */
+export async function checkHealth(): Promise<{ healthy: boolean; message: string }> {
+  try {
+    // Check database connectivity
+    await db.query.hiringRequisitions.findFirst();
+    return { healthy: true, message: 'Hiring Module operational' };
+  } catch (error) {
+    logger.error('Hiring Module health check failed:', error as Error);
+    return { healthy: false, message: 'Hiring Module unavailable' };
+  }
+}
+
+/**
+ * Initialize module
+ */
+export async function initialize(config?: { tenantId: string; moduleId: string; enabled: boolean }): Promise<void> {
+  logger.info(`Hiring Module initialized for tenant: ${config?.tenantId || 'default'}`);
+}
+
+/**
+ * Get module status
+ */
+export async function getStatus(): Promise<{ status: string; activeRequisitionsCount: number }> {
+  try {
+    const activeRequisitions = await db.query.hiringRequisitions.findMany({
+      where: eq(hiringRequisitions.status, 'approved')
+    });
+    return {
+      status: 'operational',
+      activeRequisitionsCount: activeRequisitions.length
+    };
+  } catch (error) {
+    logger.error('Failed to get Hiring module status:', error as Error);
+    return { status: 'error', activeRequisitionsCount: 0 };
+  }
+}
+
+/**
+ * Handle trigger from Structure Analysis
+ */
+export async function handleTrigger(data: {
+  tenantId: string;
+  recommendation: any;
+}): Promise<any> {
+  return await createJobRequisition(data.tenantId, data.recommendation);
+}
+
 export default {
   createJobRequisition,
   createJobPosting,
   processApplication,
-  getApplicationsForJob
+  getApplicationsForJob,
+  checkHealth,
+  initialize,
+  getStatus,
+  handleTrigger
 };
 

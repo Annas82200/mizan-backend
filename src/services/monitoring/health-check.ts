@@ -83,7 +83,8 @@ export class HealthCheckService {
     try {
       // Create a Redis client using the same connection config as BullMQ
       const ioredis = await import('ioredis');
-      const redis = new ioredis.default({
+      const Redis = ioredis.default || ioredis;
+      const redis = new Redis({
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,

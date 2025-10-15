@@ -196,36 +196,34 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       console.log(`[Trigger Engine] Routing trigger ${type} to LXP module`);
       
       // Initialize LXP module if not already initialized
-      if (!lxpModule.getStatus().status || lxpModule.getStatus().status === 'inactive') {
+      const lxpStatus = await lxpModule.getStatus();
+      if (!lxpStatus.status || lxpStatus.status === 'inactive') {
         await lxpModule.initialize();
       }
       
       // Process trigger through LXP module
-      const lxpResult = await lxpModule.handleTrigger(type, config, unifiedResults);
+      const lxpResult = await lxpModule.handleTrigger({
+        tenantId: trigger.tenantId,
+        employeeId: config.employeeId || 'unknown',
+        skillGaps: (config.skillGaps as any) || []
+      });
       
-      if (lxpResult.success) {
-        // Convert LXP module result to trigger result
-        const triggerResult: TriggerResult = {
-          id: randomUUID(),
-          triggerId: trigger.id,
-          reason: `LXP module processed ${type} trigger`,
-          action: lxpResult.action,
-          priority: lxpResult.confidence > 0.8 ? 'high' : lxpResult.confidence > 0.6 ? 'medium' : 'low',
-          data: lxpResult.data,
-          executed: true
-        };
-        
-        // Handle next triggers if any
-        if (lxpResult.nextTriggers.length > 0) {
-          console.log(`[Trigger Engine] LXP module generated ${lxpResult.nextTriggers.length} next triggers`);
-          // In a real implementation, these would be queued for processing
-        }
-        
-        return triggerResult;
-      } else {
-        console.error(`[Trigger Engine] LXP module failed to process trigger ${type}:`, lxpResult.error);
-        return null;
-      }
+      // Convert LXP module result to trigger result
+      const triggerResult: TriggerResult = {
+        id: randomUUID(),
+        triggerId: trigger.id,
+        reason: `LXP module processed ${type} trigger`,
+        action: `Created learning path: ${lxpResult.name}`,
+        priority: 'high',
+        data: {
+          learningPathId: lxpResult.id,
+          employeeId: lxpResult.employeeId,
+          courses: lxpResult.courses
+        },
+        executed: true
+      };
+      
+      return triggerResult;
     } catch (error) {
       console.error(`[Trigger Engine] Error processing trigger ${type} through LXP module:`, error);
       // Fall back to original processing
@@ -237,7 +235,8 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       console.log(`[Trigger Engine] Routing trigger ${type} to Hiring module`);
       
       // Initialize Hiring module if not already initialized
-      if (!hiringModule.getStatus().status || hiringModule.getStatus().status === 'inactive') {
+      const hiringStatus = await hiringModule.getStatus();
+      if (!hiringStatus.status || hiringStatus.status === 'inactive') {
         await hiringModule.initialize({
           tenantId: config.tenantId || 'default-tenant',
           moduleId: 'hiring-module',
@@ -246,40 +245,28 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       }
 
       // Process trigger through Hiring module
-      // Cast unifiedResults to include tenantId since we know it has it at runtime
       const resultsWithTenant = unifiedResults as UnifiedResults & { tenantId: string };
-      const hiringContext = {
-        triggerType: type,
-        tenantId: resultsWithTenant.tenantId || 'default-tenant',
-        data: config,
-        timestamp: new Date().toISOString(),
-        priority: 'medium' as const
-      };
-      const hiringResult = await hiringModule.handleTrigger(hiringContext);
+      const hiringResult = await hiringModule.handleTrigger({
+        tenantId: resultsWithTenant.tenantId || trigger.tenantId || 'default-tenant',
+        recommendation: config
+      });
       
-      if (hiringResult.success) {
-        // Convert Hiring module result to trigger result
-        const triggerResult: TriggerResult = {
-          id: randomUUID(),
-          triggerId: trigger.id,
-          reason: `Hiring module processed ${type} trigger`,
-          action: hiringResult.action,
-          priority: hiringResult.confidence > 0.8 ? 'high' : hiringResult.confidence > 0.6 ? 'medium' : 'low',
-          data: hiringResult.data,
-          executed: true
-        };
-        
-        // Handle next triggers if any
-        if (hiringResult.nextTriggers && hiringResult.nextTriggers.length > 0) {
-          console.log(`[Trigger Engine] Hiring module generated ${hiringResult.nextTriggers.length} next triggers`);
-          // In a real implementation, these would be queued for processing
-        }
-        
-        return triggerResult;
-      } else {
-        console.error(`[Trigger Engine] Hiring module failed to process trigger ${type}:`, hiringResult.error);
-        return null;
-      }
+      // Convert Hiring module result to trigger result
+      const triggerResult: TriggerResult = {
+        id: randomUUID(),
+        triggerId: trigger.id,
+        reason: `Hiring module processed ${type} trigger`,
+        action: `Created job requisition: ${hiringResult.title}`,
+        priority: 'high',
+        data: {
+          requisitionId: hiringResult.id,
+          title: hiringResult.title,
+          department: hiringResult.department
+        },
+        executed: true
+      };
+      
+      return triggerResult;
     } catch (error) {
       console.error(`[Trigger Engine] Error processing trigger ${type} through Hiring module:`, error);
       // Fall back to original processing

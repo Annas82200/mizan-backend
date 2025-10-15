@@ -225,9 +225,63 @@ export async function updateProgress(
   }
 }
 
+/**
+ * Check module health status
+ */
+export async function checkHealth(): Promise<{ healthy: boolean; message: string }> {
+  try {
+    // Check database connectivity
+    await db.query.learningPaths.findFirst();
+    return { healthy: true, message: 'LXP Module operational' };
+  } catch (error) {
+    logger.error('LXP Module health check failed:', error as Error);
+    return { healthy: false, message: 'LXP Module unavailable' };
+  }
+}
+
+/**
+ * Initialize module
+ */
+export async function initialize(): Promise<void> {
+  logger.info('LXP Module initialized successfully');
+}
+
+/**
+ * Get module status
+ */
+export async function getStatus(): Promise<{ status: string; activePathsCount: number }> {
+  try {
+    const activePaths = await db.query.learningPaths.findMany({
+      where: eq(learningPaths.status, 'active')
+    });
+    return {
+      status: 'operational',
+      activePathsCount: activePaths.length
+    };
+  } catch (error) {
+    logger.error('Failed to get LXP module status:', error as Error);
+    return { status: 'error', activePathsCount: 0 };
+  }
+}
+
+/**
+ * Handle trigger from Skills Analysis
+ */
+export async function handleTrigger(data: {
+  tenantId: string;
+  employeeId: string;
+  skillGaps: SkillGap[];
+}): Promise<LearningPath> {
+  return await createLearningPath(data.tenantId, data.employeeId, data.skillGaps);
+}
+
 export default {
   createLearningPath,
   getLearningPath,
-  updateProgress
+  updateProgress,
+  checkHealth,
+  initialize,
+  getStatus,
+  handleTrigger
 };
 

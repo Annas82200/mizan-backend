@@ -38,7 +38,7 @@ export async function processScheduledPosts(): Promise<void> {
     const duePosts = await db.query.socialMediaPosts.findMany({
       where: and(
         eq(socialMediaPosts.status, 'scheduled'),
-        lte(socialMediaPosts.scheduledAt, now)
+        lte(socialMediaPosts.scheduledFor, now)
       )
     });
 
@@ -72,13 +72,17 @@ export async function publishPost(postId: string): Promise<PostResult> {
       throw new Error(`Post ${postId} not found`);
     }
 
-    // Get account credentials
+    // Get account credentials - use first available account for the tenant and platform
     const account = await db.query.socialMediaAccounts.findFirst({
-      where: eq(socialMediaAccounts.id, post.accountId)
+      where: and(
+        eq(socialMediaAccounts.tenantId, post.tenantId),
+        eq(socialMediaAccounts.platform, post.platform),
+        eq(socialMediaAccounts.isActive, true)
+      )
     });
 
     if (!account) {
-      throw new Error(`Account ${post.accountId} not found`);
+      throw new Error(`No active account found for tenant ${post.tenantId} on platform ${post.platform}`);
     }
 
     // Publish to platform
@@ -173,7 +177,7 @@ async function publishToPlatform(
  */
 export async function schedulePost(
   tenantId: string,
-  accountId: string,
+  companyId: string,
   platform: string,
   content: string,
   scheduledFor: Date
@@ -183,10 +187,10 @@ export async function schedulePost(
       .values({
         id: crypto.randomUUID(),
         tenantId,
-        accountId,
+        companyId,
         platform,
         content,
-        scheduledAt: scheduledFor,
+        scheduledFor,
         status: 'scheduled',
         createdAt: new Date(),
         updatedAt: new Date()

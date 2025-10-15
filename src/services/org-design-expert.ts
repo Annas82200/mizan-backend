@@ -39,6 +39,19 @@ interface TenantStrategy {
 type StructureData = ImportedStructureData | LegacyStructureData;
 type Role = ImportedRole | LegacyRole;
 
+// Type guards
+function isLegacyRole(role: Role): role is LegacyRole {
+  return 'name' in role && 'reports' in role;
+}
+
+function getRoleName(role: Role): string {
+  return isLegacyRole(role) ? role.name : role.title;
+}
+
+function getRoleReports(role: Role): string | null | undefined {
+  return isLegacyRole(role) ? role.reports : role.reportsTo;
+}
+
 // ============================================================================
 // COMPANY STAGE DETECTION (Greiner's Growth Model)
 // ============================================================================
@@ -138,7 +151,7 @@ export function classifyMintzbergConfiguration(
   const employeeCount = roles.length;
 
   // Calculate management ratio
-  const managersCount = new Set(roles.map(r => r.reports).filter(Boolean)).size;
+  const managersCount = new Set(roles.map(r => getRoleReports(r)).filter(Boolean)).size;
   const managementRatio = managersCount / employeeCount;
 
   // Detect configuration
@@ -381,7 +394,8 @@ export function assessGalbraithStructure(
   // Extract department/function info
   const departments = new Map<string, number>();
   roles.forEach(role => {
-    const dept = role.name.split(' - ')[1] || 'Unknown';
+    const roleName = getRoleName(role);
+    const dept = roleName.split(' - ')[1] || 'Unknown';
     departments.set(dept, (departments.get(dept) || 0) + 1);
   });
 
@@ -512,7 +526,8 @@ function generateExpertRecommendations(
   // Calculate current ratios
   const departments = new Map<string, number>();
   roles.forEach(role => {
-    const dept = role.name.split(' - ')[1] || 'Unknown';
+    const roleName = getRoleName(role);
+    const dept = roleName.split(' - ')[1] || 'Unknown';
     departments.set(dept, (departments.get(dept) || 0) + 1);
   });
 

@@ -77,7 +77,12 @@ const hiringWorker = new Worker('hiring', async (job: Job) => {
 
   await job.updateProgress(50);
 
-  const assessment = await assessCultureFit(candidate, jobPosting, tenantId);
+  const assessment = await assessCultureFit({
+    candidateId: candidate.id || 'unknown',
+    tenantId,
+    jobId: jobPosting.id || 'unknown',
+    assessmentResponses: candidate.assessmentResponses || []
+  });
 
   await job.updateProgress(100);
 
@@ -90,22 +95,21 @@ const socialMediaWorker = new Worker('social-media', async (job: Job) => {
 
   await job.updateProgress(10);
 
-  const { SocialMediaScheduler } = await import('./social-media/scheduler.js');
-  const scheduler = new SocialMediaScheduler();
+  const { schedulePost } = await import('./social-media/scheduler.js');
 
   await job.updateProgress(30);
 
-  const result = await scheduler['createScheduledPost']({
+  const postId = await schedulePost(
     tenantId,
+    tenantId, // companyId
     platform,
     content,
-    scheduledFor: scheduledTime || new Date(),
-    autoPublish: true
-  });
+    scheduledTime || new Date()
+  );
 
   await job.updateProgress(100);
 
-  return { success: true, result };
+  return { success: true, postId };
 }, { connection });
 
 // Email Worker
