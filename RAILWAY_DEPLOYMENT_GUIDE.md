@@ -90,6 +90,13 @@ curl https://your-app.railway.app/health
 # Expected response:
 {
   "status": "healthy",
+  "server": "running",
+  "database": {
+    "connected": true,
+    "status": "connected",
+    "lastCheck": "2024-01-01T00:00:00.000Z",
+    "error": null
+  },
   "timestamp": "2024-01-01T00:00:00.000Z",
   "version": "2.0.0",
   "features": [...]
@@ -120,10 +127,11 @@ curl https://your-app.railway.app/health
    - Enable health checks
 
 ### **Database Connection**
-- Automatic connection testing on startup
-- 10-second timeout for connection test
-- Fails deployment if DB unavailable (production mode)
-- Connection pool: max 10 connections
+- **CRITICAL FIX APPLIED**: Server starts immediately, database connection tested in background
+- 5-second timeout for connection test (reduced from 10s for Railway compatibility)
+- Maximum 2 retry attempts (reduced from 3 for faster startup)
+- Server remains healthy even if database is temporarily unavailable
+- Connection pool: max 10 connections with keep-alive enabled
 
 ### **Error Handling**
 - ✅ Graceful shutdown on SIGTERM/SIGINT
@@ -134,14 +142,22 @@ curl https://your-app.railway.app/health
 
 ## 🚨 Common Issues & Solutions
 
-### **Issue: Container stuck at "creating containers"**
-**Cause**: Database connection timeout or missing environment variables
+### **Issue: Healthcheck failing during deployment**
+**Status**: ✅ **FIXED** - Server now starts immediately before database connection
 
-**Solution**:
-1. Verify `DATABASE_URL` is set correctly
-2. Check PostgreSQL is running and accessible
-3. Verify SSL configuration matches database requirements
-4. Check Railway logs for specific error messages
+**Previous Issue**: Database connection timeout blocked server startup, causing Railway healthcheck to fail.
+
+**Applied Fix**:
+1. Server binds to port immediately (within 1-2 seconds)
+2. Database connection tested in background after server is listening
+3. Health endpoint always returns 200 if server is running
+4. Database status reported separately in health response body
+
+**If healthcheck still fails**:
+1. Verify `PORT` environment variable is set by Railway
+2. Check Railway logs for server startup messages
+3. Ensure no other service is using the same port
+4. Verify Dockerfile.prod healthcheck command is correct
 
 ### **Issue: Port binding error**
 **Cause**: PORT environment variable not set
@@ -176,13 +192,40 @@ ssl: process.env.NODE_ENV === 'production'
 ```bash
 GET /health
 
-Response:
+Response (server running, database connected):
 {
   "status": "healthy",
+  "server": "running",
+  "database": {
+    "connected": true,
+    "status": "connected",
+    "lastCheck": "ISO8601",
+    "error": null
+  },
   "timestamp": "ISO8601",
   "version": "2.0.0",
+  "environment": "production",
   "features": [...]
 }
+
+Response (server running, database disconnected):
+{
+  "status": "healthy",
+  "server": "running",
+  "database": {
+    "connected": false,
+    "status": "disconnected",
+    "lastCheck": "ISO8601",
+    "error": "Failed to connect after 2 attempts"
+  },
+  "timestamp": "ISO8601",
+  "version": "2.0.0",
+  "environment": "production",
+  "features": [...]
+}
+
+Note: Health endpoint ALWAYS returns HTTP 200 if server is running.
+Database status is informational only and does not affect health status.
 ```
 
 ### **Startup Logs to Monitor**

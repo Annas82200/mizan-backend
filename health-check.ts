@@ -30,8 +30,18 @@ function attemptHealthCheck(hostname: string): void {
     });
 
     res.on('end', () => {
+      // Health check passes if server responds with 200
+      // Database status is checked separately in the response body
       if (res.statusCode === 200) {
         console.log('✅ Health check passed:', body);
+        try {
+          const data = JSON.parse(body);
+          if (data.database && !data.database.connected) {
+            console.warn('⚠️  Database not connected yet, but server is healthy');
+          }
+        } catch (e) {
+          // If parsing fails, that's okay - we got a 200 response
+        }
         process.exit(0);
       } else {
         console.error(`❌ Health check failed with status: ${res.statusCode}`);

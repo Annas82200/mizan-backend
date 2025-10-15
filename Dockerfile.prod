@@ -50,8 +50,9 @@ USER mizan
 # Default is 3001 but Railway typically uses dynamic ports
 EXPOSE 3001
 
-# Health check - increased timeouts for Railway
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check - optimized for Railway deployment
+# Server starts quickly now, but allow 40s for initial setup
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
   CMD node dist/health-check.js
 
 # Start the application
