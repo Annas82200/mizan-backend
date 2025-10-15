@@ -1,3 +1,18 @@
+// CRITICAL: Ensure stdout/stderr are not buffered in containerized environments
+if (process.stdout && 'setDefaultEncoding' in process.stdout) {
+  process.stdout.setDefaultEncoding('utf8');
+}
+if (process.stderr && 'setDefaultEncoding' in process.stderr) {
+  process.stderr.setDefaultEncoding('utf8');
+}
+
+// Force immediate flush of logs (no buffering)
+const originalLog = console.log;
+console.log = (...args) => {
+  originalLog(...args);
+  if (process.stdout.write('')) {} // Force flush
+};
+
 // CRITICAL: Log immediately to prove process started
 console.log('========================================');
 console.log('🚀 Mizan Server Process Starting...');

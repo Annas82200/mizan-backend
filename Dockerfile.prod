@@ -24,9 +24,6 @@ RUN npm prune --production
 # Production stage
 FROM node:20-alpine AS production
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
 # Create app user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S mizan -u 1001
@@ -56,6 +53,6 @@ HEALTHCHECK --interval=10s --timeout=10s --start-period=60s --retries=5 \
   CMD node dist/health-check.js
 
 # Start the application with verbose error reporting
-# Run node directly (not through npm) for proper log capture in Railway
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "--trace-warnings", "--unhandled-rejections=strict", "dist/index.js"]
+# Run node directly WITHOUT dumb-init to test log capture
+# Using exec form to ensure proper signal handling
+CMD ["/usr/local/bin/node", "--trace-warnings", "--unhandled-rejections=strict", "dist/index.js"]
