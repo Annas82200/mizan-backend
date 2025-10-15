@@ -39,7 +39,13 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as any;
+    interface JWTPayload {
+      id?: string;
+      userId?: string;
+      [key: string]: unknown;
+    }
+
+    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
 
     // Get user from database to ensure they still exist and are active
     // Support both 'id' and 'userId' for backwards compatibility

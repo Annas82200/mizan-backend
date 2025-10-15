@@ -2,6 +2,7 @@
 // Module access control and tenant feature toggles
 // NO PLACEHOLDERS - Full implementation
 
+import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -128,7 +129,7 @@ export async function getAccessibleModules(tenantId: string): Promise<ModuleName
  * Middleware to check module access
  */
 export function requireModuleAccess(moduleName: ModuleName) {
-  return async (req: any, res: any, next: any) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
     
     if (!user || !user.tenantId) {

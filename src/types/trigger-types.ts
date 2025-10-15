@@ -53,6 +53,16 @@ export interface TriggerConfig {
   evaluationType?: string;
   trainingType?: string;
   moduleType?: string;
+  skillGaps?: Array<{
+    skill: string;
+    category: string;
+    currentLevel: string;
+    requiredLevel: string;
+    gap: 'critical' | 'high' | 'medium' | 'low';
+    priority: number;
+    employeesAffected: number;
+    businessImpact: string;
+  }>;
   [key: string]: unknown;
 }
 

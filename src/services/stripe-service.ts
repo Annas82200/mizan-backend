@@ -139,9 +139,10 @@ export class StripeService {
         sessionId: session.id,
         url: session.url || '',
       };
-    } catch (error: any) {
-      console.error('Stripe checkout session creation failed:', error);
-      throw new Error(error.message || 'Failed to create checkout session');
+    } catch (error) {
+      const e = error as Error;
+      console.error('Stripe checkout session creation failed:', e);
+      throw new Error(e.message || 'Failed to create checkout session');
     }
   }
 
@@ -241,7 +242,7 @@ export class StripeService {
       }
 
       console.log(`✅ Checkout complete: Demo ${demoRequestId} → Tenant ${tenantId}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Checkout completion handling failed:', error);
       throw error;
     }
@@ -275,7 +276,7 @@ export class StripeService {
         .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
       console.log(`✅ Subscription ${subscription.id} updated to status: ${subscription.status}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Subscription update handling failed:', error);
       throw error;
     }
@@ -334,7 +335,7 @@ export class StripeService {
       }
 
       console.log(`⚠️ Payment failed for subscription ${subscriptionId}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Invoice payment failure handling failed:', error);
       throw error;
     }
@@ -352,8 +353,9 @@ export class StripeService {
 
     try {
       return stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (error: any) {
-      throw new Error(`Webhook signature verification failed: ${error.message}`);
+    } catch (error) {
+      const e = error as Error;
+      throw new Error(`Webhook signature verification failed: ${e.message}`);
     }
   }
 
@@ -388,7 +390,7 @@ export class StripeService {
         default:
           console.log(`ℹ️ Unhandled webhook event type: ${event.type}`);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(`❌ Webhook handler error for ${event.type}:`, error);
       throw error;
     }

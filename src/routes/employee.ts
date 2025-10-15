@@ -44,14 +44,18 @@ router.get('/dashboard', async (req, res) => {
       limit: 5
     });
     
+    interface CourseEnrollment {
+      completedAt: Date | null;
+    }
+
     return res.json({
       profile,
       latestAssessment,
       courseEnrollments: courseEnrollmentsData,
       stats: {
         assessmentsCompleted: latestAssessment ? 1 : 0,
-        coursesInProgress: courseEnrollmentsData.filter((l: any) => !l.completedAt).length,
-        coursesCompleted: courseEnrollmentsData.filter((l: any) => l.completedAt).length
+        coursesInProgress: courseEnrollmentsData.filter((l: CourseEnrollment) => !l.completedAt).length,
+        coursesCompleted: courseEnrollmentsData.filter((l: CourseEnrollment) => l.completedAt).length
       }
     });
     

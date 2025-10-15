@@ -55,8 +55,18 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       });
     }
 
+    interface OrgEmployee {
+      id: string;
+      name: string;
+      title?: string;
+      department?: string;
+      level: number;
+      manager: string | null;
+      reportsTo?: string | null;
+    }
+
     // Parse org structure from CSV
-    const orgStructure: any[] = [];
+    const orgStructure: OrgEmployee[] = [];
     const reportingRelationships: { [key: string]: string[] } = {};
 
     // Parse (assuming format: Employee, Manager or Name, Reports To)
@@ -129,7 +139,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
 
     // Run FULL AI-powered structure analysis using Structure Agent
     const structureAgent = new StructureAgent();
-    let richAnalysis: any = null;
+    let richAnalysis: StructureAnalysisOutput | null = null;
 
     try {
       const agentResponse = await structureAgent.generateRichStructureAnalysis({
@@ -151,8 +161,9 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
         ].filter(Boolean),
         recommendations: agentResponse.recommendations || []
       };
-    } catch (aiError: any) {
-      console.error('AI analysis error:', aiError);
+    } catch (aiError) {
+      const e = aiError as Error;
+      console.error('AI analysis error:', e);
       // Fall back to basic analysis if AI fails
       richAnalysis = null;
     }
@@ -202,8 +213,9 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       }
     });
 
-  } catch (error: any) {
-    console.error('Public structure analysis error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Public structure analysis error:', e);
     return res.status(500).json({
       success: false,
       error: 'Analysis failed. Please ensure your file is properly formatted.'

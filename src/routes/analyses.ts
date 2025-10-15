@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { analyzeStructure, StructureAgent } from "../services/agents/structure-agent.js";
+import { analyzeStructure, StructureAgent, StructureAnalysisOutput } from "../services/agents/structure-agent.js";
 import { analyzeCulture } from "../services/agents/culture/culture-agent.js";
 import { runArchitectAI } from "../services/orchestrator/architect-ai.js";
 import { buildUnifiedResults } from "../services/results/unified-results.js";
@@ -10,7 +10,7 @@ import { tenants } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 import { performExpertAnalysis, type ExpertOrgDesignAnalysis } from "../services/org-design-expert.js";
 import { performCultureExpertAnalysis, type CultureExpertAnalysis } from "../services/culture-design-expert.js";
-import type { StrategyData, StructureData, Role } from "../types/structure-types.js";
+import type { StrategyData, StructureData, Role, Department, ReportingLine } from "../types/structure-types.js";
 
 const router = Router();
 
@@ -504,15 +504,26 @@ router.post("/structure", async (req, res) => {
       return res.status(404).json({ error: "No organization structure found for tenant" });
     }
 
-    const rawStructureData = structures[0].structureData as any;
+    const rawStructureData = structures[0].structureData as Record<string, unknown>;
+    
+    // Helper to safely get array length
+    const getEmployeeCount = (): number => {
+      if (typeof rawStructureData.totalEmployees === 'number') {
+        return rawStructureData.totalEmployees;
+      }
+      if (Array.isArray(rawStructureData.employees)) {
+        return rawStructureData.employees.length;
+      }
+      return 0;
+    };
     
     // Ensure structureData has all required StructureData fields
     const structureData: StructureData = {
-      departments: rawStructureData.departments || [],
-      reportingLines: rawStructureData.reportingLines || [],
-      roles: rawStructureData.roles || [],
-      totalEmployees: rawStructureData.totalEmployees || rawStructureData.employees?.length || 0,
-      organizationLevels: rawStructureData.organizationLevels || 1
+      departments: (rawStructureData.departments as Department[]) || [] as Department[],
+      reportingLines: (rawStructureData.reportingLines as ReportingLine[]) || [] as ReportingLine[],
+      roles: (rawStructureData.roles as Role[]) || [] as Role[],
+      totalEmployees: getEmployeeCount(),
+      organizationLevels: typeof rawStructureData.organizationLevels === 'number' ? rawStructureData.organizationLevels : 1
     };
 
     // Get tenant strategy data including name, industry, positioning
@@ -555,7 +566,7 @@ router.post("/structure", async (req, res) => {
 
     // Run rich AI-powered structure analysis for human, contextual insights
     const structureAgent = new StructureAgent();
-    let richAnalysis: any = null;
+    let richAnalysis: StructureAnalysisOutput | null = null;
     try {
       richAnalysis = await structureAgent.generateRichStructureAnalysis({
         tenantId,
@@ -619,7 +630,8 @@ router.post("/structure", async (req, res) => {
         }
       } : null
     });
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     console.error('Structure analysis error:', e);
     return res.status(500).json({ error: e?.message || "structure failure" });
   }
@@ -649,7 +661,8 @@ router.post("/culture", async (req, res) => {
     // Culture analysis returns recommendations in { immediate, shortTerm, longTerm } format
     // No enhancement needed - returning as-is from Culture Agent
     return res.json(result);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     console.error('Culture analysis error:', e);
     return res.status(500).json({ error: e?.message || "culture failure" });
   }
@@ -660,7 +673,8 @@ router.post("/run-all", async (req, res) => {
   try {
     const arch = await runArchitectAI(req.body || {});
     res.json(arch);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "orchestrator failure" });
   }
 });
@@ -673,7 +687,8 @@ router.post("/results", async (req, res) => {
     const snapshotWithTenant = { ...snapshot, tenantId: req.body.tenantId || 'default-tenant' };
     const triggers = await runTriggers(snapshotWithTenant);
     res.json({ snapshot, triggers });
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "results failure" });
   }
 });
@@ -753,7 +768,8 @@ router.post("/skills", async (req, res) => {
     };
 
     res.json(result);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "skills analysis failure" });
   }
 });
@@ -823,7 +839,8 @@ router.post("/performance", async (req, res) => {
     };
 
     res.json(result);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "performance analysis failure" });
   }
 });
@@ -897,7 +914,8 @@ router.post("/hiring", async (req, res) => {
     };
 
     res.json(result);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "hiring analysis failure" });
   }
 });
@@ -975,7 +993,8 @@ router.post("/lxp", async (req, res) => {
     };
 
     res.json(result);
-  } catch (e: any) {
+  } catch (error) {
+    const e = error as Error;
     res.status(500).json({ error: e?.message || "LXP analysis failure" });
   }
 });
@@ -998,7 +1017,7 @@ router.post('/skills', async (req, res) => {
     }
 
     // Import SkillsAgent
-    const { SkillsAgent } = await import('../services/agents/skills-agent.js');
+    const { SkillsAgent } = await import('../services/agents/skills/skills-agent.js');
     const skillsAgent = new SkillsAgent();
 
     console.log('📊 Running skills analysis for tenant:', tenantId);
@@ -1048,12 +1067,13 @@ router.post('/skills', async (req, res) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('❌ Skills analysis error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('❌ Skills analysis error:', e);
     return res.status(500).json({
       success: false,
       error: 'Skills analysis failed',
-      details: error.message
+      details: e.message
     });
   }
 });

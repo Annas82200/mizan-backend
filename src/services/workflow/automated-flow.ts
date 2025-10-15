@@ -5,12 +5,30 @@ import { automatedFlows, flowExecutions } from '../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+interface FlowStepConfig {
+  triggerType?: string;
+  actionType?: string;
+  condition?: string;
+  delayDuration?: number;
+  parameters?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface FlowContext {
+  userId?: string;
+  analysisResults?: Record<string, unknown>;
+  triggerData?: Record<string, unknown>;
+  previousStepResults?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface FlowStep {
   id: string;
   type: 'trigger' | 'action' | 'condition' | 'delay';
   name: string;
-  config: any;
+  config: FlowStepConfig;
   nextSteps: string[];
+  order: number;
 }
 
 export interface FlowExecution {
@@ -19,7 +37,7 @@ export interface FlowExecution {
   tenantId: string;
   status: 'running' | 'completed' | 'failed' | 'paused';
   currentStep: string;
-  context: any;
+  context: FlowContext;
   startedAt: Date;
   completedAt?: Date;
   error?: string;
@@ -36,7 +54,7 @@ export class AutomatedFlowService {
         name,
         description,
         flowType: 'manual',
-        steps: steps as any,
+        steps: steps,
         isActive: true,
         status: 'active',
         createdAt: new Date(),
@@ -52,7 +70,7 @@ export class AutomatedFlowService {
     }
   }
 
-  async executeFlow(flowId: string, tenantId: string, context: any): Promise<FlowExecution> {
+  async executeFlow(flowId: string, tenantId: string, context: FlowContext): Promise<FlowExecution> {
     try {
       console.log(`Executing flow ${flowId} for tenant ${tenantId}`);
       
@@ -209,6 +227,6 @@ export async function createFlow(tenantId: string, name: string, description: st
   return automatedFlowService.createFlow(tenantId, name, description, steps);
 }
 
-export async function executeFlow(flowId: string, tenantId: string, context: any): Promise<FlowExecution> {
+export async function executeFlow(flowId: string, tenantId: string, context: FlowContext): Promise<FlowExecution> {
   return automatedFlowService.executeFlow(flowId, tenantId, context);
 }

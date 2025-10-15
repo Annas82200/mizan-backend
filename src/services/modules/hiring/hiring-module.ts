@@ -76,15 +76,26 @@ export async function createJobRequisition(
 
     logger.info(`Job requisition ${requisition.id} created successfully`);
 
+    // Extract skills as string array with proper type safety
+    const skillsArray: string[] = Array.isArray(requisition.requiredSkills) 
+      ? requisition.requiredSkills.map((skill: unknown): string => {
+          if (typeof skill === 'string') {
+            return skill;
+          } else if (typeof skill === 'object' && skill !== null && 'name' in skill) {
+            const skillObj = skill as { name?: unknown };
+            return typeof skillObj.name === 'string' ? skillObj.name : '';
+          }
+          return '';
+        }).filter((s): s is string => s.length > 0)
+      : [];
+
     return {
       id: requisition.id,
       tenantId: requisition.tenantId,
       title: requisition.positionTitle,
       department: requisition.department,
       description: requisition.description,
-      requirements: Array.isArray(requisition.requiredSkills) 
-        ? requisition.requiredSkills.map((skill: any) => typeof skill === 'string' ? skill : skill.name || JSON.stringify(skill))
-        : [],
+      requirements: skillsArray,
       status: requisition.status === 'draft' ? 'draft' : requisition.status === 'pending_approval' ? 'pending_approval' : requisition.status === 'approved' ? 'approved' : requisition.status === 'filled' ? 'filled' : 'draft'
     };
 
@@ -234,16 +245,51 @@ export async function processApplication(
   }
 }
 
+interface CandidateApplication {
+  id: string;
+  tenantId: string;
+  requisitionId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  resumeUrl: string;
+  source: string;
+  status: string;
+  stage: string;
+  cultureScore: string | null;
+  appliedAt: Date;
+  updatedAt: Date;
+}
+
 /**
  * Get candidates for a job
  */
-export async function getApplicationsForJob(jobId: string): Promise<any[]> {
+export async function getApplicationsForJob(jobId: string): Promise<CandidateApplication[]> {
   try {
     const apps = await db.query.candidates.findMany({
       where: eq(candidates.requisitionId, jobId)
     });
 
-    return apps;
+    // Map database results to CandidateApplication interface
+    return apps.map((app): CandidateApplication => ({
+      id: app.id,
+      tenantId: app.tenantId,
+      requisitionId: app.requisitionId,
+      firstName: app.firstName,
+      lastName: app.lastName,
+      email: app.email,
+      resumeUrl: app.resumeUrl || '',
+      source: app.source || 'unknown',
+      status: app.status,
+      stage: app.stage,
+      cultureScore: app.cultureScore || null,
+      appliedAt: app.appliedAt instanceof Date 
+        ? app.appliedAt 
+        : (app.appliedAt ? new Date(app.appliedAt) : new Date()),
+      updatedAt: app.updatedAt instanceof Date 
+        ? app.updatedAt 
+        : (app.updatedAt ? new Date(app.updatedAt) : new Date())
+    }));
   } catch (error) {
     logger.error(`Error getting candidates for job ${jobId}:`, error as Error);
     throw error;
@@ -294,8 +340,8 @@ export async function getStatus(): Promise<{ status: string; activeRequisitionsC
  */
 export async function handleTrigger(data: {
   tenantId: string;
-  recommendation: any;
-}): Promise<any> {
+  recommendation: StructureRecommendation;
+}): Promise<JobRequisition> {
   return await createJobRequisition(data.tenantId, data.recommendation);
 }
 

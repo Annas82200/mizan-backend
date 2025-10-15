@@ -17,7 +17,17 @@ export interface ProviderCall {
 
 export interface ProviderResponse {
   provider: AIProviderKey;
-  response: any;
+  response: {
+    content: string;
+    usage?: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+    };
+    model?: string;
+    finishReason?: string;
+    [key: string]: unknown;
+  };
   confidence: number;
   usage?: {
     promptTokens: number;

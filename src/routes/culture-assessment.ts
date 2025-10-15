@@ -182,7 +182,7 @@ interface DepartmentReportData {
     challenges: string[];
     cylinderDistribution: Record<number, number>;
   };
-  departmentalBreakdown?: any;
+  departmentalBreakdown?: DepartmentReportData[];
   recommendations?: string[];
   nextSteps?: string[];
 }
@@ -1455,7 +1455,8 @@ async function getDepartmentReport(
   const report = await generateTenantReport(tenantId, mappedAssessments, 'department', departmentId);
 
   // Extract the reportData from the CultureReport
-  return report.reportData as any as DepartmentReportData;
+  // Type assertion: report.reportData is dynamically structured based on analysis type
+  return report.reportData as unknown as DepartmentReportData;
 }
 
 async function generateTenantReport(

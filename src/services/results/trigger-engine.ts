@@ -6,7 +6,7 @@ import { triggers, triggerExecutions } from '../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import lxpModule from '../modules/lxp/lxp-module.js';
-import hiringModule from '../modules/hiring/hiring-module.js';
+import * as hiringModule from '../modules/hiring/hiring-module.js';
 import { TriggerConfig, TriggerResultData } from '../../types/trigger-types.js';
 
 export interface Trigger {
@@ -205,7 +205,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       const lxpResult = await lxpModule.handleTrigger({
         tenantId: trigger.tenantId,
         employeeId: config.employeeId || 'unknown',
-        skillGaps: (config.skillGaps as any) || []
+        skillGaps: config.skillGaps || []
       });
       
       // Convert LXP module result to trigger result

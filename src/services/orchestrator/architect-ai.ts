@@ -7,26 +7,101 @@ import { db } from '../../../db/index.js';
 import { companies, users, departments } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
+interface OrgChartData {
+  employees?: Array<{
+    id: string;
+    name: string;
+    title: string;
+    department: string;
+    reportsTo?: string | null;
+  }>;
+  departments?: Array<{
+    id: string;
+    name: string;
+    headId?: string;
+  }>;
+}
+
+interface EmployeeData {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  role: string;
+  performanceScore?: number;
+  skills?: string[];
+}
+
+interface PerformanceMetrics {
+  averageScore?: number;
+  topPerformers?: Array<{ id: string; score: number }>;
+  lowPerformers?: Array<{ id: string; score: number }>;
+  departmentAverages?: Record<string, number>;
+}
+
 export interface ArchitectAIInput {
   tenantId: string;
   companyId: string;
   userId: string;
   strategy?: string;
-  orgChart?: any;
+  orgChart?: OrgChartData;
   companyValues?: string[];
-  employeeData?: any[];
-  performanceMetrics?: any;
+  employeeData?: EmployeeData[];
+  performanceMetrics?: PerformanceMetrics;
+}
+
+interface StructureAnalysisResult {
+  overallScore?: number;
+  spanAnalysis?: Record<string, unknown>;
+  layerAnalysis?: Record<string, unknown>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface CultureAnalysisResult {
+  overallScore?: number;
+  valuesAlignment?: Record<string, unknown>;
+  culturalHealth?: Record<string, unknown>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface SkillsAnalysisResult {
+  overallScore?: number;
+  skillsGaps?: Array<{ skill: string; gap: number }>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface EngagementAnalysisResult {
+  overallScore?: number;
+  engagementFactors?: Record<string, unknown>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface RecognitionAnalysisResult {
+  overallScore?: number;
+  recognitionPatterns?: Record<string, unknown>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface PerformanceAnalysisResult {
+  overallScore?: number;
+  performanceDistribution?: Record<string, unknown>;
+  recommendations?: Array<{ title: string; description: string }>;
+}
+
+interface BenchmarkingResult {
+  industryComparison?: Record<string, unknown>;
+  peerComparison?: Record<string, unknown>;
 }
 
 export interface ArchitectAIResult {
   overall_health_score: number;
-  structure: any;
-  culture: any;
-  skills: any;
-  engagement?: any;
-  recognition?: any;
-  performance?: any;
-  benchmarking?: any;
+  structure: StructureAnalysisResult;
+  culture: CultureAnalysisResult;
+  skills: SkillsAnalysisResult;
+  engagement?: EngagementAnalysisResult;
+  recognition?: RecognitionAnalysisResult;
+  performance?: PerformanceAnalysisResult;
+  benchmarking?: BenchmarkingResult;
   recommendations: string[];
   next_steps: string[];
   confidence: number;
@@ -226,7 +301,7 @@ async function getDefaultOrgChart(companyId: string): Promise<any> {
   };
 }
 
-function generateRecommendations(structure: any, culture: any, skills: any): string[] {
+function generateRecommendations(structure: StructureAnalysisResult, culture: CultureAnalysisResult, skills: SkillsAnalysisResult): string[] {
   const recommendations: string[] = [];
   
   if (structure) {
@@ -259,7 +334,7 @@ function generateRecommendations(structure: any, culture: any, skills: any): str
   return recommendations;
 }
 
-function generateNextSteps(structure: any, culture: any, skills: any): string[] {
+function generateNextSteps(structure: StructureAnalysisResult, culture: CultureAnalysisResult, skills: SkillsAnalysisResult): string[] {
   const nextSteps: string[] = [];
   
   // Always include basic next steps

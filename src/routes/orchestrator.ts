@@ -70,7 +70,7 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
 
     // Run analysis asynchronously
     runArchitectAI(architectInput)
-      .then(async (results: any) => {
+      .then(async (results: ArchitectAIResult) => {
         await db.insert(analyses).values({
           id: analysisId,
           tenantId: req.user!.tenantId,
@@ -79,7 +79,8 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
           results: results
         });
       })
-      .catch(async (error: any) => {
+      .catch(async (error) => {
+        const e = error as Error;
         await db.insert(analyses).values({
           id: analysisId,
           tenantId: req.user!.tenantId,

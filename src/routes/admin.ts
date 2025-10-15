@@ -28,9 +28,7 @@ router.use(authorize(['clientAdmin', 'superadmin']));
 router.get('/dashboard', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated' });
-      return;
-      return;
+      return res.status(401).json({ error: 'Not authenticated' });
     }
     const tenantId = req.user.tenantId;
     
@@ -64,8 +62,18 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       limit: 10
     });
     
+    // Calculate average culture score
+    interface CultureWithScore {
+      alignmentScore?: number | null;
+    }
+    
+    const totalCultureScore = cultureScores.reduce((sum, c) => {
+      const culture = c as unknown as CultureWithScore;
+      return sum + (culture.alignmentScore || 0);
+    }, 0);
+    
     const avgCultureScore = cultureScores.length > 0
-      ? cultureScores.reduce((sum: number, c: any) => sum + (c.alignmentScore || 0), 0) / cultureScores.length
+      ? totalCultureScore / cultureScores.length
       : 0;
     
     res.json({
@@ -78,9 +86,13 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       recentAnalyses,
       trends: {
         // Add trend calculations here
-        analysesThisMonth: analysisCount.filter((a: any) => 
-          a.createdAt > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        ).length
+        analysesThisMonth: analysisCount.filter((a) => {
+          const analysis = a as { createdAt: Date | string };
+          const createdDate = typeof analysis.createdAt === 'string' 
+            ? new Date(analysis.createdAt) 
+            : analysis.createdAt;
+          return createdDate > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }).length
       }
     });
     
@@ -88,7 +100,6 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     console.error('Dashboard error:', error);
     res.status(500).json({ error: 'Failed to load dashboard' });
   }
-      return;
 });
 
 // Company management
@@ -112,7 +123,6 @@ router.get('/companies', async (req: Request, res: Response) => {
     console.error('Companies fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch companies' });
   }
-      return;
 });
 
 router.post('/companies', async (req: Request, res: Response) => {
@@ -151,7 +161,6 @@ router.post('/companies', async (req: Request, res: Response) => {
     console.error('Company creation error:', error);
     res.status(500).json({ error: 'Failed to create company' });
   }
-      return;
 });
 
 // User management
@@ -168,14 +177,27 @@ router.get('/users', async (req: Request, res: Response) => {
     });
     
     // Remove sensitive data
-    const sanitizedUsers = usersList.map((u: any) => ({
+    interface UserWithRelations {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      isActive: boolean | null;
+      createdAt: Date;
+      department?: {
+        id: string;
+        name: string;
+        description: string | null;
+      } | null;
+    }
+    
+    const sanitizedUsers = (usersList as unknown as UserWithRelations[]).map((u) => ({
       id: u.id,
       email: u.email,
       name: u.name,
       role: u.role,
-      isActive: u.isActive,
+      isActive: u.isActive ?? false,
       department: u.department,
-      profile: u.profile,
       createdAt: u.createdAt
     }));
     
@@ -185,7 +207,6 @@ router.get('/users', async (req: Request, res: Response) => {
     console.error('Users fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
   }
-      return;
 });
 
 router.post('/users/invite', async (req: Request, res: Response) => {
@@ -261,7 +282,6 @@ router.post('/users/invite', async (req: Request, res: Response) => {
     console.error('User invite error:', error);
     res.status(500).json({ error: 'Failed to invite user' });
   }
-      return;
 });
 
 // Analysis management
@@ -285,7 +305,6 @@ router.get('/analyses', async (req: Request, res: Response) => {
     console.error('Analyses fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch analyses' });
   }
-      return;
 });
 
 // Triggers management
@@ -311,7 +330,6 @@ router.get('/triggers', async (req: Request, res: Response) => {
     console.error('Triggers fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch triggers' });
   }
-      return;
 });
 
 router.put('/triggers/:id', async (req: Request, res: Response) => {
@@ -334,9 +352,8 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
       .returning();
     
     if (!updated) {
-      res.status(404).json({ error: 'Trigger not found' });
+      return res.status(404).json({ error: 'Trigger not found' });
     }
-      return;
     
     res.json(updated);
     
@@ -344,7 +361,6 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
     console.error('Trigger update error:', error);
     res.status(500).json({ error: 'Failed to update trigger' });
   }
-      return;
 });
 
 // Department management
@@ -367,7 +383,6 @@ router.get('/departments', async (req: Request, res: Response) => {
     console.error('Departments fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch departments' });
   }
-      return;
 });
 
 // Reports
@@ -389,11 +404,23 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
       }
     });
     
+    // Calculate average alignment score
+    interface AssessmentWithScore {
+      alignmentScore?: number | null;
+    }
+    
+    const totalScore = assessments.reduce((sum, a) => {
+      const assessment = a as unknown as AssessmentWithScore;
+      return sum + (assessment.alignmentScore || 0);
+    }, 0);
+    
+    const avgAlignmentScore = assessments.length > 0 ? totalScore / assessments.length : 0;
+    
     res.json({
       assessments,
       summary: {
         totalAssessments: assessments.length,
-        avgAlignmentScore: assessments.reduce((sum: number, a: any) => sum + (a.alignmentScore || 0), 0) / assessments.length,
+        avgAlignmentScore,
         // Add more summary stats
       }
     });
@@ -402,7 +429,6 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     console.error('Culture report error:', error);
     res.status(500).json({ error: 'Failed to generate culture report' });
   }
-      return;
 });
 
 export default router;

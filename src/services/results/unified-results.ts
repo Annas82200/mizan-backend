@@ -71,13 +71,13 @@ export async function buildUnifiedResults(architectResult: ArchitectAIResult): P
     
     // Build detailed analysis sections
     const detailed_analysis = {
-      structure: buildAnalysisSection(architectResult.structure, 'structure'),
-      culture: buildAnalysisSection(architectResult.culture, 'culture'),
-      skills: buildAnalysisSection(architectResult.skills, 'skills'),
-      engagement: architectResult.engagement ? buildAnalysisSection(architectResult.engagement, 'engagement') : undefined,
-      recognition: architectResult.recognition ? buildAnalysisSection(architectResult.recognition, 'recognition') : undefined,
-      performance: architectResult.performance ? buildAnalysisSection(architectResult.performance, 'performance') : undefined,
-      benchmarking: architectResult.benchmarking ? buildAnalysisSection(architectResult.benchmarking, 'benchmarking') : undefined,
+      structure: buildAnalysisSection(architectResult.structure as unknown as SectionData, 'structure'),
+      culture: buildAnalysisSection(architectResult.culture as unknown as SectionData, 'culture'),
+      skills: buildAnalysisSection(architectResult.skills as unknown as SectionData, 'skills'),
+      engagement: architectResult.engagement ? buildAnalysisSection(architectResult.engagement as unknown as SectionData, 'engagement') : undefined,
+      recognition: architectResult.recognition ? buildAnalysisSection(architectResult.recognition as unknown as SectionData, 'recognition') : undefined,
+      performance: architectResult.performance ? buildAnalysisSection(architectResult.performance as unknown as SectionData, 'performance') : undefined,
+      benchmarking: architectResult.benchmarking ? buildAnalysisSection(architectResult.benchmarking as unknown as SectionData, 'benchmarking') : undefined,
     };
     
     // Generate recommendations
@@ -122,7 +122,8 @@ function extractHighlights(architectResult: ArchitectAIResult): string[] {
   const highlights: string[] = [];
   
   if (architectResult.structure) {
-    if (architectResult.structure.isOptimal) {
+    const structureScore = (architectResult.structure as { healthScore?: number }).healthScore || 0;
+    if (structureScore >= 0.8) {
       highlights.push('Organizational structure is well-aligned with strategy');
     } else {
       highlights.push('Structural improvements needed for strategy execution');
@@ -130,7 +131,8 @@ function extractHighlights(architectResult: ArchitectAIResult): string[] {
   }
   
   if (architectResult.culture) {
-    if (architectResult.culture.isHealthy) {
+    const cultureScore = (architectResult.culture as { healthScore?: number }).healthScore || 0;
+    if (cultureScore >= 0.8) {
       highlights.push('Strong cultural alignment supports strategic goals');
     } else {
       highlights.push('Culture-strategy alignment requires attention');
@@ -138,7 +140,8 @@ function extractHighlights(architectResult: ArchitectAIResult): string[] {
   }
   
   if (architectResult.skills) {
-    if (architectResult.skills.hasRightSkills) {
+    const skillsScore = (architectResult.skills as { coverageScore?: number }).coverageScore || 0;
+    if (skillsScore >= 0.8) {
       highlights.push('Organization has the right skills for strategic success');
     } else {
       highlights.push('Critical skill gaps identified that need addressing');
@@ -148,7 +151,27 @@ function extractHighlights(architectResult: ArchitectAIResult): string[] {
   return highlights;
 }
 
-function buildAnalysisSection(sectionData: any, category: string): AnalysisSection {
+interface SectionData {
+  score?: number;
+  status?: string;
+  findings?: Array<{ title: string; description: string; severity?: string }>;
+  strengths?: string[];
+  weaknesses?: string[];
+  gaps?: Array<{ area: string; impact: string; description: string }>;
+  recommendations?: Array<{ title?: string; description?: string; priority?: string }>;
+  metrics?: Record<string, number | string>;
+  healthScore?: number;
+  alignmentScore?: number;
+  coverageScore?: number;
+  criticalGaps?: string[];
+  hiringNeeds?: unknown[];
+  interventions?: unknown[];
+  trainingNeeds?: unknown[];
+  culturalEntropy?: number;
+  [key: string]: unknown;
+}
+
+function buildAnalysisSection(sectionData: SectionData, category: string): AnalysisSection {
   if (!sectionData) {
     return {
       score: 0,
@@ -168,9 +191,13 @@ function buildAnalysisSection(sectionData: any, category: string): AnalysisSecti
   else if (score >= 0.6) status = 'needs_attention';
   else status = 'critical';
   
-  const key_findings = sectionData.recommendations || [];
-  const strengths = sectionData.strengths || [];
-  const weaknesses = sectionData.weaknesses || sectionData.criticalGaps || [];
+  // Map recommendations with priority field, or use empty array
+  const key_findings: string[] = sectionData.recommendations
+    ? sectionData.recommendations.map(r => r.title || r.description || '')
+    : [];
+    
+  const strengths: string[] = sectionData.strengths || [];
+  const weaknesses: string[] = [...(sectionData.weaknesses || []), ...(sectionData.criticalGaps || [])];
   
   return {
     score,
@@ -183,22 +210,22 @@ function buildAnalysisSection(sectionData: any, category: string): AnalysisSecti
   };
 }
 
-function generateOpportunities(sectionData: any, category: string): string[] {
+function generateOpportunities(sectionData: SectionData, category: string): string[] {
   const opportunities: string[] = [];
   
   switch (category) {
     case 'structure':
-      if (sectionData.hiringNeeds?.length > 0) {
+      if (Array.isArray(sectionData.hiringNeeds) && sectionData.hiringNeeds.length > 0) {
         opportunities.push('Strategic hiring can strengthen organizational capabilities');
       }
       break;
     case 'culture':
-      if (sectionData.interventions?.length > 0) {
+      if (Array.isArray(sectionData.interventions) && sectionData.interventions.length > 0) {
         opportunities.push('Targeted culture interventions can improve alignment');
       }
       break;
     case 'skills':
-      if (sectionData.trainingNeeds?.length > 0) {
+      if (Array.isArray(sectionData.trainingNeeds) && sectionData.trainingNeeds.length > 0) {
         opportunities.push('Training programs can address skill gaps');
       }
       break;
@@ -207,22 +234,22 @@ function generateOpportunities(sectionData: any, category: string): string[] {
   return opportunities;
 }
 
-function generateRisks(sectionData: any, category: string): string[] {
+function generateRisks(sectionData: SectionData, category: string): string[] {
   const risks: string[] = [];
   
   switch (category) {
     case 'structure':
-      if (sectionData.gaps?.some((gap: any) => gap.impact === 'high')) {
+      if (Array.isArray(sectionData.gaps) && sectionData.gaps.some((gap) => gap.impact === 'high')) {
         risks.push('Structural gaps may impede strategy execution');
       }
       break;
     case 'culture':
-      if (sectionData.culturalEntropy > 0.3) {
+      if (typeof sectionData.culturalEntropy === 'number' && sectionData.culturalEntropy > 0.3) {
         risks.push('High cultural entropy may lead to misalignment');
       }
       break;
     case 'skills':
-      if (sectionData.criticalGaps?.length > 0) {
+      if (Array.isArray(sectionData.criticalGaps) && sectionData.criticalGaps.length > 0) {
         risks.push('Critical skill gaps pose strategic risks');
       }
       break;
@@ -236,7 +263,8 @@ function generateRecommendations(architectResult: ArchitectAIResult): Recommenda
   
   // Structure recommendations
   if (architectResult.structure) {
-    if (architectResult.structure.gaps?.length > 0) {
+    const structureData = architectResult.structure as unknown as SectionData;
+    if (Array.isArray(structureData.gaps) && structureData.gaps.length > 0) {
       recommendations.push({
         id: 'struct-001',
         category: 'structure',
@@ -250,7 +278,7 @@ function generateRecommendations(architectResult: ArchitectAIResult): Recommenda
       });
     }
     
-    if (architectResult.structure.hiringNeeds?.length > 0) {
+    if (Array.isArray(structureData.hiringNeeds) && structureData.hiringNeeds.length > 0) {
       recommendations.push({
         id: 'struct-002',
         category: 'structure',
@@ -267,7 +295,8 @@ function generateRecommendations(architectResult: ArchitectAIResult): Recommenda
   
   // Culture recommendations
   if (architectResult.culture) {
-    if (!architectResult.culture.isHealthy) {
+    const cultureScore = (architectResult.culture as { healthScore?: number }).healthScore || 0;
+    if (cultureScore < 0.8) {
       recommendations.push({
         id: 'culture-001',
         category: 'culture',
@@ -284,7 +313,8 @@ function generateRecommendations(architectResult: ArchitectAIResult): Recommenda
   
   // Skills recommendations
   if (architectResult.skills) {
-    if (architectResult.skills.criticalGaps?.length > 0) {
+    const skillsData = architectResult.skills as unknown as SectionData;
+    if (Array.isArray(skillsData.criticalGaps) && skillsData.criticalGaps.length > 0) {
       recommendations.push({
         id: 'skills-001',
         category: 'skills',

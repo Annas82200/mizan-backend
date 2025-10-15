@@ -213,9 +213,14 @@ export class ReasoningEngine {
     // Factor in data quality
     confidence += data.metadata.quality * this.confidenceFactors.dataQuality;
 
+    interface PatternWithSignificance {
+      significance: number;
+      [key: string]: unknown;
+    }
+
     // Factor in pattern strength
     const avgPatternSignificance = data.structured.patterns.reduce(
-      (sum: number, p: any) => sum + p.significance,
+      (sum: number, p: PatternWithSignificance) => sum + p.significance,
       0
     ) / Math.max(1, data.structured.patterns.length);
     confidence += avgPatternSignificance * this.confidenceFactors.patternStrength;
@@ -655,8 +660,13 @@ export class ReasoningEngine {
     score += (data.metadata.quality - 0.5) * 20;
 
     // Adjust based on pattern significance
+    interface PatternWithSignificance {
+      significance: number;
+      [key: string]: unknown;
+    }
+    
     const avgSignificance = data.structured.patterns.reduce(
-      (sum: number, p: any) => sum + p.significance,
+      (sum: number, p: PatternWithSignificance) => sum + p.significance,
       0
     ) / Math.max(1, data.structured.patterns.length);
     score += (avgSignificance - 0.5) * 30;
@@ -768,12 +778,17 @@ export class ReasoningEngine {
   ): number {
     if (historicalData.length === 0) return 0.5;
 
+    interface PatternItem {
+      pattern: string;
+      [key: string]: unknown;
+    }
+
     // Compare pattern consistency
-    const currentPatterns = new Set(data.structured.patterns.map((p: any) => p.pattern));
+    const currentPatterns = new Set(data.structured.patterns.map((p: PatternItem) => p.pattern));
     let consistencyScore = 0;
 
     for (const historical of historicalData) {
-      const historicalPatterns = new Set(historical.structured.patterns.map((p: any) => p.pattern));
+      const historicalPatterns = new Set(historical.structured.patterns.map((p: PatternItem) => p.pattern));
       const intersection = new Set([...currentPatterns].filter(x => historicalPatterns.has(x)));
       const union = new Set([...currentPatterns, ...historicalPatterns]);
 

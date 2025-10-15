@@ -182,10 +182,10 @@ export class BillingService {
 
       const subscription = await stripe.subscriptions.create(subscriptionParams);
 
-      // Update tenant
+      // Update tenant with explicit type
       await db.update(tenants)
         .set({
-          plan: planId as any,
+          plan: String(planId),
           stripeSubscriptionId: subscription.id,
           status: 'active',
           updatedAt: new Date()
@@ -232,10 +232,10 @@ export class BillingService {
         proration_behavior: 'create_prorations'
       });
 
-      // Update tenant
+      // Update tenant with explicit type
       await db.update(tenants)
         .set({
-          plan: newPlanId as any,
+          plan: String(newPlanId),
           updatedAt: new Date()
         })
         .where(eq(tenants.id, tenantId));

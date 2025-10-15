@@ -53,8 +53,14 @@ router.post('/analyze',
       const validatedData = SkillsAnalysisRequestSchema.parse(req.body);
 
       // Verify tenant access
-      const user = (req as any).user;
-      if (user.role !== 'superadmin' && user.tenantId !== validatedData.tenantId) {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+      
+      if (req.user.role !== 'superadmin' && req.user.tenantId !== validatedData.tenantId) {
         return res.status(403).json({
           success: false,
           error: 'Access denied to this tenant'
@@ -132,8 +138,14 @@ router.post('/framework',
       const { tenantId, strategy, industry } = req.body;
 
       // Verify tenant access
-      const user = (req as any).user;
-      if (user.role !== 'superadmin' && user.tenantId !== tenantId) {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+      
+      if (req.user.role !== 'superadmin' && req.user.tenantId !== tenantId) {
         return res.status(403).json({
           success: false,
           error: 'Access denied to this tenant'
@@ -173,11 +185,17 @@ router.get('/employee/:employeeId',
   async (req: Request, res: Response) => {
     try {
       const { employeeId } = req.params;
-      const user = (req as any).user;
+      
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
 
       // Check permissions - employees can view their own, managers can view their team
-      if (user.id !== employeeId && user.role !== 'manager' &&
-          user.role !== 'clientAdmin' && user.role !== 'superadmin') {
+      if (req.user.id !== employeeId && req.user.role !== 'manager' &&
+          req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
         return res.status(403).json({
           success: false,
           error: 'Access denied'
@@ -226,11 +244,17 @@ router.post('/employee/:employeeId/assess',
   async (req: Request, res: Response) => {
     try {
       const { employeeId } = req.params;
-      const user = (req as any).user;
+      
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
 
       // Employees can only assess themselves, managers can assess their team
-      if (user.id !== employeeId && user.role !== 'manager' &&
-          user.role !== 'clientAdmin' && user.role !== 'superadmin') {
+      if (req.user.id !== employeeId && req.user.role !== 'manager' &&
+          req.user.role !== 'clientAdmin' && req.user.role !== 'superadmin') {
         return res.status(403).json({
           success: false,
           error: 'Access denied'
@@ -247,7 +271,7 @@ router.post('/employee/:employeeId/assess',
         await db.insert(skills).values({
           id: crypto.randomUUID(),
           userId: employeeId,
-          tenantId: user.tenantId,
+          tenantId: req.user.tenantId,
           name: skill.name,
           category: skill.category,
           level: skill.level,
@@ -293,15 +317,21 @@ router.post('/resume/upload',
   async (req: Request, res: Response) => {
     try {
       const validatedData = ResumeUploadSchema.parse(req.body);
-      const user = (req as any).user;
+      
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
 
       // Verify employee belongs to user's tenant or user is the employee
-      if (user.id !== validatedData.employeeId) {
+      if (req.user.id !== validatedData.employeeId) {
         const employee = await db.query.users.findFirst({
           where: eq(users.id, validatedData.employeeId)
         });
 
-        if (!employee || (employee.tenantId !== user.tenantId && user.role !== 'superadmin')) {
+        if (!employee || (employee.tenantId !== req.user.tenantId && req.user.role !== 'superadmin')) {
           return res.status(403).json({
             success: false,
             error: 'Access denied'
@@ -359,13 +389,19 @@ router.get('/department/:departmentId',
   async (req: Request, res: Response) => {
     try {
       const { departmentId } = req.params;
-      const user = (req as any).user;
+      
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
 
       // Get all employees in department
       const employees = await db.query.users.findMany({
         where: and(
           eq(users.departmentId, departmentId),
-          eq(users.tenantId, user.tenantId)
+          eq(users.tenantId, req.user.tenantId)
         )
       });
 
@@ -402,11 +438,16 @@ router.get('/organization',
   authorize(['clientAdmin', 'superadmin']),
   async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
 
       // Get recent organization skills assessment
       const recentAssessment = await db.query.skillsAssessments.findFirst({
-        where: eq(skillsAssessments.tenantId, user.tenantId),
+        where: eq(skillsAssessments.tenantId, req.user.tenantId),
         orderBy: (assessments, { desc }) => [desc(assessments.createdAt)]
       });
 
@@ -443,7 +484,16 @@ router.get('/organization',
 );
 
 // Helper functions
-function calculateOverallScore(skills: any[]): number {
+interface SkillRecord {
+  level?: string;
+  skillLevel?: number;
+  proficiency?: number;
+  averageLevel?: number;
+  coverage?: number;
+  [key: string]: unknown;
+}
+
+function calculateOverallScore(skills: SkillRecord[]): number {
   if (skills.length === 0) return 0;
 
   const levelScores: Record<string, number> = {
@@ -454,13 +504,27 @@ function calculateOverallScore(skills: any[]): number {
   };
 
   const totalScore = skills.reduce((sum, skill) => {
-    return sum + (levelScores[skill.level] || 0);
+    const level = skill.level || '';
+    return sum + (levelScores[level] || 0);
   }, 0);
 
   return Math.round(totalScore / skills.length);
 }
 
-async function aggregateDepartmentSkills(employees: any[]): Promise<any> {
+interface EmployeeSkills {
+  id: string;
+  department?: string;
+  skills?: SkillRecord[];
+  [key: string]: unknown;
+}
+
+interface DepartmentSkillsAggregation {
+  name: string;
+  coverage: number;
+  averageLevel: number;
+}
+
+async function aggregateDepartmentSkills(employees: EmployeeSkills[]): Promise<DepartmentSkillsAggregation[]> {
   // Aggregate skills across all employees in department
   const skillsMap = new Map<string, { count: number; totalLevel: number }>();
 
@@ -494,11 +558,11 @@ function getSkillLevelScore(level: string): number {
   return scores[level] || 0;
 }
 
-function calculateDepartmentScore(skills: any[]): number {
+function calculateDepartmentScore(skills: DepartmentSkillsAggregation[]): number {
   if (skills.length === 0) return 0;
 
-  const avgLevel = skills.reduce((sum, skill) => sum + skill.averageLevel, 0) / skills.length;
-  const avgCoverage = skills.reduce((sum, skill) => sum + skill.coverage, 0) / skills.length;
+  const avgLevel = skills.reduce((sum, skill) => sum + (skill.averageLevel || 0), 0) / skills.length;
+  const avgCoverage = skills.reduce((sum, skill) => sum + (skill.coverage || 0), 0) / skills.length;
 
   return Math.round((avgLevel * 25) + (avgCoverage * 0.5));
 }

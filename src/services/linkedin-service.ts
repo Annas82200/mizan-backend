@@ -86,9 +86,10 @@ export class LinkedInService {
         accessToken: response.data.access_token,
         expiresIn: response.data.expires_in
       };
-    } catch (error: any) {
-      console.error('LinkedIn token exchange error:', error.response?.data || error.message);
-      throw new Error(`Failed to get LinkedIn access token: ${error.response?.data?.error_description || error.message}`);
+    } catch (error) {
+      const e = error as { response?: { data?: { error_description?: string; message?: string } }; message?: string };
+      console.error('LinkedIn token exchange error:', e.response?.data || e.message);
+      throw new Error(`Failed to get LinkedIn access token: ${e.response?.data?.error_description || e.message}`);
     }
   }
 
@@ -114,9 +115,10 @@ export class LinkedInService {
         lastName: response.data.localizedLastName || response.data.lastName?.localized?.en_US,
         profilePicture: response.data.profilePicture
       };
-    } catch (error: any) {
-      console.error('LinkedIn getProfile error:', error.response?.data || error.message);
-      throw new Error(`Failed to fetch LinkedIn profile: ${error.response?.data?.message || error.message}`);
+    } catch (error) {
+      const e = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('LinkedIn getProfile error:', e.response?.data || e.message);
+      throw new Error(`Failed to fetch LinkedIn profile: ${e.response?.data?.message || e.message}`);
     }
   }
 
@@ -169,9 +171,10 @@ export class LinkedInService {
         text: input.text,
         visibility: input.visibility || 'PUBLIC'
       };
-    } catch (error: any) {
-      console.error('LinkedIn createPost error:', error.response?.data || error.message);
-      throw new Error(`Failed to create LinkedIn post: ${error.response?.data?.message || error.message}`);
+    } catch (error) {
+      const e = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('LinkedIn createPost error:', e.response?.data || e.message);
+      throw new Error(`Failed to create LinkedIn post: ${e.response?.data?.message || e.message}`);
     }
   }
 
@@ -196,9 +199,10 @@ export class LinkedInService {
       );
 
       return response.data;
-    } catch (error: any) {
-      console.error('LinkedIn getPostStats error:', error.response?.data || error.message);
-      throw new Error(`Failed to fetch post stats: ${error.response?.data?.message || error.message}`);
+    } catch (error) {
+      const e = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('LinkedIn getPostStats error:', e.response?.data || e.message);
+      throw new Error(`Failed to fetch post stats: ${e.response?.data?.message || e.message}`);
     }
   }
 

@@ -16,7 +16,14 @@ const router = Router();
 router.post('/create-checkout-session', authenticateToken, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
-    if ((req as any).user.role !== 'superadmin') {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    if (req.user.role !== 'superadmin') {
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can create payment links'
@@ -66,11 +73,12 @@ router.post('/create-checkout-session', authenticateToken, async (req: Request, 
       }
     });
 
-  } catch (error: any) {
-    console.error('Create checkout session error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Create checkout session error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create checkout session'
+      error: e.message || 'Failed to create checkout session'
     });
   }
 });
@@ -95,11 +103,12 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('Get session error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Get session error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to retrieve session'
+      error: e.message || 'Failed to retrieve session'
     });
   }
 });

@@ -64,11 +64,12 @@ router.post('/stripe', async (req: Request, res: Response) => {
       received: true
     });
 
-  } catch (error: any) {
-    console.error('Webhook processing error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Webhook processing error:', e);
     return res.status(400).json({
       success: false,
-      error: error.message || 'Webhook processing failed'
+      error: e.message || 'Webhook processing failed'
     });
   }
 });

@@ -357,8 +357,17 @@ export class DataEngine {
     const categories: Record<string, string[]> = {};
 
     // Categorize based on context
-    categories.frameworks = context.frameworks.map((f: any) => f.name);
-    categories.bestPractices = context.bestPractices.map((bp: any) => bp.practice);
+    interface Framework {
+      name: string;
+      [key: string]: unknown;
+    }
+    interface BestPractice {
+      practice: string;
+      [key: string]: unknown;
+    }
+
+    categories.frameworks = context.frameworks.map((f: Framework) => f.name);
+    categories.bestPractices = context.bestPractices.map((bp: BestPractice) => bp.practice);
 
     // Categorize data fields
     const dataFields = Object.keys(data);

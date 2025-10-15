@@ -65,9 +65,10 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
     await stripeService.handleWebhook(event);
 
     return res.json({ received: true });
-  } catch (error: any) {
-    console.error("Webhook error:", error);
-    return res.status(400).json({ error: error.message || "Webhook processing failed" });
+  } catch (error) {
+    const e = error as Error;
+    console.error("Webhook error:", e);
+    return res.status(400).json({ error: e.message || "Webhook processing failed" });
   }
 });
 

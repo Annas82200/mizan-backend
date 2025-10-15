@@ -6,8 +6,8 @@ import { Chart } from 'chart.js';
 interface StructureAnalysisResult {
   id: string;
   score: number;
-  findings: any;
-  recommendations: any;
+  findings: Finding[];
+  recommendations: RecommendationItem[];
   createdAt: Date;
 }
 
@@ -69,7 +69,7 @@ export async function generatePDFReport(result: StructureAnalysisResult): Promis
          .fillColor('#545454');
       
       if (result.findings && Array.isArray(result.findings)) {
-        result.findings.forEach((finding: any, index: number) => {
+        result.findings.forEach((finding: Finding, index: number) => {
           doc.text(`• ${finding.title || finding}`, 70, 280 + (index * 25));
         });
       }
@@ -84,7 +84,7 @@ export async function generatePDFReport(result: StructureAnalysisResult): Promis
          .fillColor('#545454');
       
       if (result.recommendations && Array.isArray(result.recommendations)) {
-        result.recommendations.forEach((rec: any, index: number) => {
+        result.recommendations.forEach((rec: RecommendationItem, index: number) => {
           doc.text(`${index + 1}. ${rec.title || rec}`, 50, 90 + (index * 40));
           if (rec.description) {
             doc.fontSize(10)
@@ -111,12 +111,12 @@ export async function generatePDFReport(result: StructureAnalysisResult): Promis
 }
 
 // Generate other report types
-export async function generateCultureReport(data: any): Promise<Buffer> {
+export async function generateCultureReport(data: Record<string, unknown>): Promise<Buffer> {
   // Similar implementation for culture reports
   return generatePDFReport(data);
 }
 
-export async function generateSkillsReport(data: any): Promise<Buffer> {
+export async function generateSkillsReport(data: Record<string, unknown>): Promise<Buffer> {
   // Similar implementation for skills reports
   return generatePDFReport(data);
 }

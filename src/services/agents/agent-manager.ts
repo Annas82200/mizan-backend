@@ -54,7 +54,7 @@ interface CultureAnalysisResult {
 
 interface TriggerRecord {
   name: string;
-  description?: string;
+  description?: string | null;
   type: string;
   targetModule: string;
   eventType: string;
@@ -357,17 +357,17 @@ export class AgentManager {
   private async processTriggers(
     tenantId: string,
     agentType: string,
-    triggerData: any[],
+    triggerData: TriggerRecord[],
     analysisId: string
-  ): Promise<any[]> {
+  ): Promise<TriggerRecord[]> {
     if (!triggerData || triggerData.length === 0) {
       return [];
     }
 
-    const triggerRecords = triggerData.map((trigger: any) => ({
+    const triggerRecords = triggerData.map((trigger: TriggerRecord) => ({
       tenantId,
       name: trigger.name || `${agentType} Trigger`,
-      description: trigger.description,
+      description: trigger.description || null,
       type: trigger.type || 'event_based',
       sourceModule: agentType,
       eventType: trigger.eventType || 'analysis_completed',
@@ -379,15 +379,36 @@ export class AgentManager {
       isActive: true
     }));
 
-    return await db.insert(triggers).values(triggerRecords).returning();
+    const insertedTriggers = await db.insert(triggers).values(triggerRecords).returning();
+    
+    // Map to TriggerRecord type
+    return insertedTriggers.map((t): TriggerRecord => ({
+      name: t.name,
+      description: t.description || undefined,
+      type: t.type,
+      targetModule: t.targetModule,
+      eventType: t.eventType,
+      condition: typeof t.conditions === 'object' && t.conditions !== null ? t.conditions as Record<string, unknown> : undefined,
+      action: t.action,
+      actionConfig: typeof t.actionConfig === 'object' && t.actionConfig !== null ? t.actionConfig as Record<string, unknown> : undefined,
+      priority: t.priority || 5
+    }));
   }
 
   private async processRecommendations(
     tenantId: string,
     agentType: string,
-    recommendationData: any[],
+    recommendationData: Array<{
+      targetType?: string;
+      targetId?: string | null;
+      title: string;
+      description: string;
+      actionItems?: string[];
+      expectedImpact?: string;
+      priority?: 'high' | 'medium' | 'low';
+    }>,
     analysisId: string
-  ): Promise<any[]> {
+  ): Promise<RecommendationRecord[]> {
     if (!recommendationData || recommendationData.length === 0) {
       return [];
     }

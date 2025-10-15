@@ -77,27 +77,71 @@ export interface LXPTriggerContext extends BaseTriggerContext {
 // WORKFLOW INPUTS
 // ============================================================================
 
+interface TriggerData {
+  skillGaps?: string[];
+  culturalIssues?: string[];
+  performanceMetrics?: Record<string, unknown>;
+  complianceRequirements?: string[];
+  [key: string]: unknown;
+}
+
+interface LearningHistoryRecord {
+  courseId: string;
+  completedAt?: Date;
+  score?: number;
+  [key: string]: unknown;
+}
+
+interface LearningPreferences {
+  learningStyle?: string;
+  preferredFormat?: string[];
+  availability?: string;
+  [key: string]: unknown;
+}
+
+interface AvailableCourse {
+  id: string;
+  title: string;
+  skills: string[];
+  duration?: number;
+  level?: string;
+  [key: string]: unknown;
+}
+
+interface DepartmentNeeds {
+  criticalSkills?: string[];
+  developmentAreas?: string[];
+  teamSize?: number;
+  [key: string]: unknown;
+}
+
+interface TeamDynamics {
+  collaborationLevel?: number;
+  knowledgeSharing?: string;
+  [key: string]: unknown;
+}
+
 export interface LearningPathDesignInput extends BaseWorkflowInput {
   employeeId: string;
   triggerType: 'skill_gaps_critical' | 'culture_learning_needed' | 'employee_skill_gap' |
                'performance_perfect_lxp' | 'performance_improvement_lxp' | 'compliance_training_due' |
                'safety_training_expired' | 'certification_expiring' | 'legal_requirement_change';
-  triggerData: any;
+  triggerData: TriggerData;
   employeeProfile: {
     currentSkills: string[];
     skillGaps: string[];
-    learningHistory: any[];
-    preferences: any;
+    learningHistory: LearningHistoryRecord[];
+    preferences: LearningPreferences;
     role: string;
     department: string;
     experience: string;
   };
-  availableCourses: any[];
+  availableCourses: AvailableCourse[];
   organizationalContext: {
     cultureValues: string[];
     strategicGoals: string[];
-    departmentNeeds: any;
-    teamDynamics?: any;
+    departmentNeeds: DepartmentNeeds;
+    teamDynamics?: TeamDynamics;
   };
   constraints?: {
     timeline?: string;
@@ -112,6 +156,62 @@ export interface LearningPathDesignInput extends BaseWorkflowInput {
   priority?: 'low' | 'medium' | 'high';
 }
 
+interface EnrollmentRecord {
+  courseId: string;
+  startedAt: Date;
+  status: string;
+  [key: string]: unknown;
+}
+
+interface CompletionRecord {
+  courseId: string;
+  completedAt: Date;
+  score?: number;
+  [key: string]: unknown;
+}
+
+interface AssessmentRecord {
+  assessmentId: string;
+  score: number;
+  completedAt: Date;
+  [key: string]: unknown;
+}
+
+interface TimeSpentRecord {
+  courseId: string;
+  duration: number;
+  date: Date;
+  [key: string]: unknown;
+}
+
+interface EngagementMetric {
+  metric: string;
+  value: number;
+  timestamp: Date;
+  [key: string]: unknown;
+}
+
+interface PerformanceHistoryRecord {
+  period: string;
+  score: number;
+  achievements?: string[];
+  [key: string]: unknown;
+}
+
+interface PerformanceStandards {
+  minScore?: number;
+  targetScore?: number;
+  benchmarks?: Record<string, number>;
+  [key: string]: unknown;
+}
+
+interface DepartmentMetrics {
+  avgPerformance?: number;
+  completionRate?: number;
+  engagementLevel?: number;
+  [key: string]: unknown;
+}
+
 export interface LearningProgressInput extends BaseWorkflowInput {
   employeeId: string;
   learningPathId?: string;
@@ -119,24 +219,24 @@ export interface LearningProgressInput extends BaseWorkflowInput {
   courseId?: string;
   trackingType: 'individual_progress' | 'path_progress' | 'course_progress' | 'intervention_analysis' | 'completion_prediction';
   progressData: {
-    enrollments: any[];
-    completions: any[];
-    assessments: any[];
-    timeSpent: any[];
-    engagementMetrics: any[];
-    learningHistory: any[];
+    enrollments: EnrollmentRecord[];
+    completions: CompletionRecord[];
+    assessments: AssessmentRecord[];
+    timeSpent: TimeSpentRecord[];
+    engagementMetrics: EngagementMetric[];
+    learningHistory: LearningHistoryRecord[];
   };
   employeeProfile: {
     role: string;
     department: string;
     experience: string;
-    learningPreferences: any;
-    performanceHistory: any[];
+    learningPreferences: LearningPreferences;
+    performanceHistory: PerformanceHistoryRecord[];
   };
   organizationalContext: {
     learningGoals: string[];
-    performanceStandards: any;
-    departmentMetrics: any;
+    performanceStandards: PerformanceStandards;
+    departmentMetrics: DepartmentMetrics;
   };
   timeRange?: {
     start: Date;

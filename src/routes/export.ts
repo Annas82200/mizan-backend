@@ -20,13 +20,43 @@ const ICONS = {
   metric: '◫', // Square with dot
 };
 
+interface SpanAnalysis {
+  average: number;
+  distribution: Record<string, number>;
+  outliers?: Array<{ role: string; span: number; recommendation: string }>;
+  interpretation?: string;
+}
+
+interface LayerAnalysis {
+  totalLayers: number;
+  averageLayersToBottom: number;
+  bottlenecks?: Array<{ layer: number; roles: string[]; issue: string }>;
+  interpretation?: string;
+}
+
+interface StrategyAlignment {
+  score: number;
+  alignments?: string[];
+  misalignments?: Array<{ area: string; issue: string; recommendation: string; impact?: string }>;
+  interpretation?: string;
+}
+
+interface Recommendation {
+  category: string;
+  priority: string;
+  title: string;
+  description: string;
+  actionItems?: string[];
+  expectedImpact?: string;
+}
+
 interface AnalysisExport {
   overallScore: number;
   operationalScore: number;
-  spanAnalysis: any;
-  layerAnalysis: any;
-  strategyAlignment: any;
-  recommendations: any[];
+  spanAnalysis: SpanAnalysis;
+  layerAnalysis: LayerAnalysis;
+  strategyAlignment: StrategyAlignment;
+  recommendations: Recommendation[];
 }
 
 // Helper function to format text with visual enhancement for subtitles
@@ -635,11 +665,11 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
         ${strategyAlignment.misalignments.length > 0 ? `
         <h3>Critical Gaps to Address</h3>
         <div class="gap-list">
-          ${strategyAlignment.misalignments.map((gap: any) => `
-            <div class="gap-item ${gap.impact}">
+          ${strategyAlignment.misalignments.map((gap: { area: string; issue: string; recommendation: string; impact?: string }) => `
+            <div class="gap-item ${gap.impact || 'medium'}">
               <div class="gap-header">
                 <div class="gap-title">${ICONS.gap} ${gap.area}</div>
-                <div class="gap-impact ${gap.impact}">${gap.impact} Impact</div>
+                <div class="gap-impact ${gap.impact || 'medium'}">${gap.impact || 'medium'} Impact</div>
               </div>
               <div class="gap-description">${gap.issue}</div>
             </div>
@@ -727,7 +757,7 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
         <h2><span class="icon">${ICONS.recommendation}</span>Recommendations</h2>
 
         <div class="recommendation-list">
-          ${recommendations.map((rec: any) => `
+          ${recommendations.map((rec: Recommendation) => `
             <div class="recommendation-card">
               <div class="rec-header">
                 <div class="rec-icon">${ICONS.recommendation}</div>

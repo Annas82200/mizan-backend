@@ -287,16 +287,21 @@ function extractSubdomain(host: string): string | null {
   return null;
 }
 
+interface TenantWithSettings {
+  settings?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 /**
  * Utility function to get tenant settings with defaults
  */
-export const getTenantSettings = (tenant: any, key?: string, defaultValue?: any) => {
+export const getTenantSettings = <T = unknown>(tenant: TenantWithSettings | null | undefined, key?: string, defaultValue?: T): T | Record<string, unknown> => {
   if (!tenant || !tenant.settings) {
-    return defaultValue;
+    return defaultValue as T;
   }
 
   if (key) {
-    return tenant.settings[key] !== undefined ? tenant.settings[key] : defaultValue;
+    return (tenant.settings[key] !== undefined ? tenant.settings[key] : defaultValue) as T;
   }
 
   return tenant.settings;
@@ -305,20 +310,29 @@ export const getTenantSettings = (tenant: any, key?: string, defaultValue?: any)
 /**
  * Utility function to check if tenant has specific feature enabled
  */
-export const hasTenantFeature = (tenant: any, feature: string): boolean => {
+export const hasTenantFeature = (tenant: TenantWithSettings | null | undefined, feature: string): boolean => {
   if (!tenant || !tenant.settings) {
     return false;
   }
 
-  const features = tenant.settings.features || {};
+  const settings = tenant.settings as { features?: Record<string, boolean> };
+  const features = settings.features || {};
   return features[feature] === true;
 };
+
+interface TenantLimits {
+  employees: number;
+  assessments: number;
+  reports: number;
+  storage: number;
+  apiCalls: number;
+}
 
 /**
  * Utility function to get tenant usage limits
  */
-export const getTenantLimits = (tenant: any) => {
-  const tierLimits = {
+export const getTenantLimits = (tenant: TenantWithSettings | null | undefined): TenantLimits => {
+  const tierLimits: Record<string, TenantLimits> = {
     free: {
       employees: 50,
       assessments: 10,
@@ -349,8 +363,9 @@ export const getTenantLimits = (tenant: any) => {
     }
   };
 
-  const tier = tenant?.tier || 'free';
-  return tierLimits[tier as keyof typeof tierLimits] || tierLimits.free;
+  const tenantWithTier = tenant as { tier?: string } | null | undefined;
+  const tier = tenantWithTier?.tier || 'free';
+  return tierLimits[tier] || tierLimits.free;
 };
 
 /**

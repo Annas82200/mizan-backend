@@ -156,8 +156,47 @@ workers.forEach(worker => {
   });
 });
 
+interface AnalysisJobData {
+  tenantId: string;
+  userId: string;
+  input: Record<string, unknown>;
+}
+
+interface HiringJobData {
+  candidate: {
+    id?: string;
+    assessmentResponses?: Array<{ questionId: string; question: string; response: string }>;
+  };
+  jobPosting: {
+    id?: string;
+  };
+  tenantId: string;
+}
+
+interface SocialMediaJobData {
+  platform: string;
+  content: string;
+  scheduledTime?: Date;
+  tenantId: string;
+}
+
+interface EmailJobData {
+  to: string;
+  template: string;
+  data: Record<string, unknown>;
+  from?: string;
+}
+
+interface NotificationJobData {
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
+
 // Queue management functions
-export async function addAnalysisJob(data: any) {
+export async function addAnalysisJob(data: AnalysisJobData) {
   return queues.analysis.add('full-analysis', data, {
     attempts: 3,
     backoff: {
@@ -167,7 +206,7 @@ export async function addAnalysisJob(data: any) {
   });
 }
 
-export async function addHiringJob(data: any) {
+export async function addHiringJob(data: HiringJobData) {
   return queues.hiring.add('culture-fit-assessment', data, {
     attempts: 2,
     backoff: {
@@ -177,7 +216,7 @@ export async function addHiringJob(data: any) {
   });
 }
 
-export async function addSocialMediaJob(data: any) {
+export async function addSocialMediaJob(data: SocialMediaJobData) {
   return queues.socialMedia.add('publish-post', data, {
     attempts: 3,
     backoff: {
@@ -187,7 +226,7 @@ export async function addSocialMediaJob(data: any) {
   });
 }
 
-export async function addEmailJob(data: any) {
+export async function addEmailJob(data: EmailJobData) {
   return queues.email.add('send-email', data, {
     attempts: 3,
     backoff: {
@@ -197,7 +236,7 @@ export async function addEmailJob(data: any) {
   });
 }
 
-export async function addNotificationJob(data: any) {
+export async function addNotificationJob(data: NotificationJobData) {
   return queues.notifications.add('send-notification', data, {
     attempts: 2,
     backoff: {

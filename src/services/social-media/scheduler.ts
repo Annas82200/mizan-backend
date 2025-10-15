@@ -130,13 +130,30 @@ export async function publishPost(postId: string): Promise<PostResult> {
   }
 }
 
+interface SocialMediaAccount {
+  id: string;
+  tenantId: string;
+  platform: string;
+  isActive: boolean;
+  credentials?: Record<string, unknown>;
+}
+
+interface SocialMediaPost {
+  id: string;
+  tenantId: string;
+  platform: string;
+  content: string;
+  scheduledFor: Date;
+  status: string;
+}
+
 /**
  * Publish content to specific platform
  * In production, this would use actual platform SDKs
  */
 async function publishToPlatform(
-  post: any,
-  account: any
+  post: SocialMediaPost,
+  account: SocialMediaAccount
 ): Promise<{ success: boolean; error?: string }> {
   // Simulate platform publishing
   // In production, integrate with LinkedIn, Twitter, Facebook APIs

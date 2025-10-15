@@ -193,9 +193,10 @@ app.post('/api/create-superadmin-temp', async (req, res) => {
 
       return res.json({ success: true, message: 'Superadmin created!' });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error:', error);
-    return res.status(500).json({ error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -249,9 +250,10 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Login failed' });
+    const errorMessage = error instanceof Error ? error.message : 'Login failed';
+    return res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -278,13 +280,17 @@ app.use('/api/export', exportRoutes); // Export formatted reports
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
   
-  res.status(err.status || 500).json({
+  const errorStatus = err && typeof err === 'object' && 'status' in err ? (err as { status: number }).status : 500;
+  const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+  const errorStack = err instanceof Error ? err.stack : undefined;
+  
+  res.status(errorStatus).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: process.env.NODE_ENV === 'development' ? errorMessage : 'Something went wrong',
+    ...(process.env.NODE_ENV === 'development' && errorStack && { stack: errorStack })
   });
 });
 
@@ -314,8 +320,9 @@ async function testDatabaseConnection(): Promise<boolean> {
     
     console.log('✅ Database connection successful');
     return true;
-  } catch (error: any) {
-    console.error('❌ Database connection failed:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown database connection error';
+    console.error('❌ Database connection failed:', errorMessage);
     console.error('DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set');
     return false;
   }
@@ -369,11 +376,16 @@ async function startServer() {
     });
 
     // Handle server errors
-    server.on('error', (error: any) => {
-      if (error.code === 'EADDRINUSE') {
-        console.error(`🚨 FATAL: Port ${PORT} is already in use`);
-      } else if (error.code === 'EACCES') {
-        console.error(`🚨 FATAL: Permission denied to bind to port ${PORT}`);
+    server.on('error', (error: unknown) => {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = (error as { code: string }).code;
+        if (errorCode === 'EADDRINUSE') {
+          console.error(`🚨 FATAL: Port ${PORT} is already in use`);
+        } else if (errorCode === 'EACCES') {
+          console.error(`🚨 FATAL: Permission denied to bind to port ${PORT}`);
+        } else {
+          console.error('🚨 FATAL: Server error:', error);
+        }
       } else {
         console.error('🚨 FATAL: Server error:', error);
       }
@@ -459,9 +471,11 @@ async function startServer() {
       gracefulShutdown('UNHANDLED_REJECTION');
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('🚨 FATAL: Failed to start server:', error);
-    console.error('Stack trace:', error.stack);
+    if (error instanceof Error) {
+      console.error('Stack trace:', error.stack);
+    }
     process.exit(1);
   }
 }

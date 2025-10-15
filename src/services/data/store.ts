@@ -54,13 +54,21 @@ interface AssessmentRecord {
   triadConfidence?: number;
 }
 
+interface AssignmentSeed {
+  id: string;
+  moduleId: string;
+  status: string;
+  assignedAt: Date;
+  completedAt?: Date;
+}
+
 interface EmployeeProgress {
   id: string;
   employeeId: string;
   tenantId: string;
   progress: number;
   completedAt?: Date | null;
-  assignments: unknown[];
+  assignments: AssignmentSeed[];
 }
 
 interface LearningExperience {
@@ -155,28 +163,111 @@ function cloneTenant(input: Tenant): Tenant {
   };
 }
 
-const tenantStore: Tenant[] = tenantSeed.map((t: any) => cloneTenant({
-  ...t,
-  createdAt: t.createdAt instanceof Date ? t.createdAt : new Date(t.createdAt),
-  updatedAt: t.updatedAt ? (t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt)) : undefined,
-  lastAnalysisAt: t.lastAnalysisAt ? (t.lastAnalysisAt instanceof Date ? t.lastAnalysisAt : new Date(t.lastAnalysisAt)) : undefined,
-} as Tenant));
+interface TenantSeed {
+  id?: string;
+  name: string;
+  plan: string;
+  status: 'active' | 'inactive' | 'suspended' | 'trial';
+  createdAt: Date;
+  updatedAt?: Date;
+  aiProviders?: Record<string, { enabled: boolean; apiKey?: string; }> | Record<string, string[]>;
+  features?: Record<string, boolean>;
+  integrations?: Record<string, unknown>;
+  valuesFramework?: Record<string, unknown> | Array<{
+    level: number;
+    name: string;
+    enablingValues: Array<{ name: string; description: string; }>;
+    limitingValues: Array<{ name: string; description: string; }>;
+  }>;
+  lastAnalysisAt?: Date;
+  primaryContact?: string;
+}
+
+const tenantStore: Tenant[] = (tenantSeed as TenantSeed[]).map((t: TenantSeed): Tenant => {
+  const tenant: Tenant = {
+    id: t.id || '',
+    name: t.name,
+    plan: t.plan,
+    status: t.status,
+    createdAt: t.createdAt instanceof Date ? t.createdAt : new Date(t.createdAt),
+    updatedAt: t.updatedAt ? (t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt)) : undefined,
+    lastAnalysisAt: t.lastAnalysisAt ? (t.lastAnalysisAt instanceof Date ? t.lastAnalysisAt : new Date(t.lastAnalysisAt)) : undefined,
+    aiProviders: t.aiProviders,
+    features: t.features,
+    integrations: t.integrations,
+    valuesFramework: t.valuesFramework,
+    primaryContact: t.primaryContact
+  };
+  return cloneTenant(tenant);
+});
 const assessmentStore: AssessmentRecord[] = assessmentSeed.map((item) => ({ ...item }));
-const snapshotStore: OrgSnapshotRecord[] = snapshotSeed.map((item: any) => ({ 
-  ...item,
+interface SnapshotSeed {
+  id: string;
+  tenantId: string;
+  raw?: Record<string, unknown>;
+  timestamp?: Date | string;
+  overallHealthScore?: number;
+  createdAt: Date | string;
+}
+
+const snapshotStore: OrgSnapshotRecord[] = snapshotSeed.map((item: SnapshotSeed) => ({ 
+  id: item.id,
+  tenantId: item.tenantId,
   timestamp: item.timestamp ? (item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp)) : undefined,
+  data: item.raw,
+  overallHealthScore: item.overallHealthScore || 75,
   createdAt: item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt),
+  trend: undefined,
+  highlights: undefined
 }));
-const snapshotSummary: TenantSnapshot[] = snapshotSummarySeed.map((item: any) => ({ 
-  ...item,
+interface SnapshotSummarySeed {
+  tenantId: string;
+  healthScore: number;
+  lastAnalysis?: Date | string;
+}
+
+const snapshotSummary: TenantSnapshot[] = (snapshotSummarySeed as SnapshotSummarySeed[]).map((item: SnapshotSummarySeed): TenantSnapshot => ({ 
+  id: randomUUID(),
+  tenantId: item.tenantId,
+  data: undefined,
+  healthScore: item.healthScore || 75,
   lastAnalysis: item.lastAnalysis ? (item.lastAnalysis instanceof Date ? item.lastAnalysis : new Date(item.lastAnalysis)) : undefined,
 }));
 const actionModuleStore: ActionModule[] = actionModuleSeed.map((item) => ({ ...item, triggerTags: [...item.triggerTags] }));
 const triggeredStore: TriggeredAction[] = triggeredSeed.map((item) => ({ ...item }));
-const employeeProgressStore: EmployeeProgress[] = employeeProgressSeed.map((item: any) => ({
-  ...item,
+
+interface EmployeeProgressSeedAssignment {
+  id: string;
+  name: string;
+  completed: boolean;
+  moduleId?: string;
+  status?: string;
+  progress?: number;
+  nextAction?: string;
+}
+
+interface EmployeeProgressSeed {
+  id: string;
+  employeeId: string;
+  tenantId: string;
+  progress: number;
+  completedAt?: Date | string | null;
+  assignments: EmployeeProgressSeedAssignment[];
+}
+
+const employeeProgressStore: EmployeeProgress[] = (employeeProgressSeed as EmployeeProgressSeed[]).map((item: EmployeeProgressSeed): EmployeeProgress => ({
+  id: item.id,
+  employeeId: item.employeeId,
+  tenantId: item.tenantId,
+  progress: item.progress || 0,
   completedAt: item.completedAt ? (item.completedAt instanceof Date ? item.completedAt : new Date(item.completedAt)) : null,
-  assignments: item.assignments.map((assignment: any) => ({ ...assignment })),
+  assignments: item.assignments.map((assignment: EmployeeProgressSeedAssignment): AssignmentSeed => ({
+    id: assignment.id,
+    moduleId: assignment.moduleId || '',
+    status: assignment.status || 'not_started',
+    assignedAt: new Date(),
+    completedAt: assignment.completed ? new Date() : undefined
+  })),
 }));
 const pipelineStore: PipelineAgentStatus[] = pipelineSeed.map((item) => ({ ...item }));
 const userStore: User[] = userSeed.map((item) => ({ ...item }));
@@ -266,7 +357,9 @@ export function listEmployeeProgress(tenantId: string): EmployeeProgress[] {
     .filter((progress) => progress.tenantId === tenantId)
     .map((progress) => ({
       ...progress,
-      assignments: progress.assignments ? progress.assignments.map((assignment: any) => ({ ...assignment })) : [],
+      assignments: Array.isArray(progress.assignments) 
+        ? progress.assignments.map((assignment: AssignmentSeed) => ({ ...assignment })) 
+        : [],
     }));
 }
 
@@ -275,12 +368,16 @@ export function upsertEmployeeProgress(record: EmployeeProgress): void {
   if (index >= 0) {
     employeeProgressStore[index] = {
       ...record,
-      assignments: record.assignments ? record.assignments.map((assignment: any) => ({ ...assignment })) : [],
+      assignments: Array.isArray(record.assignments)
+        ? record.assignments.map((assignment: AssignmentSeed) => ({ ...assignment }))
+        : [],
     };
   } else {
     employeeProgressStore.push({
       ...record,
-      assignments: record.assignments ? record.assignments.map((assignment: any) => ({ ...assignment })) : [],
+      assignments: Array.isArray(record.assignments)
+        ? record.assignments.map((assignment: AssignmentSeed) => ({ ...assignment }))
+        : [],
     });
   }
 }

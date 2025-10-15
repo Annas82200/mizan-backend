@@ -113,11 +113,12 @@ router.post('/submit', async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('Demo request submission error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Demo request submission error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to submit demo request'
+      error: e.message || 'Failed to submit demo request'
     });
   }
 });
@@ -130,7 +131,14 @@ router.post('/submit', async (req: Request, res: Response) => {
 router.get('/requests', authenticateToken, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
-    if ((req as any).user.role !== 'superadmin') {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    if (req.user.role !== 'superadmin') {
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can view demo requests'
@@ -143,7 +151,8 @@ router.get('/requests', authenticateToken, async (req: Request, res: Response) =
 
     // Filter by status if provided
     if (status && typeof status === 'string') {
-      query = query.where(eq(demoRequests.status, status)) as any;
+      type DrizzleQuery = typeof query;
+      query = query.where(eq(demoRequests.status, status)) as DrizzleQuery;
     }
 
     // Apply pagination
@@ -162,11 +171,12 @@ router.get('/requests', authenticateToken, async (req: Request, res: Response) =
       }
     });
 
-  } catch (error: any) {
-    console.error('Get demo requests error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Get demo requests error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to retrieve demo requests'
+      error: e.message || 'Failed to retrieve demo requests'
     });
   }
 });
@@ -179,7 +189,14 @@ router.get('/requests', authenticateToken, async (req: Request, res: Response) =
 router.get('/requests/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
-    if ((req as any).user.role !== 'superadmin') {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    if (req.user.role !== 'superadmin') {
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can view demo requests'
@@ -205,11 +222,12 @@ router.get('/requests/:id', authenticateToken, async (req: Request, res: Respons
       data: request
     });
 
-  } catch (error: any) {
-    console.error('Get demo request error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Get demo request error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to retrieve demo request'
+      error: e.message || 'Failed to retrieve demo request'
     });
   }
 });
@@ -222,7 +240,14 @@ router.get('/requests/:id', authenticateToken, async (req: Request, res: Respons
 router.patch('/requests/:id/status', authenticateToken, async (req: Request, res: Response) => {
   try {
     // Check if user is superadmin
-    if ((req as any).user.role !== 'superadmin') {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    if (req.user.role !== 'superadmin') {
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can update demo requests'
@@ -270,11 +295,12 @@ router.patch('/requests/:id/status', authenticateToken, async (req: Request, res
       message: 'Demo request status updated successfully'
     });
 
-  } catch (error: any) {
-    console.error('Update demo request status error:', error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('Update demo request status error:', e);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to update demo request status'
+      error: e.message || 'Failed to update demo request status'
     });
   }
 });

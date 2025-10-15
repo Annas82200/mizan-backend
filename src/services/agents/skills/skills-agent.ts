@@ -448,31 +448,50 @@ export class SkillsAgent extends ThreeEngineAgent {
    * Parse analysis result into proper SkillsAnalysisResult type
    */
   private parseSkillsAnalysisResult(output: Record<string, unknown>): SkillsAnalysisResult {
-    // Type guard and safe parsing
+    // Type guards for safe parsing
+    const isSkillCategoriesValid = (value: unknown): value is SkillsAnalysisResult['skillCategories'] => {
+      return typeof value === 'object' && value !== null;
+    };
+
+    const isGapAnalysisValid = (value: unknown): value is SkillsAnalysisResult['gapAnalysis'] => {
+      return typeof value === 'object' && value !== null;
+    };
+
+    const isMarketAlignmentValid = (value: unknown): value is SkillsAnalysisResult['marketAlignment'] => {
+      return typeof value === 'object' && value !== null;
+    };
+
+    const defaultSkillCategory: SkillCategoryAnalysis = {
+      score: 0,
+      coverage: 0,
+      criticalGaps: 0,
+      skills: []
+    };
+
     return {
-      overallScore: (output.overallScore as number) || 0,
-      strategicAlignment: (output.strategicAlignment as number) || 0,
-      skillsCoverage: (output.skillsCoverage as number) || 0,
-      criticalGaps: (output.criticalGaps as SkillsGap[]) || [],
-      skillCategories: (output.skillCategories as any) || {
-        technical: { score: 0, coverage: 0, criticalGaps: 0, skills: [] },
-        leadership: { score: 0, coverage: 0, criticalGaps: 0, skills: [] },
-        communication: { score: 0, coverage: 0, criticalGaps: 0, skills: [] },
-        analytical: { score: 0, coverage: 0, criticalGaps: 0, skills: [] },
-        soft: { score: 0, coverage: 0, criticalGaps: 0, skills: [] }
+      overallScore: typeof output.overallScore === 'number' ? output.overallScore : 0,
+      strategicAlignment: typeof output.strategicAlignment === 'number' ? output.strategicAlignment : 0,
+      skillsCoverage: typeof output.skillsCoverage === 'number' ? output.skillsCoverage : 0,
+      criticalGaps: Array.isArray(output.criticalGaps) ? output.criticalGaps as SkillsGap[] : [],
+      skillCategories: isSkillCategoriesValid(output.skillCategories) ? output.skillCategories : {
+        technical: defaultSkillCategory,
+        leadership: defaultSkillCategory,
+        communication: defaultSkillCategory,
+        analytical: defaultSkillCategory,
+        soft: defaultSkillCategory
       },
-      gapAnalysis: (output.gapAnalysis as any) || {
+      gapAnalysis: isGapAnalysisValid(output.gapAnalysis) ? output.gapAnalysis : {
         overallGapScore: 0,
         criticalSkillsGapCount: 0,
         topGaps: [],
-        trainingPriority: 'low'
+        trainingPriority: 'low' as const
       },
-      emergingSkills: (output.emergingSkills as any[]) || [],
-      marketAlignment: (output.marketAlignment as any) || {
+      emergingSkills: Array.isArray(output.emergingSkills) ? output.emergingSkills as SkillsAnalysisResult['emergingSkills'] : [],
+      marketAlignment: isMarketAlignmentValid(output.marketAlignment) ? output.marketAlignment : {
         demandMatch: 0,
         futureReadiness: { currentReadiness: 0, readinessGap: 0, timeToReadiness: 'Unknown' }
       },
-      recommendations: (output.recommendations as any[]) || []
+      recommendations: Array.isArray(output.recommendations) ? output.recommendations as SkillsAnalysisResult['recommendations'] : []
     };
   }
 

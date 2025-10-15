@@ -24,8 +24,15 @@ const loginSchema = z.object({
   password: z.string()
 });
 
+interface TokenUser {
+  id: string;
+  email: string;
+  tenantId: string;
+  role: string;
+}
+
 // Helper function to generate JWT
-function generateToken(user: any) {
+function generateToken(user: TokenUser): string {
   return jwt.sign(
     { 
       id: user.id, 
@@ -182,7 +189,14 @@ router.get('/me', async (req, res) => {
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'default-secret') as any;
+      interface JWTPayload {
+        id: string;
+        email?: string;
+        iat?: number;
+        exp?: number;
+      }
+      
+      const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'default-secret') as JWTPayload;
       
       const user = await db.query.users.findFirst({
         where: eq(users.id, decoded.id),

@@ -93,7 +93,7 @@ function parseEmployeeCSV(records: Array<Record<string, string>>): string {
   }
 
   // Second pass: build hierarchy
-  const roots: any[] = [];
+  const roots: HierarchyEmployee[] = [];
   for (const [key, employee] of employeeMap.entries()) {
     if (employee.supervisorEmail || employee.supervisorName) {
       const supervisor = employeeMap.get(employee.supervisorEmail) ||
@@ -110,8 +110,14 @@ function parseEmployeeCSV(records: Array<Record<string, string>>): string {
     }
   }
 
+  interface HierarchyEmployee {
+    name: string;
+    department: string;
+    subordinates: HierarchyEmployee[];
+  }
+
   // Convert to hierarchical text
-  function buildHierarchyText(employee: any, level: number = 0): string {
+  function buildHierarchyText(employee: HierarchyEmployee, level: number = 0): string {
     const indent = "  ".repeat(level);
     let text = `${indent}${employee.name} - ${employee.department}\n`;
     for (const subordinate of employee.subordinates) {
@@ -369,20 +375,35 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       employeesCreated,
       ...result,
     });
-  } catch (error: any) {
-    console.error("Save org structure failed:", error);
-    console.error("Error stack:", error.stack);
+  } catch (error) {
+    const e = error as Error;
+    console.error("Save org structure failed:", e);
+    console.error("Error stack:", e.stack);
     return res.status(500).json({
       error: "Failed to save organization structure",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? e.message : undefined
     });
   }
 }
 
+interface ParsedRole {
+  id: string;
+  name: string;
+  level: number;
+  reports: string | null;
+  children?: ParsedRole[];
+}
+
+interface OrgStructure {
+  roles: ParsedRole[];
+  hierarchy: ParsedRole | Record<string, never>;
+  uploadedAt: string;
+}
+
 // Parse org text into structured data for organization_structure table
-function parseOrgTextToStructure(orgText: string): any {
+function parseOrgTextToStructure(orgText: string): OrgStructure {
   const lines = orgText.split('\n').filter(l => l.trim());
-  const roles: any[] = [];
+  const roles: ParsedRole[] = [];
 
   lines.forEach((line, index) => {
     const indent = line.search(/\S/);
@@ -393,7 +414,7 @@ function parseOrgTextToStructure(orgText: string): any {
       id: `role-${index}`,
       name,
       level,
-      reports: level > 0 ? lines.slice(0, index).reverse().find(l => Math.floor(l.search(/\S/) / 2) === level - 1)?.trim() : null
+      reports: level > 0 ? lines.slice(0, index).reverse().find(l => Math.floor(l.search(/\S/) / 2) === level - 1)?.trim() || null : null
     });
   });
 
@@ -404,11 +425,11 @@ function parseOrgTextToStructure(orgText: string): any {
   };
 }
 
-function buildHierarchy(roles: any[]): any {
+function buildHierarchy(roles: ParsedRole[]): ParsedRole | Record<string, never> {
   const root = roles.find(r => r.level === 0);
   if (!root) return {};
 
-  const buildTree = (role: any): any => {
+  const buildTree = (role: ParsedRole): ParsedRole => {
     const children = roles.filter(r => r.reports === role.name);
     return {
       ...role,
@@ -419,8 +440,42 @@ function buildHierarchy(roles: any[]): any {
   return buildTree(root);
 }
 
+interface StructureAnalysis {
+  overallScore: number;
+  spanAnalysis: {
+    average: number;
+    distribution: Record<string, number>;
+    outliers: Array<{ role: string; span: number; recommendation: string }>;
+  };
+  layerAnalysis: {
+    totalLayers: number;
+    averageLayersToBottom: number;
+    bottlenecks: Array<{ layer: number; roles: string[]; issue: string }>;
+  };
+  strategyAlignment?: {
+    score: number;
+    misalignments: Array<{
+      area: string;
+      issue: string;
+      impact: 'high' | 'medium' | 'low';
+    }>;
+  };
+  recommendations: Array<{
+    category: string;
+    priority: string;
+    title: string;
+    description: string;
+    actionItems: string[];
+  }>;
+  roles?: Array<{
+    id: string;
+    title: string;
+    level: number;
+  }>;
+}
+
 // Mock analysis generator
-function generateMockStructureAnalysis(orgText: string): any {
+function generateMockStructureAnalysis(orgText: string): StructureAnalysis {
   // Count approximate employees and layers
   const lines = orgText.split('\n').filter(l => l.trim());
   const employeeCount = lines.length || 1; // Ensure at least 1
