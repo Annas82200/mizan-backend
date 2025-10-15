@@ -58,12 +58,23 @@ console.log('🔧 CLIENT_URL environment variable:', process.env.CLIENT_URL);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Database connection status (will be updated during startup)
+let dbConnectionStatus = {
+  connected: false,
+  lastCheck: new Date().toISOString(),
+  error: null as string | null
+};
+
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  const isHealthy = dbConnectionStatus.connected || process.env.NODE_ENV !== 'production';
+  
+  res.status(isHealthy ? 200 : 503).json({ 
+    status: isHealthy ? 'healthy' : 'degraded',
+    database: dbConnectionStatus.connected ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
     version: '2.0.0',
+    environment: process.env.NODE_ENV || 'development',
     features: [
       'Three-Engine AI Architecture',
       'Multi-Provider AI Consensus',
@@ -295,14 +306,21 @@ async function startServer() {
       }
     }
     
+    // Update database connection status
+    dbConnectionStatus.connected = dbConnected;
+    dbConnectionStatus.lastCheck = new Date().toISOString();
+    
     if (!dbConnected) {
+      dbConnectionStatus.error = 'Failed to connect after 3 attempts';
       if (process.env.NODE_ENV === 'production') {
-        console.error('🚨 FATAL: Database connection required in production');
+        console.error('⚠️  WARNING: Database connection failed in production');
         console.error('🔧 Check DATABASE_URL environment variable');
-        process.exit(1);
+        console.error('🚀 Server will start but may have limited functionality');
       } else {
         console.warn('⚠️  Continuing without database (development mode)');
       }
+    } else {
+      dbConnectionStatus.error = null;
     }
 
     // Start HTTP server - CRITICAL: Listen on 0.0.0.0 for containerized environments
