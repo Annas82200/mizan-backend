@@ -8,12 +8,10 @@ console.log('========================================');
 
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
-// Load environment variables FIRST
-console.log('⚙️  Loading environment variables...');
-dotenv.config();
-console.log('✅ Environment variables loaded');
+// Environment variables are injected by Railway (no dotenv needed in production)
+// In development, use: tsx watch --env-file=.env index.ts
+console.log('⚙️  Environment variables ready (injected by platform)');
 
 // Log critical environment variables (without exposing secrets)
 console.log('📊 Environment Check:');
