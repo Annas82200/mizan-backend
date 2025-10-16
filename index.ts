@@ -155,8 +155,21 @@ const corsOptionsDelegate = function (req: any, callback: any) {
 // Apply CORS middleware with dynamic origin checking
 app.use(cors(corsOptionsDelegate));
 
-// Explicit preflight (OPTIONS) handling for all routes
-app.options('*', cors(corsOptionsDelegate));
+// Explicit preflight (OPTIONS) handling for all routes with enhanced logging
+app.options('*', (req, res, next) => {
+  const origin = req.header('Origin');
+  console.log('🔍 [CORS Preflight]', {
+    method: 'OPTIONS',
+    path: req.path,
+    origin: origin || 'no-origin',
+    referer: req.header('Referer') || 'no-referer',
+    userAgent: req.header('User-Agent')?.substring(0, 50) || 'no-user-agent',
+    requestedMethod: req.header('Access-Control-Request-Method'),
+    requestedHeaders: req.header('Access-Control-Request-Headers')
+  });
+  
+  cors(corsOptionsDelegate)(req, res, next);
+});
 
 // Log CORS configuration
 console.log('🌐 CORS configured with dynamic origin checking');
@@ -164,6 +177,25 @@ console.log('✅ Allowed origins (static):', allowedOrigins);
 console.log('✅ Dynamic patterns: *.vercel.app, *.railway.app');
 console.log('🔧 CLIENT_URL environment variable:', process.env.CLIENT_URL || 'not set');
 console.log('🔧 FRONTEND_URL environment variable:', process.env.FRONTEND_URL || 'not set');
+
+// Add request logging middleware for debugging
+app.use((req, res, next) => {
+  const origin = req.header('Origin');
+  
+  // Log all incoming requests with authentication status
+  if (req.path.startsWith('/api/')) {
+    const hasAuth = !!req.header('Authorization');
+    console.log('📥 [Request]', {
+      method: req.method,
+      path: req.path,
+      origin: origin || 'no-origin',
+      hasAuth,
+      contentType: req.header('Content-Type') || 'none'
+    });
+  }
+  
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
