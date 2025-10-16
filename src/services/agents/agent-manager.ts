@@ -113,15 +113,12 @@ export class AgentManager {
   private agents: Map<string, any> = new Map();
 
   constructor() {
-    this.registerAgent('culture', CultureAgentV2);
-    this.registerAgent('engagement', EngagementAgent);
-    this.registerAgent('recognition', RecognitionAgent);
-    this.registerAgent('skills', SkillsAgent);
-    this.registerAgent('structure', StructureAgent);
+    // Initialize agents properly with Three-Engine configurations
+    this.initializeAgents();
   }
 
-  registerAgent(name: string, agentClass: any) {
-    this.agents.set(name, new agentClass());
+  registerAgent(name: string, agentInstance: any) {
+    this.agents.set(name, agentInstance);
   }
 
   private initializeAgents(): void {
