@@ -77,28 +77,93 @@ const HOST = process.env.HOST || '0.0.0.0'; // Define HOST here
 console.log(`💡 Configured Port: ${PORT}`);
 console.log(`💡 Configured Host: ${HOST}`);
 
-// Middleware
+// ============================================================================
+// CORS CONFIGURATION - Production-Ready with Dynamic Origin Handling
+// ============================================================================
+// Build comprehensive allowed origins list from environment and hardcoded values
 const allowedOrigins = [
+  // Development origins
   'http://localhost:3000',
+  'http://localhost:3001',
+
+  // Production domains (all variations)
   'https://mizan.work',
   'https://www.mizan.work',
+
+  // Vercel deployments
   'https://mizan-platform-final.vercel.app',
-  'https://mizan-frontend-ten.vercel.app'
+  'https://mizan-frontend-ten.vercel.app',
 ];
 
-// Add CLIENT_URL if it's set and not already in the list
+// Add CLIENT_URL from environment if set and not already included
 if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
   allowedOrigins.push(process.env.CLIENT_URL);
 }
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+// Add FRONTEND_URL from environment if set and not already included
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+// Add all Vercel preview deployments dynamically (*.vercel.app)
+const corsOptionsDelegate = function (req: any, callback: any) {
+  const origin = req.header('Origin');
+  let corsOptions;
+
+  if (!origin) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    corsOptions = {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 600 // Cache preflight for 10 minutes
+    };
+  } else if (allowedOrigins.includes(origin)) {
+    // Origin is in allowed list
+    corsOptions = {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 600
+    };
+  } else if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
+    // Allow all Vercel and Railway deployments for flexibility
+    corsOptions = {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 600
+    };
+  } else {
+    // Origin not allowed
+    console.warn(`⚠️  CORS: Blocked request from unauthorized origin: ${origin}`);
+    corsOptions = {
+      origin: false,
+      credentials: false
+    };
+  }
+
+  callback(null, corsOptions);
+};
+
+// Apply CORS middleware with dynamic origin checking
+app.use(cors(corsOptionsDelegate));
+
+// Explicit preflight (OPTIONS) handling for all routes
+app.options('*', cors(corsOptionsDelegate));
 
 // Log CORS configuration
-console.log('🌐 CORS configured for origins:', allowedOrigins);
-console.log('🔧 CLIENT_URL environment variable:', process.env.CLIENT_URL);
+console.log('🌐 CORS configured with dynamic origin checking');
+console.log('✅ Allowed origins (static):', allowedOrigins);
+console.log('✅ Dynamic patterns: *.vercel.app, *.railway.app');
+console.log('🔧 CLIENT_URL environment variable:', process.env.CLIENT_URL || 'not set');
+console.log('🔧 FRONTEND_URL environment variable:', process.env.FRONTEND_URL || 'not set');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
