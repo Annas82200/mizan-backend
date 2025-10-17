@@ -1,8 +1,8 @@
-// server/routes/consulting.ts
+// backend/src/routes/consulting.ts
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, validateTenantAccess } from '../middleware/auth';
 import { db } from '../../db/index';
 import { consultingRequests, consultants } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -88,18 +88,38 @@ router.post('/request', async (req, res) => {
   }
 });
 
-// Admin routes
+// Admin routes with authentication and tenant isolation
 router.use(authenticate);
+router.use(validateTenantAccess);
 
-// Get consultation requests
+// Get consultation requests (tenant-isolated)
 router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const requests = await db.query.consultingRequests.findMany({
-      orderBy: [desc(consultingRequests.createdAt)],
-      with: {
-        assignedConsultant: true
-      }
-    });
+    const { user } = req as any;
+    
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    let requests;
+    
+    // Superadmin can see all requests, clientAdmin only sees their tenant's requests
+    if (user.role === 'superadmin') {
+      requests = await db.query.consultingRequests.findMany({
+        orderBy: [desc(consultingRequests.createdAt)],
+        with: {
+          assignedConsultant: true
+        }
+      });
+    } else {
+      requests = await db.query.consultingRequests.findMany({
+        where: eq(consultingRequests.tenantId, user.tenantId),
+        orderBy: [desc(consultingRequests.createdAt)],
+        with: {
+          assignedConsultant: true
+        }
+      });
+    }
     
     return res.json(requests);
     
@@ -109,11 +129,30 @@ router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, re
   }
 });
 
-// Update request status
-router.put('/requests/:id', authorize(['superadmin']), async (req, res) => {
+// Update request status (superadmin only for global requests, clientAdmin for tenant requests)
+router.put('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
+    const { user } = req as any;
     const { status, assignedTo, notes } = req.body;
     
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    // Validate request exists and check tenant access
+    const existingRequest = await db.query.consultingRequests.findFirst({
+      where: eq(consultingRequests.id, req.params.id)
+    });
+
+    if (!existingRequest) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Tenant access validation
+    if (user.role === 'clientAdmin' && existingRequest.tenantId !== user.tenantId && existingRequest.tenantId !== 'public') {
+      return res.status(403).json({ error: 'Access denied: Insufficient permissions' });
+    }
+
     const [updated] = await db.update(consultingRequests)
       .set({
         status,
@@ -136,18 +175,174 @@ router.put('/requests/:id', authorize(['superadmin']), async (req, res) => {
   }
 });
 
-// Get consultants
-router.get('/consultants', async (req, res) => {
+// Get consultants (tenant-isolated for client admins)
+router.get('/consultants', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const consultantList = await db.query.consultants.findMany({
-      where: eq(consultants.isActive, true)
-    });
+    const { user } = req as any;
+    
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    let consultantList;
+
+    // Superadmin can see all consultants, clientAdmin sees tenant-specific consultants
+    if (user.role === 'superadmin') {
+      consultantList = await db.query.consultants.findMany({
+        where: eq(consultants.isActive, true)
+      });
+    } else {
+      // Client admins can only see consultants assigned to their tenant or global consultants
+      consultantList = await db.query.consultants.findMany({
+        where: and(
+          eq(consultants.isActive, true),
+          // Add tenant filtering logic here if consultants table has tenantId
+          // For now, assuming all active consultants are available to all tenants
+        )
+      });
+    }
     
     return res.json(consultantList);
     
   } catch (error) {
     console.error('Consultants fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch consultants' });
+  }
+});
+
+// Create consultation request (authenticated users only)
+router.post('/requests', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
+  try {
+    const { user } = req as any;
+    
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    const schema = z.object({
+      requestType: z.enum(['demo', 'implementation', 'training', 'strategy']),
+      description: z.string().min(10),
+      priority: z.enum(['low', 'medium', 'high']).optional().default('medium'),
+      assignedTo: z.string().optional()
+    });
+    
+    const validatedData = schema.parse(req.body);
+    
+    const [request] = await db.insert(consultingRequests)
+      .values({
+        id: crypto.randomUUID(),
+        tenantId: user.tenantId, // Always use authenticated user's tenantId
+        requestType: validatedData.requestType,
+        description: validatedData.description,
+        priority: validatedData.priority,
+        assignedTo: validatedData.assignedTo,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return res.json({
+      success: true,
+      request,
+      message: 'Consultation request created successfully'
+    });
+    
+  } catch (error) {
+    console.error('Create consultation request error:', error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: 'Invalid request data',
+        details: error.errors
+      });
+    }
+    
+    return res.status(500).json({ error: 'Failed to create request' });
+  }
+});
+
+// Get specific consultation request (tenant-isolated)
+router.get('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
+  try {
+    const { user } = req as any;
+    
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    let request;
+
+    if (user.role === 'superadmin') {
+      request = await db.query.consultingRequests.findFirst({
+        where: eq(consultingRequests.id, req.params.id),
+        with: {
+          assignedConsultant: true
+        }
+      });
+    } else {
+      request = await db.query.consultingRequests.findFirst({
+        where: and(
+          eq(consultingRequests.id, req.params.id),
+          eq(consultingRequests.tenantId, user.tenantId)
+        ),
+        with: {
+          assignedConsultant: true
+        }
+      });
+    }
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    return res.json(request);
+    
+  } catch (error) {
+    console.error('Request fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch request' });
+  }
+});
+
+// Delete consultation request (tenant-isolated)
+router.delete('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
+  try {
+    const { user } = req as any;
+    
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
+    }
+
+    // Check if request exists and validate tenant access
+    const existingRequest = await db.query.consultingRequests.findFirst({
+      where: eq(consultingRequests.id, req.params.id)
+    });
+
+    if (!existingRequest) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Tenant access validation
+    if (user.role === 'clientAdmin' && existingRequest.tenantId !== user.tenantId) {
+      return res.status(403).json({ error: 'Access denied: Insufficient permissions' });
+    }
+
+    const [deleted] = await db.delete(consultingRequests)
+      .where(eq(consultingRequests.id, req.params.id))
+      .returning();
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Consultation request deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Request deletion error:', error);
+    return res.status(500).json({ error: 'Failed to delete request' });
   }
 });
 

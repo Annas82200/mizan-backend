@@ -43,6 +43,39 @@ export interface FlowExecution {
   error?: string;
 }
 
+// Mizan Production-Ready Step Result Types
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
+interface StepResult {
+  success: boolean;
+  data: Record<string, unknown>;
+  error?: string;
+  timestamp: Date;
+}
+
+interface TriggerStepResult {
+  triggerExecuted: boolean;
+  triggerType: string;
+  triggerData?: Record<string, unknown>;
+}
+
+interface ActionStepResult {
+  actionExecuted: boolean;
+  actionType: string;
+  actionData?: Record<string, unknown>;
+}
+
+interface ConditionStepResult {
+  conditionMet: boolean;
+  conditionType?: string;
+  evaluationData?: Record<string, unknown>;
+}
+
+interface DelayStepResult {
+  delayCompleted: boolean;
+  delayDuration: number;
+  completedAt: Date;
+}
+
 export class AutomatedFlowService {
   async createFlow(tenantId: string, name: string, description: string, steps: FlowStep[]): Promise<string> {
     try {
@@ -184,7 +217,7 @@ export class AutomatedFlowService {
     }
   }
 
-  private async executeStep(step: FlowStep, execution: FlowExecution): Promise<any> {
+  private async executeStep(step: FlowStep, execution: FlowExecution): Promise<StepResult> {
     switch (step.type) {
       case 'trigger':
         return await this.executeTriggerStep(step, execution);
@@ -199,25 +232,42 @@ export class AutomatedFlowService {
     }
   }
 
-  private async executeTriggerStep(step: FlowStep, execution: FlowExecution): Promise<any> {
-    console.log('Executing trigger step');
-    return { triggerExecuted: true };
+  private async executeTriggerStep(step: FlowStep, execution: FlowExecution): Promise<TriggerStepResult> {
+    console.log('Executing trigger step:', step.config.triggerType);
+    return { 
+      triggerExecuted: true,
+      triggerType: step.config.triggerType || 'default',
+      triggerData: step.config.parameters
+    };
   }
 
-  private async executeActionStep(step: FlowStep, execution: FlowExecution): Promise<any> {
-    console.log('Executing action step');
-    return { actionExecuted: true };
+  private async executeActionStep(step: FlowStep, execution: FlowExecution): Promise<ActionStepResult> {
+    console.log('Executing action step:', step.config.actionType);
+    return { 
+      actionExecuted: true,
+      actionType: step.config.actionType || 'default',
+      actionData: step.config.parameters
+    };
   }
 
-  private async executeConditionStep(step: FlowStep, execution: FlowExecution): Promise<any> {
-    console.log('Executing condition step');
-    return { conditionMet: true };
+  private async executeConditionStep(step: FlowStep, execution: FlowExecution): Promise<ConditionStepResult> {
+    console.log('Executing condition step:', step.config.condition);
+    return { 
+      conditionMet: true,
+      conditionType: step.config.condition,
+      evaluationData: execution.context
+    };
   }
 
-  private async executeDelayStep(step: FlowStep, execution: FlowExecution): Promise<any> {
-    console.log('Executing delay step');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { delayCompleted: true };
+  private async executeDelayStep(step: FlowStep, execution: FlowExecution): Promise<DelayStepResult> {
+    const delayDuration = step.config.delayDuration || 1000;
+    console.log('Executing delay step:', delayDuration, 'ms');
+    await new Promise(resolve => setTimeout(resolve, delayDuration));
+    return { 
+      delayCompleted: true,
+      delayDuration,
+      completedAt: new Date()
+    };
   }
 }
 

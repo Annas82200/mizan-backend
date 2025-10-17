@@ -152,9 +152,16 @@ export class BillingService {
       let customerId = tenant.stripeCustomerId;
 
       // Create customer if doesn't exist
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO PLACEHOLDER DATA
       if (!customerId) {
-        const email = tenant.primaryContact || 'noreply@example.com';
-        const name = tenant.name || 'Unknown';
+        if (!tenant.primaryContact) {
+          throw new Error('Tenant primary contact email is required for Stripe customer creation');
+        }
+        if (!tenant.name) {
+          throw new Error('Tenant name is required for Stripe customer creation');
+        }
+        const email = tenant.primaryContact;
+        const name = tenant.name;
         customerId = await this.createCustomer(tenantId, email, name);
       }
 
@@ -300,9 +307,17 @@ export class BillingService {
       }
 
       let customerId = tenant.stripeCustomerId;
+      // Create Stripe customer if doesn't exist
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO PLACEHOLDER DATA
       if (!customerId) {
-        const email = tenant.primaryContact || 'noreply@example.com';
-        const name = tenant.name || 'Unknown';
+        if (!tenant.primaryContact) {
+          throw new Error('Tenant primary contact email is required for payment intent creation');
+        }
+        if (!tenant.name) {
+          throw new Error('Tenant name is required for payment intent creation');
+        }
+        const email = tenant.primaryContact;
+        const name = tenant.name;
         customerId = await this.createCustomer(tenantId, email, name);
       }
 

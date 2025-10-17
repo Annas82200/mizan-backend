@@ -67,8 +67,100 @@ interface SkillGap {
     priority: 'critical' | 'high' | 'medium' | 'low';
 }
 
+// Mizan Production-Ready Resume Data Types
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
 interface ResumeData {
-    [key: string]: unknown;
+    personalInfo: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone?: string;
+        location?: string;
+        linkedIn?: string;
+        portfolio?: string;
+    };
+    summary?: string;
+    experience: Array<{
+        company: string;
+        position: string;
+        startDate: string;
+        endDate?: string;
+        current?: boolean;
+        description?: string;
+        achievements?: string[];
+        skills?: string[];
+    }>;
+    education: Array<{
+        institution: string;
+        degree: string;
+        field?: string;
+        startDate?: string;
+        endDate?: string;
+        gpa?: string;
+    }>;
+    skills: {
+        technical?: string[];
+        soft?: string[];
+        languages?: Array<{
+            language: string;
+            proficiency: string;
+        }>;
+    };
+    certifications?: Array<{
+        name: string;
+        issuer: string;
+        date?: string;
+        expiryDate?: string;
+    }>;
+    projects?: Array<{
+        name: string;
+        description: string;
+        technologies?: string[];
+        url?: string;
+    }>;
+}
+
+// Resume building state data
+interface ResumeBuildingData {
+    step: 'personal_info' | 'experience' | 'education' | 'skills' | 'certifications' | 'review';
+    completedSteps: string[];
+    currentData: Partial<ResumeData>;
+    missingFields: string[];
+    validationErrors: string[];
+}
+
+// Individual skills gap analysis data
+interface IndividualSkillsGap {
+    employeeId: string;
+    tenantId: string;
+    profileId: string;
+    analysisDate: Date;
+    criticalGaps: Array<{
+        skill: string;
+        currentLevel: number;
+        requiredLevel: number;
+        gap: number;
+        priority: 'critical' | 'high';
+        estimatedTimeToClose: string;
+        developmentActions: string[];
+    }>;
+    moderateGaps: Array<{
+        skill: string;
+        currentLevel: number;
+        requiredLevel: number;
+        gap: number;
+        priority: 'medium' | 'low';
+        developmentActions: string[];
+    }>;
+    strengthAreas: Array<{
+        skill: string;
+        level: number;
+        certifications?: string[];
+    }>;
+    overallSkillScore: number;
+    strategicAlignmentScore: number;
+    readinessScore: number;
+    recommendedLearningPaths: string[];
 }
 
 /**
@@ -143,7 +235,7 @@ export class SkillsBotService {
   async assistEmployeeResumeUpload(
     userId: string,
     tenantId: string,
-    resumeData: any
+    resumeData: ResumeData
   ): Promise<BotResponse> {
     try {
       const context = await this.buildBotContext(userId, tenantId);
@@ -216,7 +308,7 @@ export class SkillsBotService {
   async assistResumeBuilding(
     userId: string,
     tenantId: string,
-    currentData: any
+    currentData: ResumeBuildingData
   ): Promise<BotResponse> {
     try {
       const context = await this.buildBotContext(userId, tenantId);
@@ -259,7 +351,7 @@ export class SkillsBotService {
   async explainSkillsGap(
     userId: string,
     tenantId: string,
-    gapAnalysis: any
+    gapAnalysis: IndividualSkillsGap
   ): Promise<BotResponse> {
     try {
       const context = await this.buildBotContext(userId, tenantId);
@@ -430,7 +522,7 @@ export class SkillsBotService {
   private async analyzeQueryIntent(
     query: string, 
     context: BotContext
-  ): Promise<{ type: string; confidence: number; entities: any }> {
+  ): Promise<{ type: string; confidence: number; entities: Record<string, unknown> }> {
     // Simple intent analysis - in production, this would use NLP/AI
     const lowerQuery = query.toLowerCase();
     
@@ -622,7 +714,7 @@ export class SkillsBotService {
     return { percentage: score, missing };
   }
 
-  private async suggestResumeImprovements(currentData: Record<string, unknown>): Promise<{ suggestions: string[]; resources: any[] }> {
+  private async suggestResumeImprovements(currentData: Record<string, unknown>): Promise<{ suggestions: string[]; resources: Array<{ title: string; url: string; type: string }> }> {
     return {
       suggestions: [
         'Add quantifiable achievements to your work experience',
@@ -683,8 +775,17 @@ export class SkillsBotService {
     ];
   }
 
-  private async getTeamSkillsData(supervisorId: string, tenantId: string, teamId?: string): Promise<any> {
-    // Implementation would fetch team skills data
+  private async getTeamSkillsData(
+    supervisorId: string, 
+    tenantId: string, 
+    teamId?: string
+  ): Promise<{
+    employeeCount: number;
+    overallScore: number;
+    criticalGaps: number;
+    strengthAreas: string[];
+  }> {
+    // Implementation would fetch team skills data from database with tenant isolation
     return {
       employeeCount: 5,
       overallScore: 75,
@@ -693,8 +794,13 @@ export class SkillsBotService {
     };
   }
 
-  private async getOrganizationSkillsAnalytics(tenantId: string): Promise<any> {
-    // Implementation would fetch organization analytics
+  private async getOrganizationSkillsAnalytics(tenantId: string): Promise<{
+    readiness: 'ready' | 'partially-ready' | 'not-ready';
+    criticalGaps: number;
+    strategicAlignment: number;
+    investmentNeeded: number;
+  }> {
+    // Implementation would fetch organization analytics with tenant isolation
     return {
       readiness: 'partially-ready',
       criticalGaps: 12,

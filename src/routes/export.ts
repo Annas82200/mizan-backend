@@ -1,8 +1,16 @@
+Looking at the current code, I can see this is an export route that generates HTML exports for structure analysis. The main security issue is that while there's basic authentication, there's no proper tenant isolation validation for the export data. Here's the complete secured file:
+
+```typescript
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
+import { validateTenantAccess } from '../middleware/tenant';
+import { db } from '../db/connection';
+import { structureTable } from '../db/schema/structure';
+import { eq, and } from 'drizzle-orm';
 
 const router = Router();
 router.use(authenticate);
+router.use(validateTenantAccess);
 
 // Custom sophisticated icons for structure analysis
 const ICONS = {
@@ -61,6 +69,29 @@ interface AnalysisExport {
   layerAnalysis: LayerAnalysis;
   strategyAlignment: StrategyAlignment;
   recommendations: Recommendation[];
+}
+
+// Validate that analysis data belongs to the authenticated tenant
+async function validateAnalysisOwnership(
+  analysisId: string, 
+  tenantId: string
+): Promise<boolean> {
+  try {
+    const analysis = await db.select()
+      .from(structureTable)
+      .where(
+        and(
+          eq(structureTable.id, analysisId),
+          eq(structureTable.tenantId, tenantId)
+        )
+      )
+      .limit(1);
+
+    return analysis.length > 0;
+  } catch (error) {
+    console.error('Error validating analysis ownership:', error);
+    return false;
+  }
 }
 
 // Helper function to format text with visual enhancement for subtitles
@@ -793,30 +824,37 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
 // POST /api/export/structure - Export structure analysis as beautiful HTML
 router.post('/structure', async (req: Request, res: Response) => {
   try {
-    const { analysisData, tenantName } = req.body;
+    const { analysisData, analysisId, tenantName } = req.body;
     const tenantId = req.user?.tenantId;
+    const userId = req.user?.id;
 
     // Verify tenant isolation - ensure user can only export their own tenant's data
     if (!tenantId) {
-      return res.status(401).json({ error: 'Authentication required for export' });
+      return res.status(401).json({ 
+        error: 'Authentication required for export',
+        code: 'UNAUTHORIZED'
+      });
     }
 
     if (!analysisData) {
-      return res.status(400).json({ error: 'Analysis data is required' });
+      return res.status(400).json({ 
+        error: 'Analysis data is required for export',
+        code: 'MISSING_ANALYSIS_DATA'
+      });
     }
 
-    // Note: analysisData should already be filtered by tenantId from the analysis retrieval
-    // This endpoint trusts that the client has fetched tenant-specific data
-    const html = generateHTMLExport(analysisData, tenantName || 'Organization');
+    // Additional security: If analysisId is provided, validate ownership
+    if (analysisId) {
+      const isOwner = await validateAnalysisOwnership(analysisId, tenantId);
+      if (!isOwner) {
+        console.warn(`Unauthorized export attempt: User ${userId} tried to export analysis ${analysisId} from tenant ${tenantId}`);
+        return res.status(403).json({ 
+          error: 'Access denied: Analysis does not belong to your organization',
+          code: 'FORBIDDEN_ANALYSIS_ACCESS'
+        });
+      }
+    }
 
-    // Return HTML for download or preview
-    res.setHeader('Content-Type', 'text/html');
-    return res.send(html);
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to generate export';
-    console.error('Export error:', error);
-    return res.status(500).json({ error: errorMessage });
-  }
-});
-
-export default router;
+    // Validate that analysisData structure is safe and contains expected fields
+    if (!analysisData.overallScore && analysisData.overallScore !== 0) {
+      return res

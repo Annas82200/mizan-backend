@@ -27,8 +27,9 @@ export const automatedFlows = pgTable('automated_flows', {
   conditions: jsonb('conditions'),
 
   // Status
+  // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete feature implementation
   isActive: boolean('is_active').default(true),
-  status: text('status').notNull(), // active, paused, disabled
+  status: text('status', { enum: ['active', 'paused', 'disabled'] }).notNull().default('active'),
 
   // Metadata
   metadata: jsonb('metadata'),
@@ -76,11 +77,13 @@ export const flowExecutions = pgTable('flow_executions', {
   error: text('error'), // Error message
   errorMessage: text('error_message'),
   errorStack: text('error_stack'),
+  // Mizan Production-Ready Log Types
+  // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types
   logs: jsonb('logs').$type<Array<{
     timestamp: string;
     level: string;
     message: string;
-    data?: any;
+    data?: Record<string, unknown>;
   }>>(),
 
   // Timestamps

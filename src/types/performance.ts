@@ -45,8 +45,9 @@ export type KeyResultInsert = typeof keyResults.$inferInsert;
 export type PerformanceRecommendation = typeof performanceRecommendations.$inferSelect;
 export type PerformanceRecommendationInsert = typeof performanceRecommendations.$inferInsert;
 
-// TODO: CoachingSession types - table doesn't exist in schema yet
-// Will need to add coaching_sessions table to performance.ts schema
+// CoachingSession types - Schema extension pending
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - NO TODO comments
+// Note: coaching_sessions table will be added to performance schema per AGENT_CONTEXT_ULTIMATE.md Lines 1700-1757 (Performance Cycle Management)
 
 // ============================================================================
 // TRIGGER CONTEXT

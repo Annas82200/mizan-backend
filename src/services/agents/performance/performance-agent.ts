@@ -51,6 +51,32 @@ export const PerformanceAnalysisInputSchema = z.object({
 
 export type PerformanceAnalysisInput = z.infer<typeof PerformanceAnalysisInputSchema>;
 
+// Department Structure Type - Mizan Production-Ready
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
+interface DepartmentStructure {
+    id: string;
+    name: string;
+    parentId?: string;
+    headCount: number;
+    manager?: string;
+}
+
+// Performance Goal Template Type
+interface PerformanceGoalTemplate {
+    description: string;
+    weight: number;
+    targetValue: number | string;
+    type: 'performance' | 'culture' | 'learning' | 'skills';
+}
+
+// Individual Goal Template Type
+interface IndividualGoalTemplate {
+    description: string;
+    type: 'performance' | 'culture' | 'learning' | 'skills';
+    weight: number;
+    status: 'draft' | 'active' | 'pending' | 'completed';
+}
+
 interface Recommendation {
     category: string;
     priority: 'critical' | 'high' | 'medium' | 'low';
@@ -283,7 +309,14 @@ class PerformanceAgent {
         };
     }
 
-    private async generateAndPersistGoals(cycleId: string, tenantId: string, analysisResult: PerformanceAnalysisResult, departmentStructure: any[], culturePriorities: CultureAnalysisOutput, skillsGaps: SkillsAnalysisResult) {
+    private async generateAndPersistGoals(
+        cycleId: string, 
+        tenantId: string, 
+        analysisResult: PerformanceAnalysisResult, 
+        departmentStructure: DepartmentStructure[], 
+        culturePriorities: CultureAnalysisOutput, 
+        skillsGaps: SkillsAnalysisResult
+    ) {
         // Departmental Goals
         if (departmentStructure) {
             for (const dept of departmentStructure) {
@@ -305,8 +338,8 @@ class PerformanceAgent {
                         targetDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
                         createdBy: 'system',
                         updatedBy: 'system',
-                        employeeId: 'system', // Placeholder, goals are for department
-                        managerId: 'system', // Placeholder
+                        employeeId: 'system', // Department-level goals use system as placeholder
+                        managerId: dept.manager || 'system' // Department manager if available
                     });
                 }
             }
@@ -336,7 +369,7 @@ class PerformanceAgent {
         }
     }
     
-    private createDepartmentGoals(dept: any, analysisResult: PerformanceAnalysisResult): any[] {
+    private createDepartmentGoals(dept: DepartmentStructure, analysisResult: PerformanceAnalysisResult): PerformanceGoalTemplate[] {
         const goals = [];
         if (dept.name?.toLowerCase().includes('engineering')) {
             goals.push({ description: 'Improve system reliability to 99.9% uptime', weight: 30, targetValue: 99.9, type: 'performance' });
@@ -349,7 +382,7 @@ class PerformanceAgent {
         return goals;
     }
 
-    private createIndividualGoals(analysisResult: PerformanceAnalysisResult, cultureGoals: CultureAnalysisOutput, skillsGaps: SkillsAnalysisResult): any[] {
+    private createIndividualGoals(analysisResult: PerformanceAnalysisResult, cultureGoals: CultureAnalysisOutput, skillsGaps: SkillsAnalysisResult): IndividualGoalTemplate[] {
         const goals = [];
         goals.push({ description: 'Complete assigned project deliverables', type: 'performance', weight: 50, status: 'draft' });
 

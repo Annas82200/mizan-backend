@@ -1,9 +1,10 @@
-// routes/demo.ts
+// backend/src/routes/demo.ts
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
 import { demoRequests } from '../../db/schema/payments';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
+import { validateTenantAccess } from '../middleware/tenant';
 import { emailService } from '../services/email';
 
 const router = Router();
@@ -46,19 +47,63 @@ router.post('/submit', async (req: Request, res: Response) => {
       });
     }
 
+    // Validate employee count if provided
+    if (employeeCount && (isNaN(Number(employeeCount)) || Number(employeeCount) < 1)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid employee count'
+      });
+    }
+
+    // Sanitize inputs
+    const sanitizedData = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.toLowerCase().trim(),
+      company: company.trim(),
+      phone: phone ? phone.trim() : null,
+      employeeCount: employeeCount ? Number(employeeCount) : null,
+      industry: industry ? industry.trim() : null,
+      interestedIn: interestedIn ? interestedIn.trim() : null,
+      message: message ? message.trim() : null,
+    };
+
+    // Check for duplicate requests (same email within last 24 hours)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const existingRequest = await db
+      .select()
+      .from(demoRequests)
+      .where(
+        and(
+          eq(demoRequests.email, sanitizedData.email),
+          // Note: We can't use gte() with Date objects directly in Drizzle, so we'll check in memory
+        )
+      )
+      .limit(1);
+
+    if (existingRequest.length > 0) {
+      const existing = existingRequest[0];
+      if (existing.createdAt && existing.createdAt > twentyFourHoursAgo) {
+        return res.status(429).json({
+          success: false,
+          error: 'A demo request has already been submitted for this email in the last 24 hours'
+        });
+      }
+    }
+
     // Create demo request
     const [newDemoRequest] = await db
       .insert(demoRequests)
       .values({
-        firstName,
-        lastName,
-        email,
-        company,
-        phone: phone || null,
-        employeeCount: employeeCount || null,
-        industry: industry || null,
-        interestedIn: interestedIn || null,
-        message: message || null,
+        firstName: sanitizedData.firstName,
+        lastName: sanitizedData.lastName,
+        email: sanitizedData.email,
+        company: sanitizedData.company,
+        phone: sanitizedData.phone,
+        employeeCount: sanitizedData.employeeCount,
+        industry: sanitizedData.industry,
+        interestedIn: sanitizedData.interestedIn,
+        message: sanitizedData.message,
         status: 'pending',
         source: 'website',
         createdAt: new Date(),
@@ -69,12 +114,12 @@ router.post('/submit', async (req: Request, res: Response) => {
     // Send confirmation email to customer
     try {
       await emailService.sendEmail({
-        to: email,
+        to: sanitizedData.email,
         template: 'demoRequestConfirmation',
         data: {
-          firstName,
-          lastName,
-          company,
+          firstName: sanitizedData.firstName,
+          lastName: sanitizedData.lastName,
+          company: sanitizedData.company,
         }
       });
     } catch (emailError) {
@@ -89,15 +134,16 @@ router.post('/submit', async (req: Request, res: Response) => {
         to: superadminEmail,
         template: 'demoRequestNotification',
         data: {
-          firstName,
-          lastName,
-          email,
-          company,
-          phone,
-          employeeCount,
-          industry,
-          interestedIn,
-          message,
+          firstName: sanitizedData.firstName,
+          lastName: sanitizedData.lastName,
+          email: sanitizedData.email,
+          company: sanitizedData.company,
+          phone: sanitizedData.phone,
+          employeeCount: sanitizedData.employeeCount,
+          industry: sanitizedData.industry,
+          interestedIn: sanitizedData.interestedIn,
+          message: sanitizedData.message,
+          requestId: newDemoRequest.id,
         }
       });
     } catch (emailError) {
@@ -116,9 +162,19 @@ router.post('/submit', async (req: Request, res: Response) => {
   } catch (error) {
     const e = error as Error;
     console.error('Demo request submission error:', e);
+    
+    // Log security-relevant errors for monitoring
+    if (e.message.includes('duplicate') || e.message.includes('constraint')) {
+      console.warn('Potential security issue - duplicate demo request attempt:', {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        body: req.body
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      error: e.message || 'Failed to submit demo request'
+      error: 'Failed to submit demo request. Please try again later.'
     });
   }
 });
@@ -127,18 +183,19 @@ router.post('/submit', async (req: Request, res: Response) => {
  * GET /api/demo/requests
  * Get all demo requests (for superadmin dashboard)
  * AUTH: Superadmin only
+ * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
  */
-router.get('/requests', authenticate, async (req: Request, res: Response) => {
+router.get('/requests', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
   try {
-    // Check if user is superadmin
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
+    // Double-check superadmin role (defense in depth)
+    if (!req.user || req.user.role !== 'superadmin') {
+      console.warn('Unauthorized access attempt to demo requests:', {
+        userId: req.user?.id,
+        role: req.user?.role,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
       });
-    }
-    
-    if (req.user.role !== 'superadmin') {
+      
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can view demo requests'
@@ -147,27 +204,59 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
 
     const { status, limit = 100, offset = 0 } = req.query;
 
-    let query = db.select().from(demoRequests).orderBy(desc(demoRequests.createdAt));
+    // Validate pagination parameters
+    const limitNum = Math.min(Math.max(Number(limit) || 100, 1), 1000); // Max 1000
+    const offsetNum = Math.max(Number(offset) || 0, 0);
+
+    let query = db
+      .select()
+      .from(demoRequests)
+      .orderBy(desc(demoRequests.createdAt));
 
     // Filter by status if provided
     if (status && typeof status === 'string') {
-      type DrizzleQuery = typeof query;
-      query = query.where(eq(demoRequests.status, status)) as DrizzleQuery;
+      const validStatuses = ['pending', 'contacted', 'qualified', 'converted', 'rejected'];
+      if (validStatuses.includes(status)) {
+        query = query.where(eq(demoRequests.status, status));
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}`
+        });
+      }
     }
 
     // Apply pagination
-    const requests = await query.limit(Number(limit)).offset(Number(offset));
+    const requests = await query.limit(limitNum).offset(offsetNum);
 
-    // Get total count
-    const totalCount = await db.select().from(demoRequests);
+    // Get total count for pagination metadata
+    let countQuery = db.select().from(demoRequests);
+    if (status && typeof status === 'string') {
+      const validStatuses = ['pending', 'contacted', 'qualified', 'converted', 'rejected'];
+      if (validStatuses.includes(status)) {
+        countQuery = countQuery.where(eq(demoRequests.status, status));
+      }
+    }
+    const totalCount = await countQuery;
+
+    // Log access for audit
+    console.info('Demo requests accessed by superadmin:', {
+      userId: req.user.id,
+      count: requests.length,
+      filters: { status },
+      pagination: { limit: limitNum, offset: offsetNum }
+    });
 
     return res.status(200).json({
       success: true,
       data: {
         requests,
-        total: totalCount.length,
-        limit: Number(limit),
-        offset: Number(offset)
+        pagination: {
+          total: totalCount.length,
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: offsetNum + limitNum < totalCount.length
+        }
       }
     });
 
@@ -176,7 +265,7 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
     console.error('Get demo requests error:', e);
     return res.status(500).json({
       success: false,
-      error: e.message || 'Failed to retrieve demo requests'
+      error: 'Failed to retrieve demo requests'
     });
   }
 });
@@ -185,18 +274,20 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
  * GET /api/demo/requests/:id
  * Get a single demo request by ID
  * AUTH: Superadmin only
+ * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
  */
-router.get('/requests/:id', authenticate, async (req: Request, res: Response) => {
+router.get('/requests/:id', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
   try {
-    // Check if user is superadmin
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
+    // Double-check superadmin role (defense in depth)
+    if (!req.user || req.user.role !== 'superadmin') {
+      console.warn('Unauthorized access attempt to demo request:', {
+        userId: req.user?.id,
+        role: req.user?.role,
+        requestedId: req.params.id,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
       });
-    }
-    
-    if (req.user.role !== 'superadmin') {
+      
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can view demo requests'
@@ -205,10 +296,19 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
 
     const { id } = req.params;
 
+    // Validate ID parameter
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request ID'
+      });
+    }
+
     const [request] = await db
       .select()
       .from(demoRequests)
-      .where(eq(demoRequests.id, parseInt(id)));
+      .where(eq(demoRequests.id, parseInt(id)))
+      .limit(1);
 
     if (!request) {
       return res.status(404).json({
@@ -216,6 +316,13 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
         error: 'Demo request not found'
       });
     }
+
+    // Log access for audit
+    console.info('Demo request accessed by superadmin:', {
+      userId: req.user.id,
+      requestId: id,
+      requestEmail: request.email
+    });
 
     return res.status(200).json({
       success: true,
@@ -227,7 +334,7 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
     console.error('Get demo request error:', e);
     return res.status(500).json({
       success: false,
-      error: e.message || 'Failed to retrieve demo request'
+      error: 'Failed to retrieve demo request'
     });
   }
 });
@@ -236,18 +343,20 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
  * PATCH /api/demo/requests/:id/status
  * Update demo request status
  * AUTH: Superadmin only
+ * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
  */
-router.patch('/requests/:id/status', authenticate, async (req: Request, res: Response) => {
+router.patch('/requests/:id/status', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
   try {
-    // Check if user is superadmin
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
+    // Double-check superadmin role (defense in depth)
+    if (!req.user || req.user.role !== 'superadmin') {
+      console.warn('Unauthorized update attempt on demo request:', {
+        userId: req.user?.id,
+        role: req.user?.role,
+        requestedId: req.params.id,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
       });
-    }
-    
-    if (req.user.role !== 'superadmin') {
+      
       return res.status(403).json({
         success: false,
         error: 'Only superadmins can update demo requests'
@@ -255,7 +364,15 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, notes } = req.body;
+
+    // Validate ID parameter
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request ID'
+      });
+    }
 
     if (!status) {
       return res.status(400).json({
@@ -273,21 +390,42 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
       });
     }
 
-    const [updated] = await db
-      .update(demoRequests)
-      .set({
-        status,
-        updatedAt: new Date(),
-      })
-      .where(eq(demoRequests.id, parseInt(id)))
-      .returning();
+    // Sanitize notes if provided
+    const sanitizedNotes = notes ? notes.trim() : null;
 
-    if (!updated) {
+    // Check if request exists before updating
+    const [existingRequest] = await db
+      .select()
+      .from(demoRequests)
+      .where(eq(demoRequests.id, parseInt(id)))
+      .limit(1);
+
+    if (!existingRequest) {
       return res.status(404).json({
         success: false,
         error: 'Demo request not found'
       });
     }
+
+    // Update the request
+    const [updated] = await db
+      .update(demoRequests)
+      .set({
+        status,
+        notes: sanitizedNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(demoRequests.id, parseInt(id)))
+      .returning();
+
+    // Log the update for audit
+    console.info('Demo request status updated by superadmin:', {
+      userId: req.user.id,
+      requestId: id,
+      oldStatus: existingRequest.status,
+      newStatus: status,
+      requestEmail: existingRequest.email
+    });
 
     return res.status(200).json({
       success: true,
@@ -300,7 +438,63 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
     console.error('Update demo request status error:', e);
     return res.status(500).json({
       success: false,
-      error: e.message || 'Failed to update demo request status'
+      error: 'Failed to update demo request status'
+    });
+  }
+});
+
+/**
+ * GET /api/demo/stats
+ * Get demo request statistics
+ * AUTH: Superadmin only
+ * NOTE: Provides aggregated statistics for the superadmin dashboard
+ */
+router.get('/stats', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    // Double-check superadmin role (defense in depth)
+    if (!req.user || req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only superadmins can view demo statistics'
+      });
+    }
+
+    // Get all demo requests for statistics
+    const allRequests = await db.select().from(demoRequests);
+
+    // Calculate statistics
+    const stats = {
+      total: allRequests.length,
+      byStatus: {
+        pending: allRequests.filter(r => r.status === 'pending').length,
+        contacted: allRequests.filter(r => r.status === 'contacted').length,
+        qualified: allRequests.filter(r => r.status === 'qualified').length,
+        converted: allRequests.filter(r => r.status === 'converted').length,
+        rejected: allRequests.filter(r => r.status === 'rejected').length,
+      },
+      bySource: allRequests.reduce((acc, req) => {
+        acc[req.source || 'unknown'] = (acc[req.source || 'unknown'] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      recentRequests: allRequests
+        .filter(r => r.createdAt && r.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+        .length,
+      conversionRate: allRequests.length > 0 
+        ? ((allRequests.filter(r => r.status === 'converted').length / allRequests.length) * 100).toFixed(2)
+        : '0.00'
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: stats
+    });
+
+  } catch (error) {
+    const e = error as Error;
+    console.error('Get demo stats error:', e);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve demo statistics'
     });
   }
 });

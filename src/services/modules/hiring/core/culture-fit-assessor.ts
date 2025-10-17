@@ -1,6 +1,6 @@
 // backend/src/services/modules/hiring/core/culture-fit-assessor.ts
 // Culture Fit Assessment for Hiring Module
-// NO PLACEHOLDERS - Production-ready implementation
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
 
 import { db } from '../../../../db/index';
 import { cultureAgent } from '../../../agents/culture/culture-agent';

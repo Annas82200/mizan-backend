@@ -1,15 +1,38 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { StructureAgent } from '../services/agents/structure-agent';
-import { StructureData, Role } from '../types/structure-types';
+import { StructureData } from '../types/structure-types';
+import { z } from 'zod';
 
 const router = express.Router();
+
+// Rate limiting for public endpoint to prevent abuse
+const publicAnalysisLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3, // Limit each IP to 3 requests per windowMs
+  message: {
+    success: false,
+    error: 'Too many analysis requests. Please try again in 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Input validation schema
+const analysisRequestSchema = z.object({
+  companyName: z.string().min(1, 'Company name is required').max(100, 'Company name too long'),
+  vision: z.string().max(500, 'Vision too long').optional(),
+  mission: z.string().max(500, 'Mission too long').optional(),
+  strategy: z.string().max(1000, 'Strategy too long').optional(),
+  values: z.string().max(500, 'Values too long').optional(),
+});
 
 // Configure multer for file uploads (in-memory storage)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB max
+    fileSize: 5 * 1024 * 1024 // 5MB max (reduced for public endpoint)
   },
   fileFilter: (req, file, cb) => {
     // Only accept CSV and TXT files
@@ -24,10 +47,12 @@ const upload = multer({
 /**
  * POST /api/public/structure/analyze
  * Public endpoint for FULL AI-powered structure analysis
- * Now collects company info and runs complete Structure Agent
+ * Rate limited and input validated for security
+ * Does NOT require authentication - intended for public demo/trial
  */
-router.post('/analyze', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: Request, res: Response) => {
   try {
+    // Validate file upload
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -35,18 +60,42 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       });
     }
 
-    const { companyName, vision, mission, strategy, values } = req.body;
-
-    if (!companyName) {
+    // Validate file size (additional check)
+    if (req.file.size > 5 * 1024 * 1024) {
       return res.status(400).json({
         success: false,
-        error: 'Company name is required'
+        error: 'File size too large. Maximum 5MB allowed.'
       });
     }
 
-    // Parse CSV/TXT file
+    // Validate request body
+    let validatedInput;
+    try {
+      validatedInput = analysisRequestSchema.parse(req.body);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid input data',
+          details: validationError.errors.map(err => err.message)
+        });
+      }
+      throw validationError;
+    }
+
+    const { companyName, vision, mission, strategy, values } = validatedInput;
+
+    // Parse CSV/TXT file with size limits
     const fileContent = req.file.buffer.toString('utf-8');
     const lines = fileContent.split('\n').filter(line => line.trim());
+
+    // Limit number of lines for public endpoint
+    if (lines.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'File too large. Maximum 1000 lines allowed for public analysis.'
+      });
+    }
 
     if (lines.length < 2) {
       return res.status(400).json({
@@ -65,28 +114,46 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       reportsTo?: string | null;
     }
 
-    // Parse org structure from CSV
+    // Parse org structure from CSV with input sanitization
     const orgStructure: OrgEmployee[] = [];
     const reportingRelationships: { [key: string]: string[] } = {};
 
-    // Parse (assuming format: Employee, Manager or Name, Reports To)
-    for (let i = 1; i < lines.length; i++) {
-      const [employee, manager] = lines[i].split(',').map(s => s.trim());
-      if (employee) {
+    // Parse with input sanitization
+    for (let i = 1; i < Math.min(lines.length, 501); i++) { // Limit to 500 employees for public
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const parts = line.split(',').map(s => s.trim().slice(0, 100)); // Limit field length
+      const [employee, manager] = parts;
+
+      if (employee && employee.length > 0) {
+        const sanitizedEmployee = employee.replace(/[<>\"']/g, ''); // Basic sanitization
+        const sanitizedManager = manager && manager !== '' && manager.toLowerCase() !== 'none' 
+          ? manager.replace(/[<>\"']/g, '') 
+          : null;
+
         orgStructure.push({
           id: `emp-${i}`,
-          name: employee,
-          level: 0, // Will be calculated later
-          manager: manager && manager !== '' && manager.toLowerCase() !== 'none' ? manager : null
+          name: sanitizedEmployee,
+          level: 0,
+          manager: sanitizedManager
         });
 
-        if (manager && manager !== '' && manager.toLowerCase() !== 'none') {
-          if (!reportingRelationships[manager]) {
-            reportingRelationships[manager] = [];
+        if (sanitizedManager) {
+          if (!reportingRelationships[sanitizedManager]) {
+            reportingRelationships[sanitizedManager] = [];
           }
-          reportingRelationships[manager].push(employee);
+          reportingRelationships[sanitizedManager].push(sanitizedEmployee);
         }
       }
+    }
+
+    // Validate minimum data requirements
+    if (orgStructure.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient data. At least 2 employees required for analysis.'
+      });
     }
 
     // Build departments from employee data
@@ -104,7 +171,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       dept.headCount++;
     });
 
-    // Prepare structure data for AI analysis in proper StructureData format
+    // Prepare structure data for AI analysis
     const structureData: StructureData = {
       departments: Array.from(departmentMap.values()),
       reportingLines: Object.entries(reportingRelationships).flatMap(([manager, reports]) =>
@@ -126,7 +193,7 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       organizationLevels: Math.max(...orgStructure.map(e => e.level), 1)
     };
 
-    // Prepare strategy data in proper StrategyData format
+    // Prepare strategy data
     const hasStrategy = vision || mission || strategy;
     const strategyData = hasStrategy ? {
       id: 'public-strategy',
@@ -139,20 +206,28 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
       growthStrategy: strategy || undefined
     } : undefined;
 
-    // Run FULL AI-powered structure analysis using Structure Agent
+    // Run AI-powered structure analysis
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types
     const structureAgent = new StructureAgent();
-    let richAnalysis: any | null = null;
+    let richAnalysis: StructureAnalysisOutput | null = null;
 
     try {
-      const agentResponse = await structureAgent.generateRichStructureAnalysis({
-        tenantId: 'public', // Special tenant ID for public analyses
-        companyName,
+      // Use timeout for public endpoint
+      const analysisPromise = structureAgent.generateRichStructureAnalysis({
+        tenantId: 'public-demo', // Special identifier for public analyses (not stored in DB)
+        companyName: companyName.slice(0, 100), // Limit company name length
         structureData,
         strategyData,
-        useFastMode: true // Use single Gemini call for speed (~3-5 seconds vs ~30+ seconds)
+        useFastMode: true // Use single call for speed in public demo
       });
 
-      // Transform agent response to match frontend expectations
+      // Add timeout for public endpoint
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Analysis timeout')), 30000); // 30 second timeout
+      });
+
+      const agentResponse = await Promise.race([analysisPromise, timeoutPromise]) as any;
+
       richAnalysis = {
         overallAssessment: agentResponse.overallHealthInterpretation || '',
         keyFindings: [
@@ -161,68 +236,73 @@ router.post('/analyze', upload.single('file'), async (req: Request, res: Respons
           agentResponse.strategyAlignment?.interpretation || `Strategy Alignment: ${agentResponse.strategyAlignment?.score || 0}% score`,
           agentResponse.humanImpact?.interpretation
         ].filter(Boolean),
-        recommendations: agentResponse.recommendations || []
+        recommendations: (agentResponse.recommendations || []).slice(0, 5) // Limit recommendations for public
       };
+
     } catch (aiError) {
       const e = aiError as Error;
-      console.error('AI analysis error:', e);
+      console.error('AI analysis error (public endpoint):', e.message);
       // Fall back to basic analysis if AI fails
       richAnalysis = null;
     }
 
-    // Calculate basic metrics (fallback or supplement to AI)
+    // Calculate basic metrics (fallback)
     const managers = Object.keys(reportingRelationships);
     const spansOfControl = managers.map(m => reportingRelationships[m].length);
     const avgSpan = spansOfControl.reduce((a, b) => a + b, 0) / spansOfControl.length || 0;
     const maxSpan = Math.max(...spansOfControl, 0);
 
-    // Find bottlenecks (managers with >7 direct reports)
+    // Find bottlenecks
     const bottlenecks = managers.filter(m => reportingRelationships[m].length > 7);
 
-    // Simple entropy score (0-100, lower is better)
+    // Calculate scores
     const spanVariance = spansOfControl.reduce((acc, span) => acc + Math.pow(span - avgSpan, 2), 0) / spansOfControl.length || 0;
     const entropyScore = Math.min(100, Math.round((spanVariance * 10) + (bottlenecks.length * 5)));
-
-    // Health score (0-100, higher is better)
     const healthScore = Math.max(0, 100 - entropyScore);
 
-    // Return response with BOTH rich AI analysis AND basic metrics
-    return res.status(200).json({
+    // Sanitize output
+    const sanitizedResponse = {
       success: true,
       message: richAnalysis ? 'AI-powered structure analysis complete!' : 'Basic structure analysis complete. Sign up for full AI insights.',
       data: {
-        // Rich AI analysis (if available)
         richAnalysis,
-
-        // Basic metrics (always available)
         entropyScore,
         healthScore,
         employeeCount: orgStructure.length,
         managerCount: managers.length,
         avgSpan: Math.round(avgSpan * 10) / 10,
         maxSpan,
-        bottlenecks: bottlenecks.map(name => ({
-          name,
+        bottlenecks: bottlenecks.slice(0, 10).map(name => ({ // Limit bottlenecks shown
+          name: name.slice(0, 50), // Limit name length in response
           directReports: reportingRelationships[name].length
         })),
-
-        // Company info
-        companyName,
-
-        // Watermark for public access
+        companyName: companyName.slice(0, 100),
         isPreview: true,
         upgradeMessage: 'This is a free scan. Sign up to unlock:\n• Historical trend tracking\n• Detailed reports and exports\n• Team collaboration features\n• Ongoing monitoring'
       }
-    });
+    };
+
+    return res.status(200).json(sanitizedResponse);
 
   } catch (error) {
     const e = error as Error;
-    console.error('Public structure analysis error:', e);
+    console.error('Public structure analysis error:', e.message);
+    
+    // Don't expose internal error details in public endpoint
     return res.status(500).json({
       success: false,
-      error: 'Analysis failed. Please ensure your file is properly formatted.'
+      error: 'Analysis failed. Please ensure your file is properly formatted and try again.'
     });
   }
+});
+
+// Health check for public endpoint
+router.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: 'Public structure analysis endpoint is healthy',
+    timestamp: new Date().toISOString()
+  });
 });
 
 export default router;

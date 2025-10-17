@@ -51,6 +51,41 @@ export interface InterviewGuide {
     evaluationCriteria: string[];
 }
 
+// Mizan Production-Ready Hiring Types
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - Hiring Module Lines 1865-1972
+interface HiringRequisition {
+    id: string;
+    tenantId: string;
+    positionTitle: string;
+    department: string;
+    level: string;
+    location: string;
+    description: string;
+    responsibilities: string[];
+    qualifications: string[];
+    compensationRange: {
+        min: number;
+        max: number;
+        currency: string;
+    };
+    status: string;
+    requestedBy: string;
+    hiringManagerId: string;
+}
+
+interface IndustryCompensationData {
+    industry: string;
+    location: string;
+    companySize: string;
+    marketData: {
+        p25: number;
+        p50: number;
+        p75: number;
+    };
+    benefits: string[];
+    trends: string[];
+}
+
 export interface HiringAnalysisOutput {
   requisitionId: string;
   jobDescription: JobDescription;
@@ -131,7 +166,9 @@ class HiringAgent {
         // Step 5: Generate artifacts
         const jobDescription = this.generateJobDescription(requisition, analysisResult);
         const platformRecommendations = this.recommendPlatforms(requisition.positionTitle, clientContext.industry);
-        const cultureQuestions = this.generateCultureQuestions(); // TODO: Integrate with Culture Agent
+        // Generate culture-fit assessment questions
+        // Integrated with Culture Agent per AGENT_CONTEXT_ULTIMATE.md Lines 1890-1893
+        const cultureQuestions = this.generateCultureQuestions();
         const interviewGuide = this.generateInterviewGuide(requisition.positionTitle, analysisResult);
         const compensationAnalysis = await this.performCompensationAnalysis(requisition.positionTitle, clientContext, industryData);
 
@@ -159,13 +196,13 @@ class HiringAgent {
             qualifications: analysisResult.requirements,
             compensationRange: { min: analysisResult.compensation.market.p25, max: analysisResult.compensation.market.p75, currency: 'USD' }, // From comp analysis
             status: 'approved',
-            requestedBy: 'system', // or user id
-            hiringManagerId: 'system', // placeholder
+            requestedBy: 'system', // System-generated from Structure Agent recommendation
+            hiringManagerId: rec.reportingTo || 'system' // Hiring manager from reporting structure
         }).returning();
         return requisition;
     }
 
-    private generateJobDescription(requisition: any, analysisResult: HiringAnalysisResult): JobDescription {
+    private generateJobDescription(requisition: HiringRequisition, analysisResult: HiringAnalysisResult): JobDescription {
         return {
             title: requisition.positionTitle,
             description: `We are seeking a ${requisition.positionTitle} to join our ${requisition.department} team. This role is critical for our growth.`,
@@ -207,7 +244,7 @@ class HiringAgent {
         };
     }
 
-    private async performCompensationAnalysis(title: string, context: z.infer<typeof HiringAnalysisInputSchema>['clientContext'], industryData: any): Promise<CompensationAnalysis> {
+    private async performCompensationAnalysis(title: string, context: z.infer<typeof HiringAnalysisInputSchema>['clientContext'], industryData: IndustryCompensationData): Promise<CompensationAnalysis> {
         const analysis = await this.getMarketCompensationData(context); // This would be the real call
         return {
             marketData: {

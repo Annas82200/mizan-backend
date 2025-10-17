@@ -1,37 +1,46 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
 import { frameworkConfig } from '../../db/schema/core';
-import { eq, desc } from 'drizzle-orm';
-import { authenticate, requireRole } from '../middleware/auth';
+import { eq, desc, and } from 'drizzle-orm';
+import { authenticate, requireRole, validateTenantAccess } from '../middleware/auth';
 
 const router = Router();
 
-// Apply authentication
+// Apply authentication and tenant validation to all routes
 router.use(authenticate);
+router.use(validateTenantAccess);
 
 /**
  * GET /api/framework - Get current active framework configuration
- * NOTE: Framework is a global configuration (not tenant-specific) but access is tenant-isolated
+ * Framework is global but access is tenant-isolated for security
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
+    const userId = req.user!.id;
+
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant access required' });
+    }
 
     // Framework configuration is global but logged for audit purposes
-    console.log(`Framework config accessed by tenant: ${tenantId}`);
+    console.log(`Framework config accessed by tenant: ${tenantId}, user: ${userId}`);
 
     // Get the most recent active framework config
-    const configs = await db.query.frameworkConfig.findMany({
-      where: eq(frameworkConfig.isActive, true),
-      orderBy: [desc(frameworkConfig.createdAt)],
-      limit: 1
-    });
+    // Framework is global but we log tenant access for security auditing
+    const configs = await db.select()
+      .from(frameworkConfig)
+      .where(eq(frameworkConfig.isActive, true))
+      .orderBy(desc(frameworkConfig.createdAt))
+      .limit(1);
 
     if (configs.length === 0) {
       // Return default framework if none exists
       return res.json({
         version: 1,
-        cylinders: getDefaultFramework()
+        cylinders: getDefaultFramework(),
+        tenantId: tenantId // Include for audit trail
       });
     }
 
@@ -39,18 +48,23 @@ router.get('/', async (req: Request, res: Response) => {
       id: configs[0].id,
       version: configs[0].version,
       cylinders: configs[0].cylinders,
-      updatedAt: configs[0].updatedAt
+      updatedAt: configs[0].updatedAt,
+      tenantId: tenantId // Include for audit trail
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework configuration';
-    console.error('Get framework error:', error);
+    console.error('Get framework error:', {
+      error,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id
+    });
     return res.status(500).json({ error: errorMessage });
   }
 });
 
 /**
  * PUT /api/framework - Update framework configuration (superadmin only)
- * NOTE: Framework updates are global but tracked by superadmin's tenantId for audit
+ * Framework updates are global but tracked by superadmin's tenantId for audit
  */
 router.put('/', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
@@ -58,10 +72,18 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
     const userId = req.user!.id;
     const { cylinders } = req.body;
 
+    // Validate tenant access
+    if (!tenantId || !userId) {
+      return res.status(403).json({ error: 'Tenant and user identification required' });
+    }
+
     console.log(`Framework config update attempted by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     if (!cylinders || !Array.isArray(cylinders) || cylinders.length !== 7) {
-      return res.status(400).json({ error: 'Invalid framework data. Must include 7 cylinders.' });
+      return res.status(400).json({ 
+        error: 'Invalid framework data. Must include 7 cylinders.',
+        tenantId: tenantId 
+      });
     }
 
     // Validate each cylinder has required fields
@@ -69,59 +91,84 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
       if (!cylinder.cylinder || !cylinder.name || !cylinder.definition ||
           !cylinder.ethicalPrinciple || !cylinder.enablingValues || !cylinder.limitingValues) {
         return res.status(400).json({
-          error: `Invalid cylinder ${cylinder.cylinder || 'unknown'}. Missing required fields.`
+          error: `Invalid cylinder ${cylinder.cylinder || 'unknown'}. Missing required fields.`,
+          tenantId: tenantId
         });
       }
     }
 
     // Get current version
-    const currentConfigs = await db.query.frameworkConfig.findMany({
-      orderBy: [desc(frameworkConfig.version)],
-      limit: 1
-    });
+    const currentConfigs = await db.select()
+      .from(frameworkConfig)
+      .orderBy(desc(frameworkConfig.version))
+      .limit(1);
 
     const newVersion = currentConfigs.length > 0 ? currentConfigs[0].version + 1 : 1;
 
     // Deactivate all previous configs
     await db.update(frameworkConfig)
-      .set({ isActive: false })
+      .set({ 
+        isActive: false,
+        updatedAt: new Date()
+      })
       .where(eq(frameworkConfig.isActive, true));
 
-    // Insert new config
+    // Insert new config with tenant audit trail
     const [newConfig] = await db.insert(frameworkConfig).values({
       version: newVersion,
       cylinders: cylinders,
       isActive: true,
-      updatedBy: userId
+      updatedBy: userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }).returning();
+
+    // Log successful update with tenant information
+    console.log(`Framework config updated successfully by superadmin (tenant: ${tenantId}, user: ${userId}, version: ${newVersion})`);
 
     return res.json({
       success: true,
       message: 'Framework configuration updated successfully',
       version: newConfig.version,
-      id: newConfig.id
+      id: newConfig.id,
+      tenantId: tenantId // Include for audit trail
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update framework configuration';
-    console.error('Update framework error:', error);
-    return res.status(500).json({ error: errorMessage });
+    console.error('Update framework error:', {
+      error,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id
+    });
+    return res.status(500).json({ 
+      error: errorMessage,
+      tenantId: req.user?.tenantId 
+    });
   }
 });
 
 /**
  * GET /api/framework/history - Get framework configuration history (superadmin only)
+ * Tenant-isolated access to framework history
  */
 router.get('/history', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const userId = req.user!.id;
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100); // Cap at 100
 
-    console.log(`Framework history accessed by superadmin (tenant: ${tenantId})`);
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant access required' });
+    }
 
-    const configs = await db.query.frameworkConfig.findMany({
-      orderBy: [desc(frameworkConfig.createdAt)],
-      limit
-    });
+    console.log(`Framework history accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+
+    // Framework history is global but we audit the access per tenant
+    const configs = await db.select()
+      .from(frameworkConfig)
+      .orderBy(desc(frameworkConfig.createdAt))
+      .limit(limit);
 
     return res.json({
       history: configs.map(config => ({
@@ -131,32 +178,59 @@ router.get('/history', requireRole('superadmin'), async (req: Request, res: Resp
         updatedBy: config.updatedBy,
         updatedAt: config.updatedAt,
         cylinderCount: Array.isArray(config.cylinders) ? config.cylinders.length : 0
-      }))
+      })),
+      tenantId: tenantId, // Include for audit trail
+      accessedBy: userId,
+      accessedAt: new Date()
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework history';
-    console.error('Get framework history error:', error);
-    return res.status(500).json({ error: errorMessage });
+    console.error('Get framework history error:', {
+      error,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id
+    });
+    return res.status(500).json({ 
+      error: errorMessage,
+      tenantId: req.user?.tenantId 
+    });
   }
 });
 
 /**
- * GET /api/framework/version/:version - Get specific version
+ * GET /api/framework/version/:version - Get specific version (superadmin only)
+ * Tenant-isolated access to specific framework version
  */
 router.get('/version/:version', requireRole('superadmin'), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
+    const userId = req.user!.id;
     const version = parseInt(req.params.version);
 
-    console.log(`Framework version ${version} accessed by superadmin (tenant: ${tenantId})`);
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant access required' });
+    }
 
-    const configs = await db.query.frameworkConfig.findMany({
-      where: eq(frameworkConfig.version, version),
-      limit: 1
-    });
+    if (isNaN(version) || version < 1) {
+      return res.status(400).json({ 
+        error: 'Invalid version number',
+        tenantId: tenantId 
+      });
+    }
+
+    console.log(`Framework version ${version} accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+
+    const configs = await db.select()
+      .from(frameworkConfig)
+      .where(eq(frameworkConfig.version, version))
+      .limit(1);
 
     if (configs.length === 0) {
-      return res.status(404).json({ error: 'Framework version not found' });
+      return res.status(404).json({ 
+        error: 'Framework version not found',
+        tenantId: tenantId 
+      });
     }
 
     return res.json({
@@ -165,12 +239,62 @@ router.get('/version/:version', requireRole('superadmin'), async (req: Request, 
       cylinders: configs[0].cylinders,
       isActive: configs[0].isActive,
       updatedBy: configs[0].updatedBy,
-      updatedAt: configs[0].updatedAt
+      updatedAt: configs[0].updatedAt,
+      tenantId: tenantId, // Include for audit trail
+      accessedBy: userId,
+      accessedAt: new Date()
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework version';
-    console.error('Get framework version error:', error);
-    return res.status(500).json({ error: errorMessage });
+    console.error('Get framework version error:', {
+      error,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id,
+      version: req.params.version
+    });
+    return res.status(500).json({ 
+      error: errorMessage,
+      tenantId: req.user?.tenantId 
+    });
+  }
+});
+
+/**
+ * GET /api/framework/audit - Get framework access audit log (superadmin only)
+ * Returns audit trail of framework access per tenant
+ */
+router.get('/audit', requireRole('superadmin'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user!.tenantId;
+    const userId = req.user!.id;
+
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant access required' });
+    }
+
+    console.log(`Framework audit accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+
+    // In a full implementation, this would query an audit log table
+    // For now, we return a placeholder that shows the pattern
+    return res.json({
+      message: 'Framework audit trail',
+      tenantId: tenantId,
+      auditedBy: userId,
+      auditedAt: new Date(),
+      note: 'Full audit logging would be implemented with dedicated audit tables'
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework audit';
+    console.error('Get framework audit error:', {
+      error,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id
+    });
+    return res.status(500).json({ 
+      error: errorMessage,
+      tenantId: req.user?.tenantId 
+    });
   }
 });
 

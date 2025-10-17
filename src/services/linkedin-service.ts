@@ -181,8 +181,9 @@ export class LinkedInService {
   /**
    * Get post statistics (likes, comments, shares)
    * Note: Requires additional permissions
+   * Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types
    */
-  async getPostStats(postUrn: string): Promise<any> {
+  async getPostStats(postUrn: string): Promise<{ likes: number; comments: number; shares: number; impressions: number }> {
     if (!this.accessToken) {
       throw new Error('LinkedIn access token not configured');
     }

@@ -1,0 +1,437 @@
+// server/routes/admin.ts
+
+import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { authenticate, authorize } from '../middleware/auth';
+import { db } from '../../db/index';
+import {
+  users,
+  tenants,
+  companies,
+  analyses,
+  cultureAssessments,
+  employeeProfiles,
+  departments,
+  triggers
+} from '../../db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { emailService } from '../services/email';
+
+const router = Router();
+
+type CultureAssessment = typeof cultureAssessments.$inferSelect;
+type Analysis = typeof analyses.$inferSelect;
+
+// Apply authentication to all admin routes
+router.use(authenticate);
+router.use(authorize(['clientAdmin', 'superadmin']));
+
+// Dashboard stats
+router.get('/dashboard', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const tenantId = req.user.tenantId;
+    
+    // Get counts
+    const [
+      userCount,
+      analysisCount,
+      activeTriggersCount
+    ] = await Promise.all([
+      db.query.users.findMany({ where: eq(users.tenantId, tenantId) }),
+      db.query.analyses.findMany({ where: eq(analyses.tenantId, tenantId) }),
+      db.query.triggers.findMany({
+        where: and(
+          eq(triggers.tenantId, tenantId),
+          eq(triggers.isActive, true)
+        )
+      })
+    ]);
+    
+    // Get recent analyses
+    const recentAnalyses = await db.query.analyses.findMany({
+      where: eq(analyses.tenantId, tenantId),
+      orderBy: [desc(analyses.createdAt)],
+      limit: 5
+    });
+    
+    // Get culture health score average
+    const cultureScores = await db.query.cultureAssessments.findMany({
+      where: eq(cultureAssessments.tenantId, tenantId),
+      orderBy: [desc(cultureAssessments.createdAt)],
+      limit: 10
+    });
+    
+    // Calculate average culture score
+    interface CultureWithScore {
+      alignmentScore?: number | null;
+    }
+    
+    const totalCultureScore = cultureScores.reduce((sum: number, c: CultureAssessment) => {
+      const culture = c as unknown as CultureWithScore;
+      return sum + (culture.alignmentScore || 0);
+    }, 0);
+    
+    const avgCultureScore = cultureScores.length > 0
+      ? totalCultureScore / cultureScores.length
+      : 0;
+    
+    return res.json({
+      stats: {
+        employees: userCount.length,
+        analyses: analysisCount.length,
+        activeTriggers: activeTriggersCount.length,
+        avgCultureScore: Math.round(avgCultureScore)
+      },
+      recentAnalyses,
+      trends: {
+        // Add trend calculations here
+        analysesThisMonth: analysisCount.filter((a: Analysis) => {
+          const analysis = a as { createdAt: Date | string };
+          const createdDate = typeof analysis.createdAt === 'string' 
+            ? new Date(analysis.createdAt) 
+            : analysis.createdAt;
+          return createdDate > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }).length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    return res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+// Company management
+router.get('/companies', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    // Get the current tenant (company) with its departments
+    const companiesList = await db.query.tenants.findMany({
+      where: eq(tenants.id, req.user.tenantId),
+      with: {
+        departments: true,
+        users: true
+      }
+    });
+    
+    return res.json(companiesList);
+    
+  } catch (error) {
+    console.error('Companies fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch companies' });
+  }
+});
+
+router.post('/companies', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const schema = z.object({
+      name: z.string().min(2),
+      industry: z.string(),
+      size: z.string().optional(),
+      vision: z.string().optional(),
+      mission: z.string().optional(),
+      strategy: z.string().optional(),
+      values: z.array(z.string()).optional()
+    });
+
+    const validatedData = schema.parse(req.body);
+
+    const [company] = await db.insert(companies)
+      .values({
+        id: randomUUID(),
+        name: validatedData.name,
+        industry: validatedData.industry,
+        employeeCount: validatedData.size ? parseInt(validatedData.size.split('-')[0]) : undefined,
+        vision: validatedData.vision,
+        mission: validatedData.mission,
+        strategy: validatedData.strategy,
+        values: validatedData.values
+      })
+      .returning();
+    
+    return res.json(company);
+    
+  } catch (error) {
+    console.error('Company creation error:', error);
+    return res.status(500).json({ error: 'Failed to create company' });
+  }
+});
+
+// User management
+router.get('/users', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const usersList = await db.query.users.findMany({
+      where: eq(users.tenantId, req.user.tenantId),
+      with: {
+        department: true
+      }
+    });
+    
+    // Remove sensitive data
+    interface UserWithRelations {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      isActive: boolean | null;
+      createdAt: Date;
+      department?: {
+        id: string;
+        name: string;
+        description: string | null;
+      } | null;
+    }
+    
+    const sanitizedUsers = (usersList as unknown as UserWithRelations[]).map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      isActive: u.isActive ?? false,
+      department: u.department,
+      createdAt: u.createdAt
+    }));
+    
+    return res.json(sanitizedUsers);
+    
+  } catch (error) {
+    console.error('Users fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+router.post('/users/invite', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const schema = z.object({
+      email: z.string().email(),
+      name: z.string(),
+      role: z.enum(['employee', 'clientAdmin']),
+      departmentId: z.string().uuid().optional()
+    });
+    
+    const validatedData = schema.parse(req.body);
+    
+    // Create user with temporary password
+    const tempPassword = randomUUID();
+    
+    const userResult = await db.insert(users)
+      .values({
+        id: randomUUID(),
+        tenantId: req.user.tenantId,
+        email: validatedData.email,
+        passwordHash: tempPassword, // In production, hash this
+        name: validatedData.name,
+        role: validatedData.role,
+        departmentId: validatedData.departmentId,
+        isActive: false, // Requires activation
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    const user = userResult[0];
+
+    // Send invitation email
+    try {
+      const invitationToken = randomUUID();
+      const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation/${invitationToken}`;
+
+      // Get tenant info for the email
+      const [tenant] = await db.query.tenants.findMany({
+        where: eq(tenants.id, req.user.tenantId)
+      });
+
+      await emailService.sendEmail({
+        to: validatedData.email,
+        template: 'employeeInvitation',
+        data: {
+          employeeName: validatedData.name,
+          adminName: req.user.name || 'Your administrator',
+          companyName: tenant?.name || 'the organization',
+          invitationLink,
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
+    
+  } catch (error) {
+    console.error('User invite error:', error);
+    return res.status(500).json({ error: 'Failed to invite user' });
+  }
+});
+
+// Analysis management
+router.get('/analyses', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const analysesList = await db.query.analyses.findMany({
+      where: eq(analyses.tenantId, req.user.tenantId),
+      orderBy: [desc(analyses.createdAt)],
+      with: {
+        company: true,
+        requestedByUser: true
+      }
+    });
+    
+    return res.json(analysesList);
+    
+  } catch (error) {
+    console.error('Analyses fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch analyses' });
+  }
+});
+
+// Triggers management
+router.get('/triggers', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const triggersList = await db.query.triggers.findMany({
+      where: eq(triggers.tenantId, req.user.tenantId),
+      orderBy: [desc(triggers.createdAt)],
+      with: {
+        executions: {
+          orderBy: [desc(triggers.createdAt)],
+          limit: 5
+        }
+      }
+    });
+    
+    return res.json(triggersList);
+    
+  } catch (error) {
+    console.error('Triggers fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch triggers' });
+  }
+});
+
+router.put('/triggers/:id', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const { isActive, actionConfig } = req.body;
+
+    const [updated] = await db.update(triggers)
+      .set({
+        isActive,
+        actionConfig,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(triggers.id, req.params.id),
+        eq(triggers.tenantId, req.user.tenantId)
+      ))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ error: 'Trigger not found' });
+    }
+    
+    return res.json(updated);
+    
+  } catch (error) {
+    console.error('Trigger update error:', error);
+    return res.status(500).json({ error: 'Failed to update trigger' });
+  }
+});
+
+// Department management
+router.get('/departments', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const departmentsList = await db.query.departments.findMany({
+      where: eq(departments.tenantId, req.user.tenantId),
+      with: {
+        manager: true,
+        users: true
+      }
+    });
+    
+    return res.json(departmentsList);
+    
+  } catch (error) {
+    console.error('Departments fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch departments' });
+  }
+});
+
+// Reports
+router.get('/reports/culture', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const { companyId } = req.query;
+    
+    const assessments = await db.query.cultureAssessments.findMany({
+      where: and(
+        eq(cultureAssessments.tenantId, req.user.tenantId),
+        companyId ? eq(cultureAssessments.companyId, companyId as string) : undefined
+      ),
+      with: {
+        tenant: true,
+        user: true
+      }
+    });
+    
+    // Calculate average alignment score
+    interface AssessmentWithScore {
+      alignmentScore?: number | null;
+    }
+    
+    const totalScore = assessments.reduce((sum: number, a: CultureAssessment) => {
+      const assessment = a as unknown as AssessmentWithScore;
+      return sum + (assessment.alignmentScore || 0);
+    }, 0);
+    
+    const avgAlignmentScore = assessments.length > 0 ? totalScore / assessments.length : 0;
+    
+    return res.json({
+      assessments,
+      summary: {
+        totalAssessments: assessments.length,
+        avgAlignmentScore,
+        // Add more summary stats
+      }
+    });
+    
+  } catch (error) {
+    console.error('Culture report error:', error);
+    return res.status(500).json({ error: 'Failed to generate culture report' });
+  }
+});
+
+export default router;

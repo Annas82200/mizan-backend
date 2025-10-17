@@ -623,7 +623,8 @@ export class ReasoningEngine {
       i.confidence > 0.7
     );
 
-    // Check if not already pursuing
+    // Validate opportunity is not already being pursued
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete feature implementation
     const alreadyPursuing = insights.some(i =>
       i.description.toLowerCase().includes(opportunity.toLowerCase())
     );

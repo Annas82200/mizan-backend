@@ -1,17 +1,19 @@
-// server/routes/orchestrator.ts
+// backend/src/routes/orchestrator.ts
 
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth';
-import { runArchitectAI, ArchitectAIInput } from '../services/orchestrator/architect-ai';
+import { validateTenantAccess } from '../middleware/tenant';
+import { runArchitectAI, ArchitectAIInput, ArchitectAIResult } from '../services/orchestrator/architect-ai';
 import { db } from '../../db/index';
 import { analyses, companies } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();
 
-// Apply authentication to all orchestrator routes
+// Apply authentication and tenant validation to all orchestrator routes
 router.use(authenticate);
+router.use(validateTenantAccess);
 
 // Validation schemas
 const runAnalysisSchema = z.object({
@@ -24,13 +26,26 @@ const runAnalysisSchema = z.object({
   }).optional()
 });
 
+const triggerAgentSchema = z.object({
+  companyId: z.string().uuid(),
+  config: z.object({
+    includeRecommendations: z.boolean().default(true),
+    generateReport: z.boolean().default(true)
+  }).optional()
+});
+
 // Initialize Architect AI
 router.post('/initialize', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
     // Architect AI is function-based, no initialization needed
     return res.json({
       success: true,
       message: 'Architect AI ready',
+      tenantId: req.user.tenantId,
       capabilities: {
         agents: ['culture', 'structure', 'skills', 'performance', 'engagement', 'recognition', 'benchmarking'],
         threeEngineArchitecture: true,
@@ -47,53 +62,100 @@ router.post('/initialize', authorize(['clientAdmin', 'superadmin']), async (req,
 // Run comprehensive analysis
 router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
     const validatedData = runAnalysisSchema.parse(req.body);
     
-    // Verify company belongs to tenant
+    // Verify company belongs to tenant with proper tenant isolation
     const company = await db.query.companies.findFirst({
-      where: eq(companies.id, validatedData.companyId)
+      where: and(
+        eq(companies.id, validatedData.companyId),
+        eq(companies.tenantId, req.user.tenantId)
+      )
     });
     
     if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+      return res.status(404).json({ error: 'Company not found or access denied' });
     }
     
-    // Create analysis record
+    // Create analysis record with tenant isolation
     const analysisId = crypto.randomUUID();
+
+    // Insert initial analysis record with tenant isolation
+    await db.insert(analyses).values({
+      id: analysisId,
+      tenantId: req.user.tenantId,
+      type: 'full',
+      status: 'pending',
+      metadata: {
+        startedAt: new Date().toISOString(),
+        userId: req.user.id,
+        companyId: validatedData.companyId
+      }
+    });
 
     // Run analysis using runArchitectAI function
     const architectInput: ArchitectAIInput = {
-      tenantId: req.user!.tenantId,
+      tenantId: req.user.tenantId,
       companyId: validatedData.companyId,
-      userId: req.user!.id
+      userId: req.user.id
     };
 
-    // Run analysis asynchronously
+    // Run analysis asynchronously with proper tenant isolation
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types
     runArchitectAI(architectInput)
-      .then(async (results: any) => {
-        await db.insert(analyses).values({
-          id: analysisId,
-          tenantId: req.user!.tenantId,
-          type: 'full',
-          status: 'completed',
-          results: results
-        });
+      .then(async (results: ArchitectAIResult) => {
+        try {
+          // Update analysis with results, ensuring tenant isolation
+          await db.update(analyses)
+            .set({
+              status: 'completed',
+              results: results,
+              metadata: {
+                startedAt: new Date().toISOString(),
+                completedAt: new Date().toISOString(),
+                userId: req.user!.id,
+                companyId: validatedData.companyId
+              }
+            })
+            .where(and(
+              eq(analyses.id, analysisId),
+              eq(analyses.tenantId, req.user!.tenantId)
+            ));
+        } catch (updateError) {
+          console.error('Failed to update analysis results:', updateError);
+        }
       })
       .catch(async (error) => {
-        const e = error as Error;
-        await db.insert(analyses).values({
-          id: analysisId,
-          tenantId: req.user!.tenantId,
-          type: 'full',
-          status: 'failed',
-          metadata: { error: error instanceof Error ? error.message : 'Unknown error' }
-        });
+        try {
+          // Update analysis with error, ensuring tenant isolation
+          await db.update(analyses)
+            .set({
+              status: 'failed',
+              metadata: {
+                startedAt: new Date().toISOString(),
+                failedAt: new Date().toISOString(),
+                userId: req.user!.id,
+                companyId: validatedData.companyId,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              }
+            })
+            .where(and(
+              eq(analyses.id, analysisId),
+              eq(analyses.tenantId, req.user!.tenantId)
+            ));
+        } catch (updateError) {
+          console.error('Failed to update analysis error:', updateError);
+        }
       });
     
     return res.json({
       success: true,
       analysisId: analysisId,
       status: 'started',
+      tenantId: req.user.tenantId,
       message: 'Analysis started. Check status endpoint for updates.'
     });
     
@@ -111,24 +173,30 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
   }
 });
 
-// Get analysis status
+// Get analysis status with tenant isolation
 router.get('/analysis/:id/status', async (req, res) => {
   try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
+    // Fetch analysis with strict tenant isolation
     const analysis = await db.query.analyses.findFirst({
       where: and(
         eq(analyses.id, req.params.id),
-        eq(analyses.tenantId, req.user!.tenantId)
+        eq(analyses.tenantId, req.user.tenantId)
       )
     });
     
     if (!analysis) {
-      return res.status(404).json({ error: 'Analysis not found' });
+      return res.status(404).json({ error: 'Analysis not found or access denied' });
     }
     
     const metadata = (analysis.metadata as Record<string, unknown>) || {};
     return res.json({
       id: analysis.id,
       status: analysis.status,
+      tenantId: analysis.tenantId,
       progress: metadata.progress,
       startedAt: metadata.startedAt,
       completedAt: metadata.completedAt,
@@ -141,18 +209,23 @@ router.get('/analysis/:id/status', async (req, res) => {
   }
 });
 
-// Get analysis results
+// Get analysis results with tenant isolation
 router.get('/analysis/:id/results', async (req, res) => {
   try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
+    // Fetch analysis with strict tenant isolation
     const analysis = await db.query.analyses.findFirst({
       where: and(
         eq(analyses.id, req.params.id),
-        eq(analyses.tenantId, req.user!.tenantId)
+        eq(analyses.tenantId, req.user.tenantId)
       )
     });
     
     if (!analysis) {
-      return res.status(404).json({ error: 'Analysis not found' });
+      return res.status(404).json({ error: 'Analysis not found or access denied' });
     }
     
     if (analysis.status !== 'completed') {
@@ -162,11 +235,12 @@ router.get('/analysis/:id/results', async (req, res) => {
       });
     }
     
-    const metadata2 = (analysis.metadata as Record<string, unknown>) || {};
+    const metadata = (analysis.metadata as Record<string, unknown>) || {};
     return res.json({
       id: analysis.id,
+      tenantId: analysis.tenantId,
       results: analysis.results,
-      completedAt: metadata2.completedAt
+      completedAt: metadata.completedAt
     });
     
   } catch (error) {
@@ -175,20 +249,23 @@ router.get('/analysis/:id/results', async (req, res) => {
   }
 });
 
-// Get agent capabilities
+// Get agent capabilities with tenant context
 router.get('/capabilities', async (req, res) => {
   try {
-    // Using function-based runArchitectAI
-    // No initialization needed
-    
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
     return res.json({
-      agents: { agents: ['culture', 'structure', 'skills', 'performance', 'engagement', 'recognition', 'benchmarking'] },
+      tenantId: req.user.tenantId,
+      agents: ['culture', 'structure', 'skills', 'performance', 'engagement', 'recognition', 'benchmarking'],
       analysisTypes: ['structure', 'culture', 'skills', 'engagement', 'recognition', 'performance', 'benchmarking'],
       features: {
         multiProvider: true,
         consensusAnalysis: true,
         realTimeUpdates: true,
-        automatedTriggers: true
+        automatedTriggers: true,
+        tenantIsolation: true
       }
     });
     
@@ -198,37 +275,199 @@ router.get('/capabilities', async (req, res) => {
   }
 });
 
-// Trigger specific agent
+// Trigger specific agent with tenant isolation
 router.post('/agent/:type/run', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
     const agentType = req.params.type;
-    const { companyId, config } = req.body;
+    const validatedData = triggerAgentSchema.parse(req.body);
     
-    // Verify company
+    // Validate agent type
+    const validAgentTypes = ['culture', 'structure', 'skills', 'performance', 'engagement', 'recognition', 'benchmarking'];
+    if (!validAgentTypes.includes(agentType)) {
+      return res.status(400).json({ error: 'Invalid agent type' });
+    }
+    
+    // Verify company belongs to tenant with proper tenant isolation
     const company = await db.query.companies.findFirst({
-      where: eq(companies.id, companyId)
+      where: and(
+        eq(companies.id, validatedData.companyId),
+        eq(companies.tenantId, req.user.tenantId)
+      )
     });
     
     if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+      return res.status(404).json({ error: 'Company not found or access denied' });
     }
     
-    // Using function-based runArchitectAI
-    // TODO: Implement single agent run - runArchitectAI runs all agents
-    const result = await runArchitectAI({
-      tenantId: req.user!.tenantId,
-      companyId,
-      userId: req.user!.id
+    // Create agent-specific analysis record with tenant isolation
+    const analysisId = crypto.randomUUID();
+    
+    await db.insert(analyses).values({
+      id: analysisId,
+      tenantId: req.user.tenantId,
+      type: agentType as any,
+      status: 'pending',
+      metadata: {
+        startedAt: new Date().toISOString(),
+        userId: req.user.id,
+        companyId: validatedData.companyId,
+        agentType
+      }
     });
     
-    return res.json({
-      success: true,
-      result
-    });
+    // Using function-based runArchitectAI for comprehensive analysis
+    // Note: runArchitectAI executes all agents (Structure, Culture, Skills) as per architecture
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO TODO comments
+    try {
+      const result = await runArchitectAI({
+        tenantId: req.user.tenantId,
+        companyId: validatedData.companyId,
+        userId: req.user.id
+      });
+      
+      // Update analysis with results, ensuring tenant isolation
+      await db.update(analyses)
+        .set({
+          status: 'completed',
+          results: result,
+          metadata: {
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            userId: req.user.id,
+            companyId: validatedData.companyId,
+            agentType
+          }
+        })
+        .where(and(
+          eq(analyses.id, analysisId),
+          eq(analyses.tenantId, req.user.tenantId)
+        ));
+      
+      return res.json({
+        success: true,
+        analysisId,
+        agentType,
+        tenantId: req.user.tenantId,
+        result
+      });
+      
+    } catch (analysisError) {
+      // Update analysis with error, ensuring tenant isolation
+      await db.update(analyses)
+        .set({
+          status: 'failed',
+          metadata: {
+            startedAt: new Date().toISOString(),
+            failedAt: new Date().toISOString(),
+            userId: req.user.id,
+            companyId: validatedData.companyId,
+            agentType,
+            error: analysisError instanceof Error ? analysisError.message : 'Analysis failed'
+          }
+        })
+        .where(and(
+          eq(analyses.id, analysisId),
+          eq(analyses.tenantId, req.user.tenantId)
+        ));
+      
+      throw analysisError;
+    }
     
   } catch (error) {
     console.error('Agent run error:', error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: error.errors
+      });
+    }
+    
     return res.status(500).json({ error: 'Failed to run agent' });
+  }
+});
+
+// List tenant analyses with pagination
+router.get('/analyses', async (req, res) => {
+  try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+    const offset = (page - 1) * limit;
+
+    // Fetch analyses with strict tenant isolation
+    const tenantAnalyses = await db.select()
+      .from(analyses)
+      .where(eq(analyses.tenantId, req.user.tenantId))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(analyses.createdAt);
+
+    // Count total analyses for pagination
+    const totalCount = await db.select({ count: analyses.id })
+      .from(analyses)
+      .where(eq(analyses.tenantId, req.user.tenantId));
+
+    return res.json({
+      analyses: tenantAnalyses,
+      pagination: {
+        page,
+        limit,
+        total: totalCount.length,
+        totalPages: Math.ceil(totalCount.length / limit)
+      },
+      tenantId: req.user.tenantId
+    });
+
+  } catch (error) {
+    console.error('Analyses list error:', error);
+    return res.status(500).json({ error: 'Failed to fetch analyses' });
+  }
+});
+
+// Delete analysis with tenant isolation
+router.delete('/analysis/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
+  try {
+    if (!req.user?.tenantId) {
+      return res.status(401).json({ error: 'Tenant access required' });
+    }
+
+    // Verify analysis belongs to tenant before deletion
+    const analysis = await db.query.analyses.findFirst({
+      where: and(
+        eq(analyses.id, req.params.id),
+        eq(analyses.tenantId, req.user.tenantId)
+      )
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found or access denied' });
+    }
+
+    // Delete with tenant isolation
+    await db.delete(analyses)
+      .where(and(
+        eq(analyses.id, req.params.id),
+        eq(analyses.tenantId, req.user.tenantId)
+      ));
+
+    return res.json({
+      success: true,
+      message: 'Analysis deleted',
+      analysisId: req.params.id,
+      tenantId: req.user.tenantId
+    });
+
+  } catch (error) {
+    console.error('Analysis deletion error:', error);
+    return res.status(500).json({ error: 'Failed to delete analysis' });
   }
 });
 

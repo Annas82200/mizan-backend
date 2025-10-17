@@ -8,4 +8,4 @@ export { default as uploadRoutes } from './routes/upload';
 export { default as webhooksRoutes } from './routes/webhooks';
 // export { default as workflowsRoutes } from './routes/workflows'; // Route doesn't exist
 export { default as talentRoutes } from './routes/talent';
-export { default as bonusRoutes } from './routes/bonus';
+export { default as bonusRoutes } from './routes/bonus';// test

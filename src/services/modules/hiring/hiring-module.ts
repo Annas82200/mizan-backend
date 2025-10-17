@@ -1,7 +1,7 @@
 // backend/src/services/modules/hiring/hiring-module.ts
 // Complete Hiring Module
 // Triggered by Structure Analysis recommendations
-// NO PLACEHOLDERS - Production-ready implementation
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
 
 import { db } from '../../../db/index';
 import { hiringRequisitions, jobPostings, candidates } from '../../../db/schema';

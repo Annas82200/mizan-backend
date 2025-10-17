@@ -39,6 +39,68 @@ interface PerformanceMetrics {
   departmentAverages?: Record<string, number>;
 }
 
+// Mizan Production-Ready Analysis Result Types
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
+interface StructureAnalysisResult {
+  healthScore: number;
+  structureType: string;
+  isOptimal: boolean;
+  gaps: string[];
+  hiringNeeds: Array<{
+    position: string;
+    department: string;
+    priority: string;
+  }>;
+  recommendations: Array<{
+    category: string;
+    priority: string;
+    description: string;
+  }>;
+}
+
+interface CultureAnalysisResult {
+  healthScore: number;
+  alignmentScore: number;
+  isHealthy: boolean;
+  culturalEntropy: number;
+  focusCylinder: string;
+  interventions: string[];
+  recommendations: string[];
+}
+
+interface SkillsAnalysisResult {
+  overallReadiness: string;
+  criticalGaps: Array<{
+    skill: string;
+    gap: number;
+    priority: string;
+  }>;
+  strengthAreas: Array<{
+    skill: string;
+    level: number;
+  }>;
+  recommendedTraining: string[];
+  strategicAlignmentScore: number;
+}
+
+interface DefaultOrgChart {
+  departments: Array<{
+    id: string;
+    name: string;
+    headId: string | null;
+    headCount: number;
+  }>;
+  employees: Array<{
+    id: string;
+    name: string;
+    email: string;
+    title: string;
+    department: string;
+    departmentId: string;
+    reportsTo: string | null;
+  }>;
+}
+
 export interface ArchitectAIInput {
   tenantId: string;
   companyId: string;
@@ -187,7 +249,7 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
   }
 }
 
-async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAIInput): Promise<any> {
+async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAIInput): Promise<StructureAnalysisResult | null> {
   try {
     const analysisInput = {
       companyId: input.companyId,
@@ -212,7 +274,7 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
   }
 }
 
-async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput): Promise<any> {
+async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput): Promise<CultureAnalysisResult | null> {
   try {
     const analysisInput = {
       tenantId: input.tenantId,
@@ -238,7 +300,7 @@ async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput
   }
 }
 
-async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): Promise<any> {
+async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): Promise<SkillsAnalysisResult | null> {
   try {
     // Get company data for industry and name
     const company = await db.query.companies.findFirst({
@@ -281,7 +343,7 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
   }
 }
 
-async function getDefaultOrgChart(companyId: string): Promise<any> {
+async function getDefaultOrgChart(companyId: string): Promise<DefaultOrgChart> {
   // Note: companyId is actually the tenantId in our data model
   const tenantId = companyId;
 

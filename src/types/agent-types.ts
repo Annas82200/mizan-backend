@@ -1,5 +1,5 @@
 // Agent System TypeScript Types
-// Replaces 'any' types with proper interfaces for agents
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types for agents
 
 export interface AgentResponse {
   content: string;

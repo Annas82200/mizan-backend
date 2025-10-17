@@ -3,9 +3,10 @@ import express from "express";
 import { z } from "zod";
 import { authenticate, authorize } from "../middleware/auth";
 import { requireTenant } from "../middleware/tenant";
+import { validateTenantAccess } from "../middleware/validation";
 import { db } from "../db/index";
-import { payments, subscriptions } from "../db/schema/payments";
-import { eq, desc } from "drizzle-orm";
+import { payments, subscriptions, tenants } from "../db/schema/payments";
+import { eq, desc, and } from "drizzle-orm";
 import { stripeService } from "../services/stripe-service";
 import Stripe from 'stripe';
 
@@ -77,20 +78,28 @@ router.get("/plans", (_req, res) => {
   return res.json({ plans: BILLING_PLANS });
 });
 
-// All other routes require auth
+// All other routes require auth and tenant validation
 router.use(authenticate);
+router.use(validateTenantAccess);
 
 // Get current subscription
 router.get("/subscription", requireTenant, async (req, res) => {
   try {
     const tenantId = req.user!.tenantId!;
 
-    // Get subscription from database
-    const [subscription] = await db.query.subscriptions.findMany({
-      where: eq(payments.tenantId, tenantId),
-      orderBy: [desc(payments.createdAt)],
-      limit: 1
-    });
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get subscription from database with tenant isolation
+    const subscriptionList = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+
+    const subscription = subscriptionList[0];
 
     if (!subscription) {
       return res.json({
@@ -131,10 +140,18 @@ router.post("/checkout", authorize(['clientAdmin']), requireTenant, async (req, 
 
     const tenantId = req.user!.tenantId!;
 
-    // Get tenant/customer info
-    const [tenant] = await db.query.tenants.findMany({
-      where: eq(subscriptions.tenantId, tenantId)
-    });
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get tenant/customer info with tenant isolation
+    const tenantList = await db.select()
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    const tenant = tenantList[0];
 
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found' });
@@ -159,12 +176,14 @@ router.post("/checkout", authorize(['clientAdmin']), requireTenant, async (req, 
       : planConfig.priceMonthly;
     const totalAmount = pricePerEmployee * data.employeeCount;
 
-    // Create or get Stripe customer
+    // Create or get Stripe customer with tenant isolation
     let customerId: string;
-    const [existingSubscription] = await db.query.subscriptions.findMany({
-      where: eq(subscriptions.tenantId, tenantId),
-      limit: 1
-    });
+    const existingSubscriptionList = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .limit(1);
+
+    const existingSubscription = existingSubscriptionList[0];
 
     if (existingSubscription?.stripeCustomerId) {
       customerId = existingSubscription.stripeCustomerId;
@@ -226,11 +245,18 @@ router.post("/portal", authorize(['clientAdmin']), requireTenant, async (req, re
     const { returnUrl } = z.object({ returnUrl: z.string().url() }).parse(req.body);
     const tenantId = req.user!.tenantId!;
 
-    // Get customer ID from subscription
-    const [subscription] = await db.query.subscriptions.findMany({
-      where: eq(subscriptions.tenantId, tenantId),
-      limit: 1
-    });
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get customer ID from subscription with tenant isolation
+    const subscriptionList = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .limit(1);
+
+    const subscription = subscriptionList[0];
 
     if (!subscription?.stripeCustomerId) {
       return res.status(404).json({ error: 'No active subscription found' });
@@ -257,11 +283,18 @@ router.post("/cancel", authorize(['clientAdmin']), requireTenant, async (req, re
   try {
     const tenantId = req.user!.tenantId!;
 
-    // Get subscription
-    const [subscription] = await db.query.subscriptions.findMany({
-      where: eq(subscriptions.tenantId, tenantId),
-      limit: 1
-    });
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get subscription with tenant isolation
+    const subscriptionList = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .limit(1);
+
+    const subscription = subscriptionList[0];
 
     if (!subscription?.stripeSubscriptionId) {
       return res.status(404).json({ error: 'No active subscription found' });
@@ -272,13 +305,16 @@ router.post("/cancel", authorize(['clientAdmin']), requireTenant, async (req, re
       cancel_at_period_end: true,
     });
 
-    // Update database
+    // Update database with tenant isolation
     await db.update(subscriptions)
       .set({
         cancelAtPeriodEnd: true,
         updatedAt: new Date(),
       })
-      .where(eq(subscriptions.id, subscription.id));
+      .where(and(
+        eq(subscriptions.id, subscription.id),
+        eq(subscriptions.tenantId, tenantId)
+      ));
 
     return res.json({
       message: "Subscription will be cancelled at period end",
@@ -295,11 +331,18 @@ router.post("/reactivate", authorize(['clientAdmin']), requireTenant, async (req
   try {
     const tenantId = req.user!.tenantId!;
 
-    // Get subscription
-    const [subscription] = await db.query.subscriptions.findMany({
-      where: eq(subscriptions.tenantId, tenantId),
-      limit: 1
-    });
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get subscription with tenant isolation
+    const subscriptionList = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .limit(1);
+
+    const subscription = subscriptionList[0];
 
     if (!subscription?.stripeSubscriptionId) {
       return res.status(404).json({ error: 'No subscription found' });
@@ -314,13 +357,16 @@ router.post("/reactivate", authorize(['clientAdmin']), requireTenant, async (req
       cancel_at_period_end: false,
     });
 
-    // Update database
+    // Update database with tenant isolation
     await db.update(subscriptions)
       .set({
         cancelAtPeriodEnd: false,
         updatedAt: new Date(),
       })
-      .where(eq(subscriptions.id, subscription.id));
+      .where(and(
+        eq(subscriptions.id, subscription.id),
+        eq(subscriptions.tenantId, tenantId)
+      ));
 
     return res.json({
       message: "Subscription reactivated successfully",
@@ -339,14 +385,23 @@ router.post("/reactivate", authorize(['clientAdmin']), requireTenant, async (req
 // Get payment history
 router.get("/payments", authorize(['clientAdmin']), requireTenant, async (req, res) => {
   try {
-    const paymentHistory = await db.query.payments.findMany({
-      where: eq(payments.tenantId, req.user!.tenantId!),
-      orderBy: [desc(payments.createdAt)],
-      limit: 20,
-    });
+    const tenantId = req.user!.tenantId!;
+
+    // Validate tenant access
+    if (!tenantId) {
+      return res.status(403).json({ error: "Access denied: No tenant context" });
+    }
+
+    // Get payment history with tenant isolation
+    const paymentHistory = await db.select()
+      .from(payments)
+      .where(eq(payments.tenantId, tenantId))
+      .orderBy(desc(payments.createdAt))
+      .limit(20);
 
     res.json({ payments: paymentHistory });
   } catch (error) {
+    console.error('Get payment history error:', error);
     res.status(500).json({ error: "Failed to get payment history" });
   }
 });

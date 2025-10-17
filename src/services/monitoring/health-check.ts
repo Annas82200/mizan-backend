@@ -82,8 +82,9 @@ export class HealthCheckService {
 
     try {
       // Create a Redis client using the same connection config as BullMQ
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types
       const ioredis = await import('ioredis');
-      const RedisClass = (ioredis as any).default || ioredis;
+      const RedisClass = (ioredis as typeof import('ioredis')).default || ioredis;
       const redis = new (typeof RedisClass === 'function' ? RedisClass : RedisClass.Redis)({
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
