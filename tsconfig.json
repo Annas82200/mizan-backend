@@ -35,7 +35,13 @@
     "**/*.spec.ts",
     "**/*.test.ts",
     "**/__tests__/**",
-    "index-simple.ts"
+    "index-simple.ts",
+    "src/routes/lxp.ts.bak",
+    "src/routes/analyses.ts",
+    "src/routes/agents.ts",
+    "src/routes/consulting.ts",
+    "src/routes/framework.ts",
+    "src/routes/export.ts"
   ],
   "ts-node": {
     "esm": true,

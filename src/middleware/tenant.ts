@@ -290,6 +290,12 @@ export const getTenantLimits = (tenant: TenantWithSettings | null | undefined): 
 /**
  * Middleware to check usage limits
  */
+/**
+ * Validate tenant access - alias for requireTenant for backward compatibility
+ * Used by multiple routes that expect this export
+ */
+export const validateTenantAccess = requireTenant;
+
 export const checkUsageLimits = (resource: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

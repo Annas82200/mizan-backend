@@ -3,9 +3,10 @@ import express from "express";
 import { z } from "zod";
 import { authenticate, authorize } from "../middleware/auth";
 import { requireTenant } from "../middleware/tenant";
-import { validateTenantAccess } from "../middleware/validation";
-import { db } from "../db/index";
-import { payments, subscriptions, tenants } from "../db/schema/payments";
+import { validate } from "../middleware/validation";
+import { db } from "../../db/index";
+import { payments, subscriptions } from "../../db/schema/payments";
+import { tenants } from "../../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { stripeService } from "../services/stripe-service";
 import Stripe from 'stripe';
@@ -80,7 +81,7 @@ router.get("/plans", (_req, res) => {
 
 // All other routes require auth and tenant validation
 router.use(authenticate);
-router.use(validateTenantAccess);
+// Note: requireTenant is already being used on individual routes
 
 // Get current subscription
 router.get("/subscription", requireTenant, async (req, res) => {

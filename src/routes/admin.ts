@@ -566,17 +566,25 @@ router.get('/security/verify', async (req: Request, res: Response) => {
     }
 
     // Verify user and tenant relationship
-    const userTenantCheck = await db.query.users.findFirst({
-      where: and(
+    const userCheck = await db.select()
+      .from(users)
+      .where(and(
         eq(users.id, req.user.id),
         eq(users.tenantId, req.user.tenantId)
-      ),
-      with: {
-        tenant: true
-      }
-    });
+      ))
+      .limit(1);
 
-    if (!userTenantCheck || !userTenantCheck.tenant) {
+    if (!userCheck || userCheck.length === 0) {
+      return res.status(403).json({ error: 'Invalid user access' });
+    }
+
+    // Get tenant information
+    const tenantInfo = await db.select()
+      .from(tenants)
+      .where(eq(tenants.id, req.user.tenantId))
+      .limit(1);
+
+    if (!tenantInfo || tenantInfo.length === 0) {
       return res.status(403).json({ error: 'Invalid tenant access' });
     }
 
@@ -589,8 +597,8 @@ router.get('/security/verify', async (req: Request, res: Response) => {
         tenantId: req.user.tenantId
       },
       tenant: {
-        id: userTenantCheck.tenant.id,
-        name: userTenantCheck.tenant.name
+        id: tenantInfo[0].id,
+        name: tenantInfo[0].name
       }
     });
     

@@ -2,7 +2,8 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../db/connection';
+import { db } from '../../db/index';
+import { generateEmployeeReport, daysSince } from '../utils/culture-helpers';
 import {
   cultureAssessments,
   cultureReports,

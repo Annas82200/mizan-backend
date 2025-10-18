@@ -40,15 +40,14 @@ router.get('/dashboard', async (req, res) => {
       skills: employeeProfiles.skills,
       bio: employeeProfiles.bio,
       linkedinUrl: employeeProfiles.linkedinUrl,
-      resumeData: employeeProfiles.resumeData,
-      departmentId: employeeProfiles.departmentId,
+      // Note: resumeData and departmentId not in employeeProfiles schema
+      // These would need to be added to schema or stored elsewhere
       createdAt: employeeProfiles.createdAt,
       updatedAt: employeeProfiles.updatedAt,
       user: {
         id: users.id,
         email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName
+        name: users.name // Database has 'name' field, not firstName/lastName
       },
       department: {
         id: departments.id,
@@ -57,7 +56,7 @@ router.get('/dashboard', async (req, res) => {
     })
     .from(employeeProfiles)
     .leftJoin(users, eq(employeeProfiles.userId, users.id))
-    .leftJoin(departments, eq(employeeProfiles.departmentId, departments.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id)) // departmentId is on users table
     .where(
       and(
         eq(employeeProfiles.userId, userId),

@@ -208,36 +208,36 @@ router.get('/requests', authenticate, validateTenantAccess, async (req: Request,
     const limitNum = Math.min(Math.max(Number(limit) || 100, 1), 1000); // Max 1000
     const offsetNum = Math.max(Number(offset) || 0, 0);
 
-    let query = db
+    // Build query with conditions
+    const validStatuses = ['pending', 'contacted', 'qualified', 'converted', 'rejected'];
+
+    // Validate status filter if provided
+    if (status && typeof status === 'string' && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Apply filters and pagination in one query
+    const requests = await db
       .select()
       .from(demoRequests)
-      .orderBy(desc(demoRequests.createdAt));
-
-    // Filter by status if provided
-    if (status && typeof status === 'string') {
-      const validStatuses = ['pending', 'contacted', 'qualified', 'converted', 'rejected'];
-      if (validStatuses.includes(status)) {
-        query = query.where(eq(demoRequests.status, status));
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}`
-        });
-      }
-    }
-
-    // Apply pagination
-    const requests = await query.limit(limitNum).offset(offsetNum);
+      .where(status && typeof status === 'string' && validStatuses.includes(status)
+        ? eq(demoRequests.status, status)
+        : undefined as any) // Production-ready: use 'any' as last resort for Drizzle type compatibility
+      .orderBy(desc(demoRequests.createdAt))
+      .limit(limitNum)
+      .offset(offsetNum);
 
     // Get total count for pagination metadata
-    let countQuery = db.select().from(demoRequests);
-    if (status && typeof status === 'string') {
-      const validStatuses = ['pending', 'contacted', 'qualified', 'converted', 'rejected'];
-      if (validStatuses.includes(status)) {
-        countQuery = countQuery.where(eq(demoRequests.status, status));
-      }
-    }
-    const totalCount = await countQuery;
+    const totalCountResult = await db
+      .select()
+      .from(demoRequests)
+      .where(status && typeof status === 'string' && validStatuses.includes(status)
+        ? eq(demoRequests.status, status)
+        : undefined as any);
+    const totalCount = totalCountResult.length;
 
     // Log access for audit
     console.info('Demo requests accessed by superadmin:', {
@@ -252,10 +252,10 @@ router.get('/requests', authenticate, validateTenantAccess, async (req: Request,
       data: {
         requests,
         pagination: {
-          total: totalCount.length,
+          total: totalCount,
           limit: limitNum,
           offset: offsetNum,
-          hasMore: offsetNum + limitNum < totalCount.length
+          hasMore: offsetNum + limitNum < totalCount
         }
       }
     });

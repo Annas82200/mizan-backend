@@ -1,14 +1,12 @@
 // backend/src/services/agents/lxp/lxp-agent.ts
 
 import { randomUUID } from 'crypto';
-import { db } from '../../../db/connection';
-import { 
-  learningPathsTable, 
-  coursesTable, 
-  progressTable, 
-  recommendationsTable,
-  triggersTable 
-} from '../../../db/schema';
+import { db } from '../../../../db/index';
+import {
+  lxpWorkflowTable,
+  learningProgressEventsTable as progressTable,
+  lxpTriggersTable as triggersTable
+} from '../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';

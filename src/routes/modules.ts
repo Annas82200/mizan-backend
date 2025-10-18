@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
 import { db } from '../../db/index';
-import { performanceReviews, moduleExecutions } from '../../db/schema';
+import { performanceReviews } from '../../db/schema';
+// Note: moduleExecutions table not yet implemented in schema
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();

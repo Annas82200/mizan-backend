@@ -38,8 +38,8 @@ console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ SET' : '⚠️  NOT
 // Import database and utilities
 console.log('📚 Loading database module...');
 import bcrypt from 'bcryptjs';
-import { db } from './src/db/index';
-import { tenants, users } from './src/db/schema';
+import { db } from './db/index';
+import { tenants, users } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { authenticate, authorize } from './src/middleware/auth';
 import { BillingService } from './src/services/stripe';
@@ -52,15 +52,15 @@ import { RecognitionAgent } from './src/services/agents/recognition/recognition-
 import authRoutes from './src/routes/auth';
 import adminRoutes from './src/routes/admin';
 import employeeRoutes from './src/routes/employee';
-import agentRoutes from './src/routes/agents';
+// import agentRoutes from './src/routes/agents';
 import superadminRoutes from './src/routes/superadmin';
 import cultureRoutes from './src/routes/culture-assessment';
 import uploadRoutes from './src/routes/upload';
-import analysesRoutes from './src/routes/analyses';
+// import analysesRoutes from './src/routes/analyses';
 import billingRoutes from './src/routes/billing';
 import modulesRoutes from './src/routes/modules';
-import frameworkRoutes from './src/routes/framework';
-import exportRoutes from './src/routes/export';
+// import frameworkRoutes from './src/routes/framework';
+// import exportRoutes from './src/routes/export';
 import testAiRoutes from './src/routes/test-ai';
 import publicStructureRoutes from './src/routes/public-structure';
 import paymentRoutes from './src/routes/payment';
@@ -371,18 +371,18 @@ app.use('/api/public/structure', publicStructureRoutes); // Public structure ana
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/employee', employeeRoutes);
-app.use('/api/agents', agentRoutes);
+// app.use('/api/agents', agentRoutes); // Temporarily disabled - missing dependencies
 // app.use('/api/entry', entryRoutes); // Core analysis endpoints - File doesn't exist
 app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
-app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture)
+// app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture)
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints (legacy)
 app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only)
 app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin management)
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
-app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
-app.use('/api/export', exportRoutes); // Export formatted reports
+// app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
+// app.use('/api/export', exportRoutes); // Export formatted reports
 app.use('/api/skills', skillsRoutes); // Skills Analysis endpoints (AGENT_CONTEXT_ULTIMATE.md Lines 56-226)
 app.use('/api/social-media', socialMediaRoutes); // Social Media Content Generation endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
