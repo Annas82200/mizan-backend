@@ -1,6 +1,3 @@
-Looking at the current code, I can see this is an export route that generates HTML exports for structure analysis. The main security issue is that while there's basic authentication, there's no proper tenant isolation validation for the export data. Here's the complete secured file:
-
-```typescript
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
@@ -857,4 +854,46 @@ router.post('/structure', async (req: Request, res: Response) => {
 
     // Validate that analysisData structure is safe and contains expected fields
     if (!analysisData.overallScore && analysisData.overallScore !== 0) {
-      return res
+      return res.status(400).json({
+        error: 'Invalid analysis data structure',
+        code: 'INVALID_ANALYSIS_DATA'
+      });
+    }
+
+    // Generate the HTML export with the validated data
+    const html = generateStructureHTML(analysisData, tenantName || 'Organization');
+
+    // Set appropriate headers for HTML download
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="structure-analysis-${analysisId || Date.now()}.html"`);
+
+    return res.send(html);
+  } catch (error) {
+    console.error('Export error:', error);
+    return res.status(500).json({
+      error: 'Failed to generate export',
+      code: 'EXPORT_GENERATION_ERROR'
+    });
+  }
+});
+
+// Helper function to validate analysis ownership
+async function validateAnalysisOwnership(analysisId: string, tenantId: string): Promise<boolean> {
+  try {
+    const analysis = await db
+      .select()
+      .from(structureTable)
+      .where(and(
+        eq(structureTable.id, analysisId),
+        eq(structureTable.tenantId, tenantId)
+      ))
+      .limit(1);
+
+    return analysis.length > 0;
+  } catch (error) {
+    console.error('Error validating analysis ownership:', error);
+    return false;
+  }
+}
+
+export default router;
