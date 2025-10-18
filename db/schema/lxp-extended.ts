@@ -4,6 +4,61 @@
 import { pgTable, text, uuid, timestamp, integer, jsonb, boolean, decimal } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+// Additional exports for missing tables (production-ready implementation)
+export const lxpWorkflowTable = pgTable('lxp_workflows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  workflowType: text('workflow_type').notNull(), // skills_gap, performance_goal, development_plan
+  status: text('status').notNull().default('pending'), // pending, active, completed, cancelled
+  triggeredBy: text('triggered_by'), // skills_agent, performance_agent, manual
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const learningProgressEventsTable = pgTable('learning_progress_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  pathId: uuid('path_id').notNull(),
+  courseId: uuid('course_id'),
+  eventType: text('event_type').notNull(), // started, progress, completed, abandoned
+  progressPercentage: integer('progress_percentage'),
+  metadata: jsonb('metadata'),
+  timestamp: timestamp('timestamp').notNull().defaultNow(),
+});
+
+export const lxpTriggersTable = pgTable('lxp_triggers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  sourceModule: text('source_module').notNull(), // skills, performance, talent
+  targetModule: text('target_module').notNull().default('lxp'),
+  triggerType: text('trigger_type').notNull(),
+  employeeId: uuid('employee_id'),
+  data: jsonb('data').notNull(),
+  status: text('status').notNull().default('pending'), // pending, processing, completed, failed
+  processedAt: timestamp('processed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const learningPathsTable = pgTable('learning_paths', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  pathType: text('path_type').notNull(), // skills_development, performance_goal, career_progression
+  courses: jsonb('courses').notNull(), // Array of course IDs with sequence
+  totalDuration: integer('total_duration'), // Total duration in minutes
+  progress: integer('progress').default(0), // 0-100
+  status: text('status').notNull().default('active'), // active, completed, paused, cancelled
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ============================================================================
 // TASK 1.1.1: Courses Table
 // ============================================================================

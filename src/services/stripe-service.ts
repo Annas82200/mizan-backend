@@ -52,6 +52,8 @@ export interface CreateCheckoutSessionInput {
 export interface CheckoutSessionResponse {
   sessionId: string;
   url: string;
+  amount?: number;
+  currency?: string;
 }
 
 export class StripeService {
@@ -377,6 +379,147 @@ export class StripeService {
         throw new Error(`Webhook signature verification failed: ${error.message}`);
       }
       throw new Error('Webhook signature verification failed');
+    }
+  }
+
+  /**
+   * Get a checkout session by ID
+   */
+  async getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      return session;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Failed to retrieve checkout session:', error);
+        throw new Error('Failed to retrieve checkout session');
+      }
+      throw new Error('Failed to retrieve checkout session');
+    }
+  }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(params: { subscriptionId: string; tenantId: string }): Promise<Stripe.Subscription> {
+    try {
+      // First get the subscription from our database
+      const [sub] = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, params.subscriptionId));
+
+      if (!sub) {
+        throw new Error('Subscription not found');
+      }
+
+      // Cancel at period end in Stripe
+      const stripeSubscription = await stripe.subscriptions.update(params.subscriptionId, {
+        cancel_at_period_end: true,
+      });
+
+      // Update our database
+      await db.update(subscriptions)
+        .set({
+          cancelAtPeriodEnd: true,
+          canceledAt: new Date(),
+          status: 'canceled',
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.stripeSubscriptionId, params.subscriptionId));
+
+      return stripeSubscription;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Failed to cancel subscription:', error);
+        throw new Error('Failed to cancel subscription');
+      }
+      throw new Error('Failed to cancel subscription');
+    }
+  }
+
+  /**
+   * Handle invoice payment succeeded webhook
+   */
+  async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+    try {
+      console.log(`✅ Invoice payment succeeded: ${invoice.id}`);
+
+      // Update subscription status if needed
+      if (invoice.subscription) {
+        await db.update(subscriptions)
+          .set({
+            status: 'active',
+            updatedAt: new Date(),
+          })
+          .where(eq(subscriptions.stripeSubscriptionId, invoice.subscription as string));
+      }
+
+      // Send payment receipt email
+      if (invoice.customer_email) {
+        try {
+          await emailService.sendEmail({
+            to: invoice.customer_email,
+            template: 'paymentReceipt',
+            data: {
+              invoiceNumber: invoice.number,
+              amountPaid: (invoice.amount_paid / 100).toFixed(2),
+              currency: invoice.currency.toUpperCase(),
+              pdfUrl: invoice.hosted_invoice_url,
+            }
+          });
+        } catch (emailError: unknown) {
+          console.error('Failed to send payment receipt email:', emailError);
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Failed to handle invoice payment succeeded:', error);
+        throw error;
+      }
+      throw new Error('Failed to handle invoice payment succeeded');
+    }
+  }
+
+  /**
+   * Handle customer created webhook
+   */
+  async handleCustomerCreated(customer: Stripe.Customer): Promise<void> {
+    try {
+      console.log(`👤 New customer created: ${customer.id}`);
+      // Log customer creation for audit
+      console.info('Stripe customer created', {
+        customerId: customer.id,
+        email: customer.email,
+        name: customer.name,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Failed to handle customer created:', error);
+        throw error;
+      }
+      throw new Error('Failed to handle customer created');
+    }
+  }
+
+  /**
+   * Handle customer updated webhook
+   */
+  async handleCustomerUpdated(customer: Stripe.Customer): Promise<void> {
+    try {
+      console.log(`👤 Customer updated: ${customer.id}`);
+      // Log customer update for audit
+      console.info('Stripe customer updated', {
+        customerId: customer.id,
+        email: customer.email,
+        name: customer.name,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Failed to handle customer updated:', error);
+        throw error;
+      }
+      throw new Error('Failed to handle customer updated');
     }
   }
 

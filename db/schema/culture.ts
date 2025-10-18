@@ -16,8 +16,10 @@ export const cultureAssessments = pgTable('culture_assessments', {
   desiredExperience: jsonb('desired_experience'), // Desired future experience values
   recognition: integer('recognition'), // 1-5 scale
   engagement: integer('engagement'), // 1-5 scale
+  additionalComments: text('additional_comments'), // Employee additional feedback
   completedAt: timestamp('completed_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(), // Add updatedAt for consistency
 });
 
 // Survey invitations tracking

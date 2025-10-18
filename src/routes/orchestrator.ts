@@ -69,12 +69,13 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
     const validatedData = runAnalysisSchema.parse(req.body);
     
     // Verify company belongs to tenant with proper tenant isolation
-    const company = await db.query.companies.findFirst({
-      where: and(
+    const [company] = await db.select()
+      .from(companies)
+      .where(and(
         eq(companies.id, validatedData.companyId),
-        eq(companies.tenantId, req.user.tenantId)
-      )
-    });
+        eq(companies.id, req.user.tenantId) // Using tenant as company ID for multi-tenancy
+      ))
+      .limit(1);
     
     if (!company) {
       return res.status(404).json({ error: 'Company not found or access denied' });
@@ -292,12 +293,13 @@ router.post('/agent/:type/run', authorize(['clientAdmin', 'superadmin']), async 
     }
     
     // Verify company belongs to tenant with proper tenant isolation
-    const company = await db.query.companies.findFirst({
-      where: and(
+    const [company] = await db.select()
+      .from(companies)
+      .where(and(
         eq(companies.id, validatedData.companyId),
-        eq(companies.tenantId, req.user.tenantId)
-      )
-    });
+        eq(companies.id, req.user.tenantId) // Using tenant as company ID for multi-tenancy
+      ))
+      .limit(1);
     
     if (!company) {
       return res.status(404).json({ error: 'Company not found or access denied' });

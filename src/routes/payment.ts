@@ -104,15 +104,17 @@ router.post('/create-checkout-session', authenticate, async (req: Request, res: 
     // Store payment session record (this would have tenantId once tenant is created)
     // For now, we link it to the demo request
     await db.insert(paymentSessions).values({
-      sessionId: session.sessionId,
+      id: session.sessionId,
       demoRequestId,
-      plan,
-      billingPeriod,
-      employeeCount,
       amount: session.amount,
       currency: session.currency,
       status: 'created',
       stripeSessionId: session.sessionId,
+      metadata: {
+        plan,
+        billingPeriod,
+        employeeCount
+      },
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -164,7 +166,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
     const [paymentSession] = await db
       .select()
       .from(paymentSessions)
-      .where(eq(paymentSessions.sessionId, sessionId));
+      .where(eq(paymentSessions.stripeSessionId, sessionId));
 
     if (!paymentSession) {
       return res.status(404).json({
@@ -182,9 +184,9 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
         sessionId,
         status: stripeSession.payment_status,
         customerEmail: stripeSession.customer_details?.email,
-        plan: paymentSession.plan,
-        billingPeriod: paymentSession.billingPeriod,
-        employeeCount: paymentSession.employeeCount,
+        plan: paymentSession.metadata?.plan || 'starter',
+        billingPeriod: paymentSession.metadata?.billingPeriod || 'monthly',
+        employeeCount: paymentSession.metadata?.employeeCount || 0,
         amount: paymentSession.amount,
         currency: paymentSession.currency,
         message: 'Session retrieved successfully'
@@ -352,7 +354,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
     }
 
     // Process webhook through Stripe service (includes signature validation)
-    const result = await stripeService.handleWebhook(req.body, signature);
+    const result = await stripeService.handleWebhook(req.body);
 
     return res.status(200).json({
       success: true,
@@ -437,7 +439,7 @@ router.put('/subscription/:subscriptionId/cancel', authenticate, validateTenantA
     // Cancel subscription through Stripe service
     const result = await stripeService.cancelSubscription({
       subscriptionId: subscription.stripeSubscriptionId,
-      reason: reason || 'User requested cancellation'
+      tenantId: req.user.tenantId
     });
 
     // Update subscription status in database with tenant isolation
@@ -445,8 +447,7 @@ router.put('/subscription/:subscriptionId/cancel', authenticate, validateTenantA
       .update(subscriptions)
       .set({
         status: 'cancelled',
-        cancelledAt: new Date(),
-        cancellationReason: reason || 'User requested cancellation',
+        canceledAt: new Date(),
         updatedAt: new Date()
       })
       .where(
@@ -461,7 +462,7 @@ router.put('/subscription/:subscriptionId/cancel', authenticate, validateTenantA
       data: {
         subscriptionId,
         status: 'cancelled',
-        cancelledAt: result.cancelledAt,
+        cancelledAt: result.canceled_at,
         message: 'Subscription cancelled successfully'
       }
     });

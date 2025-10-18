@@ -6,14 +6,16 @@ import { eq, and, desc } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
 import { Request } from 'express';
 
-// Define AuthenticatedRequest interface
+// Define AuthenticatedRequest interface - matches AuthenticatedUser from middleware
 interface AuthenticatedRequest extends Request {
-  user?: {
+  user: {
     id: string;
-    email: string;
     tenantId: string;
+    email: string;
+    name: string;
     role: string;
-    name?: string;
+    departmentId?: string;
+    managerId?: string;
   };
 }
 import { randomUUID } from 'crypto';

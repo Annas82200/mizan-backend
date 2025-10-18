@@ -1,8 +1,8 @@
 // backend/src/routes/webhooks.ts
 import { Router, Request, Response } from 'express';
 import { stripeService } from '../services/stripe-service';
-import { db } from '../db/connection';
-import { tenantsTable } from '../db/schema/tenants';
+import { db } from '../../db/index';
+import { tenants as tenantsTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 
@@ -117,56 +117,49 @@ router.post('/stripe', async (req: Request, res: Response) => {
       case 'checkout.session.completed':
         console.log(`💳 Processing checkout completion for tenant: ${tenantId}`);
         await stripeService.handleCheckoutComplete(
-          event.data.object as Stripe.Checkout.Session,
-          tenantId
+          event.data.object as Stripe.Checkout.Session
         );
         break;
 
       case 'customer.subscription.updated':
         console.log(`🔄 Processing subscription update for tenant: ${tenantId}`);
         await stripeService.handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription,
-          tenantId
+          event.data.object as Stripe.Subscription
         );
         break;
 
       case 'customer.subscription.deleted':
         console.log(`❌ Processing subscription cancellation for tenant: ${tenantId}`);
         await stripeService.handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription,
-          tenantId
+          event.data.object as Stripe.Subscription
         );
         break;
 
       case 'invoice.payment_failed':
         console.log(`💸 Processing payment failure for tenant: ${tenantId}`);
         await stripeService.handleInvoicePaymentFailed(
-          event.data.object as Stripe.Invoice,
-          tenantId
+          event.data.object as Stripe.Invoice
         );
         break;
 
       case 'invoice.payment_succeeded':
         console.log(`✅ Payment succeeded for tenant: ${tenantId}, invoice: ${(event.data.object as Stripe.Invoice).id}`);
         await stripeService.handleInvoicePaymentSucceeded(
-          event.data.object as Stripe.Invoice,
-          tenantId
+          event.data.object as Stripe.Invoice
         );
         break;
 
       case 'customer.created':
         console.log(`👤 Processing customer creation for tenant: ${tenantId}`);
         await stripeService.handleCustomerCreated(
-          event.data.object as Stripe.Customer,
-          tenantId
+          event.data.object as Stripe.Customer
         );
         break;
 
       case 'customer.updated':
         console.log(`👤 Processing customer update for tenant: ${tenantId}`);
         await stripeService.handleCustomerUpdated(
-          event.data.object as Stripe.Customer,
-          tenantId
+          event.data.object as Stripe.Customer
         );
         break;
 

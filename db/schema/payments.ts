@@ -96,6 +96,21 @@ export const invoices = pgTable('invoices', {
   pdfUrl: text('pdf_url')
 });
 
+// Payment sessions for Stripe Checkout
+export const paymentSessions = pgTable('payment_sessions', {
+  id: text('id').primaryKey(),
+  demoRequestId: integer('demo_request_id'),
+  stripeSessionId: text('stripe_session_id').unique(),
+  status: text('status').notNull().default('pending'), // pending, complete, expired
+  amount: integer('amount'), // in cents
+  currency: text('currency').default('usd'),
+  metadata: jsonb('metadata'),
+  expiresAt: timestamp('expires_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow()
+});
+
 export const demoRequests = pgTable('demo_requests', {
   id: serial('id').primaryKey(),
 
@@ -126,6 +141,9 @@ export const demoRequests = pgTable('demo_requests', {
   // Conversion
   convertedToTenantId: text('converted_to_tenant_id'),
   convertedAt: timestamp('converted_at'),
+
+  // Admin notes
+  notes: text('notes'), // Admin notes for internal tracking
 
   // Metadata
   source: text('source').default('website'), // website, referral, etc.

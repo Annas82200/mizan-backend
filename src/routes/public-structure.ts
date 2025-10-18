@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
-import { StructureAgent } from '../services/agents/structure-agent';
+import { StructureAgent, StructureAnalysisOutput } from '../services/agents/structure-agent';
 import { StructureData } from '../types/structure-types';
 import { z } from 'zod';
 

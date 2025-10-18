@@ -37,13 +37,16 @@ interface UserUpdates {
   updatedAt: Date;
 }
 
-// Extend Request interface to include user with tenantId
+// Extend Request interface to include user with tenantId - matches AuthenticatedUser from middleware
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;
     tenantId: string;
-    role: string;
     email: string;
+    name: string;
+    role: string;
+    departmentId?: string;
+    managerId?: string;
   };
 }
 
@@ -102,9 +105,10 @@ router.use(validateTenantAccess);
 /**
  * Create new client/tenant with structure CSV
  */
-router.post('/clients', upload.single('structureFile'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/clients', upload.single('structureFile'), async (req: Request, res: Response) => {
   try {
-    const user = req.user;
+    const authReq = req as AuthenticatedRequest;
+    const user = authReq.user;
     const { companyName, industry, vision, mission, strategy, values } = req.body;
 
     // Validate required fields
@@ -204,9 +208,10 @@ router.post('/clients', upload.single('structureFile'), async (req: Authenticate
 /**
  * Get all tenants with user counts (Superadmin can see all)
  */
-router.get('/tenants', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/tenants', async (req: Request, res: Response) => {
   try {
-    const user = req.user;
+    const authReq = req as AuthenticatedRequest;
+    const user = authReq.user;
 
     // Superadmin can access all tenants
     const allTenants = await db.query.tenants.findMany({
@@ -235,10 +240,11 @@ router.get('/tenants', async (req: AuthenticatedRequest, res: Response) => {
 /**
  * Get tenant details by ID (with existence validation)
  */
-router.get('/tenants/:tenantId', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/tenants/:tenantId', async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
   try {
-    const { tenantId } = req.params;
-    const user = req.user;
+    const { tenantId } = authReq.params;
+    const user = authReq.user;
 
     // Validate tenant exists
     const tenantExists = await validateTenantExists(tenantId);

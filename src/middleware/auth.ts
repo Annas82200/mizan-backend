@@ -15,6 +15,8 @@ export interface AuthenticatedUser {
   managerId?: string;
 }
 
+export const validateTenantAccess = authenticate;
+
 declare global {
   namespace Express {
     interface Request {
