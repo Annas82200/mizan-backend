@@ -1,9 +1,21 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import { socialMediaPosts, socialMediaCampaigns, socialMediaAccounts } from '../db/schema/social-media';
+import { db } from '../../db/index';
+import { socialMediaPosts, socialMediaCampaigns, socialMediaAccounts } from '../../db/schema/social-media';
 import { eq, and, desc } from 'drizzle-orm';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
+import { Request } from 'express';
+
+// Define AuthenticatedRequest interface
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    tenantId: string;
+    role: string;
+    name?: string;
+  };
+}
 import { randomUUID } from 'crypto';
 import { LinkedInService } from '../services/linkedin-service';
 import { SocialMediaContentGenerator } from '../services/social-media/content-generator';
@@ -38,7 +50,7 @@ const createPostSchema = z.object({
  * Generate single social media post content
  * Uses Three-Engine Architecture for AI-powered content generation
  */
-router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/generate', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validatedData = generateContentSchema.parse(req.body);
     
@@ -104,7 +116,7 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
  * Generate batch of content for a specific week
  * Based on 12-week content strategy
  */
-router.post('/generate-batch', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/generate-batch', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validatedData = generateBatchSchema.parse(req.body);
     
@@ -165,7 +177,7 @@ router.post('/generate-batch', authenticateToken, async (req: AuthenticatedReque
 /**
  * Get content templates and strategy information
  */
-router.get('/templates', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/templates', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const templates = {
       platforms: [
@@ -199,7 +211,7 @@ router.get('/templates', authenticateToken, async (req: AuthenticatedRequest, re
 /**
  * Get 12-week content strategy
  */
-router.get('/strategy', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/strategy', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const strategy = {
       weeks: [
@@ -238,7 +250,7 @@ router.get('/strategy', authenticateToken, async (req: AuthenticatedRequest, res
 /**
  * Get all posts (with tenant isolation)
  */
-router.get('/posts', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/posts', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -259,7 +271,7 @@ router.get('/posts', authenticateToken, async (req: AuthenticatedRequest, res: R
 /**
  * Publish a post to LinkedIn
  */
-router.post('/posts/:postId/publish', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/posts/:postId/publish', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { postId } = req.params;
     
@@ -344,7 +356,7 @@ router.post('/posts/:postId/publish', authenticateToken, async (req: Authenticat
 /**
  * Delete a post (with tenant isolation)
  */
-router.delete('/posts/:postId', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/posts/:postId', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { postId } = req.params;
     
@@ -371,7 +383,7 @@ router.delete('/posts/:postId', authenticateToken, async (req: AuthenticatedRequ
 /**
  * Submit post performance metrics for learning
  */
-router.post('/posts/:postId/metrics', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/posts/:postId/metrics', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { postId } = req.params;
     const { engagement, impressions, clicks, shares, comments } = req.body;
