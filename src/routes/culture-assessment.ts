@@ -1,4 +1,3 @@
-```typescript
 // backend/src/routes/culture-assessment.ts
 
 import { Router, Request, Response } from 'express';
@@ -517,7 +516,7 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
         eq(cultureSurveyInvitations.tenantId, tenantId)
       ));
 
-    console.log(`✅ Distributed culture survey to ${invitations.length} employees`);
+    console.log(`Successfully distributed culture survey to ${invitations.length} employees`);
 
     return res.json({
       success: true,
@@ -733,7 +732,7 @@ router.post('/submit', async (req: Request, res: Response) => {
         eq(cultureReports.reportType, 'company')
       ));
 
-    console.log(`🔄 Deleted company reports for tenant ${invitationData.tenantId} to trigger regeneration`);
+    console.log(`Deleted company reports for tenant ${invitationData.tenantId} to trigger regeneration`);
 
     return res.json({
       success: true,
@@ -897,4 +896,21 @@ router.get('/report/survey/:surveyToken', async (req: Request, res: Response) =>
     if (assessment.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'No assessment found.
+        error: 'No assessment found.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      assessment: assessment[0]
+    });
+  } catch (error) {
+    console.error('Error fetching assessment:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch assessment'
+    });
+  }
+});
+
+export default router;

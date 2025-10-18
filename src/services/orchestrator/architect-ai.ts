@@ -112,14 +112,7 @@ export interface ArchitectAIInput {
   performanceMetrics?: PerformanceMetrics;
 }
 
-interface StructureAnalysisResult {
-  overallScore?: number;
-  spanAnalysis?: Record<string, unknown>;
-  layerAnalysis?: Record<string, unknown>;
-  recommendations?: Array<{ title: string; description: string }>;
-  healthScore?: number;
-  hiringNeeds?: Array<{ role: string; urgency: string }>;
-}
+// Duplicate interface removed - using the more complete definition above
 
 interface CultureAnalysisResult {
   overallScore?: number;
@@ -259,14 +252,22 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
     };
     
     const result = await agent.analyzeStructure(analysisInput);
-    
+
     return {
       healthScore: result.healthScore,
       structureType: result.structureType,
       isOptimal: result.isOptimalForStrategy,
-      gaps: result.gaps,
-      hiringNeeds: result.hiringNeeds,
-      recommendations: result.recommendations
+      gaps: result.gaps.map(g => g.description), // Extract descriptions from gap objects
+      hiringNeeds: result.hiringNeeds.map(h => ({
+        position: h.role,
+        department: h.department,
+        priority: h.urgency
+      })),
+      recommendations: result.recommendations.map(r => ({
+        category: 'structure',
+        priority: 'medium',
+        description: typeof r === 'string' ? r : r.description || ''
+      }))
     };
   } catch (error) {
     console.error('Structure analysis failed:', error);
@@ -333,9 +334,19 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
       healthScore: result.skillsCoverage,
       coverageScore: result.skillsCoverage,
       hasRightSkills: result.skillsCoverage > 0.7,
-      criticalGaps: result.criticalGaps,
-      trainingNeeds: result.lxpTriggers || [],
-      recommendations: result.recommendations.map(r => r.description)
+      criticalGaps: result.criticalGaps.map(gap => ({
+        skill: gap.skill,
+        gap: gap.gap === 'critical' ? 1.0 : gap.gap === 'high' ? 0.75 : gap.gap === 'medium' ? 0.5 : 0.25,
+        priority: gap.gap
+      })),
+      trainingNeeds: result.lxpTriggers?.map(trigger => ({
+        area: trigger.skill || 'general',
+        priority: trigger.priority || 'medium'
+      })) || [],
+      recommendations: result.recommendations?.map(r => ({
+        title: typeof r === 'string' ? r : r.title || 'Recommendation',
+        description: typeof r === 'string' ? r : r.description || ''
+      })) || []
     };
   } catch (error) {
     console.error('Skills analysis failed:', error);
@@ -369,8 +380,8 @@ async function getDefaultOrgChart(companyId: string): Promise<DefaultOrgChart> {
     departments: departmentsList.map(dept => ({
       id: dept.id,
       name: dept.name,
-      headCount: deptEmployeeCounts[dept.id] || 0,
-      manager: dept.managerId
+      headId: dept.managerId || '',
+      headCount: deptEmployeeCounts[dept.id] || 0
     })),
     reportingLines: [], // Would be populated from actual data
     roles: usersList.map(user => ({

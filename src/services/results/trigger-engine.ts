@@ -267,14 +267,13 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       const hiringResult = await hiringModule.handleTrigger({
         tenantId: resultsWithTenant.tenantId || trigger.tenantId || 'default-tenant',
         recommendation: {
-          ...config,
           positionTitle: config.title || '',
           department: config.department || '',
           reportingTo: config.reportingTo || '',
           responsibilities: config.responsibilities || [],
-          qualifications: config.qualifications || [],
-          compensationRange: config.compensationRange || ''
-        } as HiringRecommendation
+          requiredSkills: config.qualifications || [],
+          justification: config.rationale || 'Strategic hire needed based on organizational analysis'
+        }
       });
       
       // Convert Hiring module result to trigger result

@@ -187,11 +187,9 @@ router.post('/companies', async (req: Request, res: Response) => {
 
     const validatedData = schema.parse(req.body);
 
-    // Create company with tenant association
-    const [company] = await db.insert(companies)
-      .values({
-        id: randomUUID(),
-        tenantId: req.user.tenantId, // Ensure tenant isolation
+    // Update existing tenant/company information
+    const [company] = await db.update(companies)
+      .set({
         name: validatedData.name,
         industry: validatedData.industry,
         employeeCount: validatedData.size ? parseInt(validatedData.size.split('-')[0]) : undefined,
@@ -199,9 +197,9 @@ router.post('/companies', async (req: Request, res: Response) => {
         mission: validatedData.mission,
         strategy: validatedData.strategy,
         values: validatedData.values,
-        createdAt: new Date(),
         updatedAt: new Date()
       })
+      .where(eq(companies.id, req.user.tenantId))
       .returning();
     
     return res.json(company);
@@ -380,7 +378,7 @@ router.get('/analyses', async (req: Request, res: Response) => {
       orderBy: [desc(analyses.createdAt)],
       with: {
         company: {
-          where: eq(companies.tenantId, req.user.tenantId) // Ensure company also belongs to tenant
+          where: eq(companies.id, req.user.tenantId) // Ensure company matches tenant
         },
         requestedByUser: {
           where: eq(users.tenantId, req.user.tenantId) // Ensure user also belongs to tenant
@@ -510,10 +508,7 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     // If companyId is provided, verify it belongs to the current tenant
     if (companyId) {
       const company = await db.query.companies.findFirst({
-        where: and(
-          eq(companies.id, companyId as string),
-          eq(companies.tenantId, req.user.tenantId)
-        )
+        where: eq(companies.id, req.user.tenantId)
       });
 
       if (!company) {

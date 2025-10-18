@@ -407,14 +407,4 @@ export const lxpPerformanceImpactRelations = relations(lxpPerformanceImpactTable
   }),
 }));
 
-// Export all tables for use in queries
-export {
-  lxpWorkflowTable,
-  learningLevelsTable,
-  learningProgressEventsTable,
-  lxpSkillsAcquiredTable,
-  lxpBehaviorChangesTable,
-  lxpPerformanceImpactTable,
-  lxpAnalyticsTable,
-  lxpTriggersTable,
-};
+// All tables are already exported at their declaration points above
