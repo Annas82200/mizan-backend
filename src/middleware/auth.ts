@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/index';
-import { users } from '../db/schema';
+import { users, tenants } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyToken } from '../services/auth';
 
@@ -61,12 +61,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         // Fetch user data from database with proper error handling
         let userData;
         try {
-            userData = await db.query.users.findFirst({
-                where: eq(users.id, decoded.userId),
-                with: {
-                    tenant: true
-                }
-            });
+            const userResult = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);
+            userData = userResult[0];
         } catch (dbError) {
             console.error('Database error during user lookup:', dbError);
             return res.status(500).json({ error: 'Database error' });
@@ -83,10 +79,17 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         }
 
         // Verify tenant is active if user has a tenant
-        if (userData.tenantId && userData.tenant) {
-            if (userData.tenant.status !== 'active') {
-                console.error('Tenant is inactive:', userData.tenantId);
-                return res.status(403).json({ error: 'Tenant account is inactive' });
+        if (userData.tenantId) {
+            try {
+                const tenantResult = await db.select().from(tenants).where(eq(tenants.id, userData.tenantId)).limit(1);
+                const tenant = tenantResult[0];
+                if (tenant && tenant.status !== 'active') {
+                    console.error('Tenant is inactive:', userData.tenantId);
+                    return res.status(403).json({ error: 'Tenant account is inactive' });
+                }
+            } catch (tenantError) {
+                console.error('Error checking tenant status:', tenantError);
+                return res.status(500).json({ error: 'Database error' });
             }
         }
 
