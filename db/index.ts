@@ -19,5 +19,25 @@ const pool = new Pool({
 // Create drizzle instance
 export const db = drizzle(pool, { schema });
 
+// Test connection on startup
+pool.on('connect', () => {
+  console.log('✅ Database connection established');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Database pool error:', err);
+});
+
+// Test connection immediately
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log('✅ Initial database connection successful');
+    client.release();
+  } catch (error) {
+    console.error('❌ Initial database connection failed:', error);
+  }
+})();
+
 // Export pool for raw queries if needed
 export { pool };

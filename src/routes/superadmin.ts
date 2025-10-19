@@ -298,9 +298,18 @@ router.get('/tenants', async (req: Request, res: Response) => {
       totalPages: totalPages
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch tenants';
-    console.error('Tenants fetch error:', error);
-    return res.status(500).json({ error: errorMessage });
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+    };
+    
+    console.error('Superadmin tenants error:', errorDetails);
+    
+    return res.status(500).json({ 
+      error: 'Database error',
+      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
   }
 });
 
@@ -452,6 +461,40 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
 });
 
 /**
+ * Database health check endpoint
+ */
+router.get('/health/database', async (req: Request, res: Response) => {
+  try {
+    // Test SELECT query
+    await db.execute(sql`SELECT 1`);
+    
+    // Test table access
+    const tenantCount = await db.select({ count: sql<number>`count(*)` }).from(tenants);
+    const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
+    
+    return res.json({
+      status: 'healthy',
+      database: {
+        connected: true,
+        tenants: tenantCount[0]?.count || 0,
+        users: userCount[0]?.count || 0
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    return res.status(500).json({
+      status: 'unhealthy',
+      database: {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Get platform statistics (aggregated from all tenants)
  */
 router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
@@ -499,9 +542,18 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     console.log('Stats calculated successfully:', stats);
     return res.json(stats);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stats';
-    console.error('Stats error:', error);
-    return res.status(500).json({ error: errorMessage });
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+    };
+    
+    console.error('Superadmin stats error:', errorDetails);
+    
+    return res.status(500).json({ 
+      error: 'Database error',
+      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
   }
 });
 
@@ -559,9 +611,18 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json({ data });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch revenue';
-    console.error('Revenue fetch error:', error);
-    return res.status(500).json({ error: errorMessage });
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+    };
+    
+    console.error('Superadmin revenue error:', errorDetails);
+    
+    return res.status(500).json({ 
+      error: 'Database error',
+      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
   }
 });
 
@@ -624,9 +685,18 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(activities);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch activity';
-    console.error('Activity fetch error:', error);
-    return res.status(500).json({ error: errorMessage });
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+    };
+    
+    console.error('Superadmin activity error:', errorDetails);
+    
+    return res.status(500).json({ 
+      error: 'Database error',
+      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
   }
 });
 
