@@ -257,10 +257,20 @@ router.get('/tenants', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Database connection failed' });
     }
 
+    // Parse pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
     // Superadmin can access all tenants
-    let allTenants;
+    let allTenants, totalCount;
     try {
-      allTenants = await db.select().from(tenants);
+      // Get total count
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(tenants);
+      totalCount = countResult[0]?.count || 0;
+      
+      // Get paginated tenants
+      allTenants = await db.select().from(tenants).limit(limit).offset(offset);
       console.log('Fetched tenants:', allTenants.length);
     } catch (tenantError) {
       console.error('Error fetching tenants:', tenantError);
@@ -278,9 +288,14 @@ router.get('/tenants', async (req: Request, res: Response) => {
       })
     );
 
+    const totalPages = Math.ceil(totalCount / limit);
+
     return res.json({
       tenants: tenantsWithCounts,
-      total: allTenants.length
+      total: totalCount,
+      page: page,
+      limit: limit,
+      totalPages: totalPages
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch tenants';
@@ -607,7 +622,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
      .slice(0, limit);
 
-    return res.json({ activities });
+    return res.json(activities);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch activity';
     console.error('Activity fetch error:', error);

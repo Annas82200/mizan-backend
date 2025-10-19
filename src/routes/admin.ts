@@ -316,6 +316,9 @@ router.post('/users/invite', async (req: Request, res: Response) => {
       }
 
       const tenant = tenantResult[0];
+      if (!tenant) {
+        throw new Error('Tenant not found');
+      }
 
       await emailService.sendEmail({
         to: validatedData.email,
