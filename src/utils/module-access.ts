@@ -47,16 +47,16 @@ export async function checkModuleAccess(
   moduleName: ModuleName
 ): Promise<ModuleAccess> {
   try {
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
 
-    if (!tenant) {
+    if (tenantResult.length === 0) {
       return {
         canAccessModule: false,
         reason: 'Tenant not found'
       };
     }
+
+    const tenant = tenantResult[0];
 
     const tenantPlan = tenant.plan || 'trial';
     const allowedModules = MODULE_ACCESS_RULES[tenantPlan] || [];
@@ -109,13 +109,13 @@ export function getRequiredPlanForModule(moduleName: ModuleName): string {
  */
 export async function getAccessibleModules(tenantId: string): Promise<ModuleName[]> {
   try {
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
 
-    if (!tenant || tenant.status !== 'active') {
+    if (tenantResult.length === 0 || tenantResult[0].status !== 'active') {
       return [];
     }
+
+    const tenant = tenantResult[0];
 
     const tenantPlan = tenant.plan || 'trial';
     return MODULE_ACCESS_RULES[tenantPlan] || [];
