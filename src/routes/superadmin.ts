@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db/index';
-import { tenants, users } from '../../db/schema';
+import { db, getConnectionStatus, validateConnection } from '../db/index';
+import { tenants, users } from '../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticate, requireRole } from '../middleware/auth';
 import multer from 'multer';
@@ -9,6 +9,84 @@ import fs from 'fs/promises';
 import { parse } from 'csv-parse/sync';
 
 const router = Router();
+
+/**
+ * Enhanced database error handler for consistent error responses
+ * Following AGENT_CONTEXT_ULTIMATE.md - Complete error handling requirement
+ */
+const handleDatabaseError = (error: any, res: Response, operation: string) => {
+  // Specific PostgreSQL error codes
+  if (error?.code === 'ECONNREFUSED' || error?.message?.includes('ECONNREFUSED')) {
+    console.error(`[${operation}] Database connection refused:`, error.message);
+    return res.status(503).json({
+      error: 'Database connection failed',
+      message: 'PostgreSQL server is not accessible. Please ensure the database is running.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  if (error?.code === '28P01' || error?.message?.includes('password authentication failed')) {
+    console.error(`[${operation}] Database authentication failed:`, error.message);
+    return res.status(503).json({
+      error: 'Database authentication failed',
+      message: 'Invalid database credentials. Check DATABASE_URL configuration.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  if (error?.code === '3D000' || error?.message?.includes('database') && error?.message?.includes('does not exist')) {
+    console.error(`[${operation}] Database does not exist:`, error.message);
+    return res.status(503).json({
+      error: 'Database not found',
+      message: 'Database "mizan" does not exist. Please create it first.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  if (error?.code === '42P01' || error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
+    console.error(`[${operation}] Table does not exist:`, error.message);
+    return res.status(503).json({
+      error: 'Database schema issue',
+      message: 'Required database tables do not exist. Run migrations: npm run db:migrate',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  if (error?.code === '42703') {
+    console.error(`[${operation}] Column does not exist:`, error.message);
+    return res.status(503).json({
+      error: 'Database schema mismatch',
+      message: 'Database schema is out of sync. Please run migrations.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  // Connection timeout
+  if (error?.code === '57P03' || error?.message?.includes('timeout')) {
+    console.error(`[${operation}] Database timeout:`, error.message);
+    return res.status(504).json({
+      error: 'Database timeout',
+      message: 'Database query timed out. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+
+  // Generic error fallback
+  const errorDetails = {
+    message: error?.message || 'Unknown error',
+    code: error?.code,
+    type: error?.constructor?.name || typeof error,
+    stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+  };
+
+  console.error(`[${operation}] Database error:`, errorDetails);
+
+  return res.status(500).json({
+    error: 'Database operation failed',
+    message: `Failed to ${operation}`,
+    details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+  });
+};
 
 // Type definitions for CSV records
 interface EmployeeCSVRecord {
@@ -298,18 +376,7 @@ router.get('/tenants', async (req: Request, res: Response) => {
       totalPages: totalPages
     });
   } catch (error: unknown) {
-    const errorDetails = {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      type: error instanceof Error ? error.constructor.name : typeof error,
-      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
-    };
-    
-    console.error('Superadmin tenants error:', errorDetails);
-    
-    return res.status(500).json({ 
-      error: 'Database error',
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
-    });
+    return handleDatabaseError(error, res, 'fetch tenants');
   }
 });
 
@@ -461,30 +528,122 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
 });
 
 /**
- * Database health check endpoint
+ * Enhanced database health check endpoint
+ * Following AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
  */
 router.get('/health/database', async (req: Request, res: Response) => {
   try {
-    // Test table access
-    const tenantCount = await db.select().from(tenants);
-    const userCount = await db.select().from(users);
-    
+    // Get connection pool status
+    const connectionStatus = getConnectionStatus();
+
+    // Run validation to test actual query execution
+    const isValid = await validateConnection();
+
+    if (!isValid) {
+      return res.status(503).json({
+        status: 'unhealthy',
+        message: 'Database connection validation failed',
+        database: {
+          connected: false,
+          poolStatus: connectionStatus,
+          error: 'Cannot execute queries - check server logs for details'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Test specific table access with proper error handling
+    let tenantCount = 0;
+    let userCount = 0;
+    let schemaStatus = 'unknown';
+
+    try {
+      const tenantResult = await db.select({ count: sql<number>`count(*)` }).from(tenants);
+      tenantCount = Number(tenantResult[0]?.count || 0);
+
+      const userResult = await db.select({ count: sql<number>`count(*)` }).from(users);
+      userCount = Number(userResult[0]?.count || 0);
+
+      schemaStatus = 'valid';
+    } catch (schemaError: any) {
+      console.error('Schema validation error:', schemaError.message);
+      schemaStatus = schemaError.message.includes('does not exist') ? 'missing_tables' : 'error';
+
+      if (schemaStatus === 'missing_tables') {
+        return res.status(503).json({
+          status: 'unhealthy',
+          message: 'Database schema not initialized',
+          database: {
+            connected: true,
+            poolStatus: connectionStatus,
+            schemaStatus: 'missing_tables',
+            error: 'Tables do not exist. Run migrations: npm run db:migrate'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    // Return comprehensive health status
     return res.json({
       status: 'healthy',
+      message: 'Database is fully operational',
       database: {
         connected: true,
-        tenants: tenantCount.length,
-        users: userCount.length
+        poolStatus: connectionStatus,
+        schemaStatus,
+        tables: {
+          tenants: tenantCount,
+          users: userCount
+        },
+        performance: {
+          poolSize: connectionStatus.poolSize,
+          idleConnections: connectionStatus.idleConnections,
+          waitingClients: connectionStatus.waitingClients
+        }
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        hasDatabaseUrl: !!process.env.DATABASE_URL
       },
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
-    console.error('Database health check failed:', error);
-    return res.status(500).json({
+
+  } catch (error: any) {
+    console.error('Health check critical error:', error);
+
+    // Determine error type for better diagnostics
+    let errorType = 'unknown';
+    let errorMessage = error.message || 'Unknown error';
+
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
+      errorType = 'connection_refused';
+      errorMessage = 'PostgreSQL server is not running or not accessible';
+    } else if (error.code === '28P01' || error.message?.includes('authentication failed')) {
+      errorType = 'auth_failed';
+      errorMessage = 'Database authentication failed - check credentials';
+    } else if (error.code === '3D000' || error.message?.includes('database') && error.message?.includes('does not exist')) {
+      errorType = 'database_missing';
+      errorMessage = 'Database "mizan" does not exist';
+    }
+
+    return res.status(503).json({
       status: 'unhealthy',
+      message: 'Database health check failed',
       database: {
         connected: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        errorType,
+        error: errorMessage,
+        poolStatus: getConnectionStatus()
+      },
+      diagnostics: {
+        suggestion: errorType === 'connection_refused'
+          ? 'Start PostgreSQL: sudo service postgresql start'
+          : errorType === 'auth_failed'
+          ? 'Check DATABASE_URL in .env file'
+          : errorType === 'database_missing'
+          ? 'Create database: createdb mizan'
+          : 'Check server logs for details'
       },
       timestamp: new Date().toISOString()
     });
@@ -539,18 +698,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     console.log('Stats calculated successfully:', stats);
     return res.json(stats);
   } catch (error: unknown) {
-    const errorDetails = {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      type: error instanceof Error ? error.constructor.name : typeof error,
-      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
-    };
-    
-    console.error('Superadmin stats error:', errorDetails);
-    
-    return res.status(500).json({ 
-      error: 'Database error',
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
-    });
+    return handleDatabaseError(error, res, 'fetch platform statistics');
   }
 });
 
@@ -608,18 +756,7 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json({ data });
   } catch (error: unknown) {
-    const errorDetails = {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      type: error instanceof Error ? error.constructor.name : typeof error,
-      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
-    };
-    
-    console.error('Superadmin revenue error:', errorDetails);
-    
-    return res.status(500).json({ 
-      error: 'Database error',
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
-    });
+    return handleDatabaseError(error, res, 'fetch revenue data');
   }
 });
 
@@ -682,18 +819,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(activities);
   } catch (error: unknown) {
-    const errorDetails = {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      type: error instanceof Error ? error.constructor.name : typeof error,
-      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
-    };
-    
-    console.error('Superadmin activity error:', errorDetails);
-    
-    return res.status(500).json({ 
-      error: 'Database error',
-      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
-    });
+    return handleDatabaseError(error, res, 'fetch activity data');
   }
 });
 
