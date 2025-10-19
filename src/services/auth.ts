@@ -104,29 +104,32 @@ export async function createSession(userId: string, tenantId: string): Promise<s
 }
 
 export async function validateSession(token: string): Promise<AuthUser | null> {
-  const session = await db.query.sessions.findFirst({
-    where: and(
+  const sessionResult = await db.select().from(sessions).where(
+    and(
       eq(sessions.token, token),
       eq(sessions.expiresAt, new Date())
-    ),
-    with: {
-      user: {
-        with: {
-          tenant: true,
-        },
-      },
-    },
-  });
+    )
+  ).limit(1);
   
-  if (!session || session.expiresAt < new Date()) {
+  if (sessionResult.length === 0 || sessionResult[0].expiresAt < new Date()) {
     return null;
   }
   
-  const user = session.user;
+  const session = sessionResult[0];
   
-  // Handle case where user might be an array (shouldn't happen but we need to be safe)
-  if (!user || Array.isArray(user)) {
+  // Get user data separately
+  const userResult = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  if (userResult.length === 0) {
     return null;
+  }
+  
+  const user = userResult[0];
+  
+  // Get tenant data separately if user has tenantId
+  let tenant = null;
+  if (user.tenantId) {
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1);
+    tenant = tenantResult[0] || null;
   }
   
   return {
@@ -135,23 +138,26 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
     name: user.name,
     role: user.role as 'employee' | 'clientAdmin' | 'superadmin',
     tenantId: user.tenantId,
-    tenantName: user.tenant?.name,
-    tenantPlan: user.tenant?.plan,
+    tenantName: tenant?.name,
+    tenantPlan: tenant?.plan,
   };
 }
 
 export async function login(email: string, password: string, tenantId: string): Promise<{ user: AuthUser; token: string } | null> {
-  const user = await db.query.users.findFirst({
-    where: and(
+  const userResult = await db.select().from(users).where(
+    and(
       eq(users.email, email),
       eq(users.tenantId, tenantId)
-    ),
-    with: {
-      tenant: true,
-    },
-  });
+    )
+  ).limit(1);
   
-  if (!user || !await comparePasswords(password, user.passwordHash)) {
+  if (userResult.length === 0) {
+    return null;
+  }
+  
+  const user = userResult[0];
+  
+  if (!await comparePasswords(password, user.passwordHash)) {
     return null;
   }
   
@@ -165,6 +171,13 @@ export async function login(email: string, password: string, tenantId: string): 
   
   const token = await createSession(user.id, user.tenantId);
   
+  // Get tenant data separately
+  let tenant = null;
+  if (user.tenantId) {
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1);
+    tenant = tenantResult[0] || null;
+  }
+  
   return {
     user: {
       id: user.id,
@@ -172,8 +185,8 @@ export async function login(email: string, password: string, tenantId: string): 
       name: user.name,
       role: user.role as 'employee' | 'clientAdmin' | 'superadmin',
       tenantId: user.tenantId,
-      tenantName: (user.tenant && !Array.isArray(user.tenant)) ? user.tenant.name : undefined,
-      tenantPlan: (user.tenant && !Array.isArray(user.tenant)) ? user.tenant.plan : undefined,
+      tenantName: tenant?.name,
+      tenantPlan: tenant?.plan,
     },
     token,
   };
@@ -201,14 +214,14 @@ export async function register(data: z.infer<typeof registerSchema>): Promise<{ 
     }).returning())[0];
     tenantId = newTenant.id;
 
-    const existingUserInTenant = await db.query.users.findFirst({
-      where: and(
+    const existingUserInTenant = await db.select().from(users).where(
+      and(
         eq(users.email, data.email),
         eq(users.tenantId, tenantId)
-      ),
-    });
+      )
+    ).limit(1);
 
-    if (existingUserInTenant) {
+    if (existingUserInTenant.length > 0) {
       // This case should ideally not happen if this is a new tenant.
       // But as a safeguard:
       throw new Error("Email already registered for this company.");
@@ -262,14 +275,14 @@ export async function inviteEmployee(
   title?: string,
   invitedBy?: string
 ): Promise<{ temporaryPassword: string }> {
-  const existingUser = await db.query.users.findFirst({
-    where: and(
+  const existingUser = await db.select().from(users).where(
+    and(
       eq(users.email, email),
       eq(users.tenantId, tenantId)
-    ),
-  });
+    )
+  ).limit(1);
   
-  if (existingUser) {
+  if (existingUser.length > 0) {
     throw new Error("Email already registered in this tenant");
   }
   
@@ -294,13 +307,13 @@ export async function inviteEmployee(
 }
 
 export async function changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-  });
+  const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   
-  if (!user) {
+  if (userResult.length === 0) {
     throw new Error("User not found");
   }
+  
+  const user = userResult[0];
   
   if (!await comparePasswords(oldPassword, user.passwordHash)) {
     throw new Error("Invalid current password");
@@ -314,16 +327,16 @@ export async function changePassword(userId: string, oldPassword: string, newPas
 }
 
 export async function resetPassword(email: string): Promise<{ resetToken: string }> {
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
-  });
+  const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
   
-  if (!user) {
+  if (userResult.length === 0) {
     // Don't reveal if email exists, but we need tenant context here too.
     // Password reset flow needs to be re-evaluated for multi-tenancy.
     // For now, we leave it as is, but it's a known issue.
     return { resetToken: "sent" };
   }
+  
+  const user = userResult[0];
   
   // Generate reset token (in production, use a more secure method)
   const resetToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
