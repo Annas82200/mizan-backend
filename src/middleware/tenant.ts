@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../db/index';
-import { tenants, users } from '../db/schema';
+import { db } from '../../db/index';
+import { tenants, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // Extend Request interface to include tenant information

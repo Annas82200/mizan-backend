@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { AgentManager } from '../services/agents/agent-manager';
 import { authenticate, authorize, validateTenantAccess } from '../middleware/auth';
 import { z } from 'zod';
-import { db } from '../db/index';
-import { agentAnalysesTable, triggersTable, recommendationsTable } from '../db/schema';
+import { db } from '../../db/index';
+import { agentAnalysesTable, triggersTable, recommendationsTable } from '../../db/schema';
 import { eq, and, desc, limit as limitQuery } from 'drizzle-orm';
 
 const router = Router();

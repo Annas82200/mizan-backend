@@ -2,7 +2,7 @@
 // Culture Fit Assessment for Hiring Module
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
 
-import { db } from '../../../../db/index';
+import { db } from '../../../../../db/index';
 import { cultureAgent } from '../../../agents/culture/culture-agent';
 import { eq } from 'drizzle-orm';
 import logger from '../../../../utils/logger';

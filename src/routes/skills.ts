@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
-import { db } from '../db/index';
-import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../db/schema';
+import { db } from '../../db/index';
+import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

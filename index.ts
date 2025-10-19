@@ -455,7 +455,7 @@ app.use('*', (req, res) => {
 async function testDatabaseConnection(): Promise<boolean> {
   try {
     console.log('🔍 Testing database connection...');
-    const { pool } = await import('./src/db/index');
+    const { pool } = await import('./db/index');
     
     // Test query with reduced timeout for Railway (5s instead of 10s)
     const timeoutPromise = new Promise((_, reject) => 
@@ -587,7 +587,7 @@ async function startServer() {
         console.log('✅ HTTP server closed');
         
         try {
-          const { pool } = await import('./src/db/index');
+          const { pool } = await import('./db/index');
           await pool.end();
           console.log('✅ Database pool closed');
         } catch (error) {

@@ -3,8 +3,8 @@
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
 
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../db/index';
-import { tenants } from '../db/schema';
+import { db } from '../../db/index';
+import { tenants } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 export interface ModuleAccess {

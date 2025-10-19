@@ -3,8 +3,8 @@
 import { StructureAgentV2 } from '../agents/structure/structure-agent';
 import { CultureAgentV2 } from '../agents/culture/culture-agent';
 import { SkillsAgent } from '../agents/skills/skills-agent';
-import { db } from '../../db/index';
-import { companies, users, departments } from '../../db/schema';
+import { db } from '../../../db/index';
+import { companies, users, departments } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 interface OrgChartData {

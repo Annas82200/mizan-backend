@@ -1,6 +1,6 @@
 import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent';
-import { db } from '../../db/index';
-import { organizationStructure, companyStrategies } from '../../db/schema';
+import { db } from '../../../db/index';
+import { organizationStructure, companyStrategies } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { invokeProvider } from '../ai-providers/router';
 import type {

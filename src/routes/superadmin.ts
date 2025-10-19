@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db, getConnectionStatus, validateConnection } from '../db/index';
-import { tenants, users } from '../db/schema';
+import { db, getConnectionStatus, validateConnection } from '../../db/index';
+import { tenants, users } from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticate, requireRole } from '../middleware/auth';
 import multer from 'multer';

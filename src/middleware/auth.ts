@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../db/index';
-import { users, tenants } from '../db/schema';
+import { db } from '../../db/index';
+import { users, tenants } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyToken } from '../services/auth';
 

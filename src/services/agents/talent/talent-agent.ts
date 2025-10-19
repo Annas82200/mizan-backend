@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { db } from '../../../db/index';
-import { talentProfiles } from '../../../db/schema/performance';
-import { users } from '../../../db/schema/core';
+import { db } from '../../../../db/index';
+import { talentProfiles } from '../../../../db/schema/performance';
+import { users } from '../../../../db/schema/core';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';

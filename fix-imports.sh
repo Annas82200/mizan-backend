@@ -1,24 +1,19 @@
 #!/bin/bash
 
-# Fix import paths in backend files
-echo "Fixing import paths in backend..."
+# Fix all import paths in src/services
+find src/services -name "*.ts" -type f | while read file; do
+  # Replace '../../../db/index' with '../../../db/index'
+  sed -i '' "s|from '\.\./\.\./\.\./db/index'|from '../../../db/index'|g" "$file"
+  # Replace '../../db/index' with '../../db/index'
+  sed -i '' "s|from '\.\./\.\./db/index'|from '../../db/index'|g" "$file"
+  # Replace '../db/index' with '../db/index'
+  sed -i '' "s|from '\.\./db/index'|from '../db/index'|g" "$file"
+done
 
-# Fix db imports in routes
-find src/routes -name "*.ts" -exec sed -i '' 's|from "./db/|from "../db/|g' {} \;
-find src/routes -name "*.ts" -exec sed -i '' 's|from '\''./db/|from '\''../db/|g' {} \;
+# Fix all import paths in src/routes
+find src/routes -name "*.ts" -type f | while read file; do
+  # Replace '../db/index' with '../../db/index'
+  sed -i '' "s|from '\.\./db/index'|from '../../db/index'|g" "$file"
+done
 
-# Fix db imports in services
-find src/services -name "*.ts" -exec sed -i '' 's|from '\''../../../db/|from '\''../../db/|g' {} \;
-find src/services -name "*.ts" -exec sed -i '' 's|from '\''../../../../db/|from '\''../../../db/|g' {} \;
-find src/services -name "*.ts" -exec sed -i '' 's|from '\''../../../../../db/|from '\''../../../../db/|g' {} \;
-
-# Fix middleware imports
-find src/middleware -name "*.ts" -exec sed -i '' 's|from '\''../../db/|from '\''../db/|g' {} \;
-
-# Fix utils imports  
-find src/utils -name "*.ts" -exec sed -i '' 's|from '\''../../db/|from '\''../db/|g' {} \;
-
-# Fix types imports
-find src/types -name "*.ts" -exec sed -i '' 's|from '\''../../db/|from '\''../db/|g' {} \;
-
-echo "Import paths fixed!"
+echo "Import paths fixed"

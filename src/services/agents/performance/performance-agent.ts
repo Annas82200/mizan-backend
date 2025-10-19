@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../../../db/index';
-import { performanceCycles, performanceGoals } from '../../../db/schema/performance';
+import { db } from '../../../../db/index';
+import { performanceCycles, performanceGoals } from '../../../../db/schema/performance';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
