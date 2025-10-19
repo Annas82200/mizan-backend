@@ -258,9 +258,8 @@ app.post('/api/create-superadmin-temp', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Find or create tenant
-    let tenant = await db.query.tenants.findFirst({
-      where: (t, { eq }) => eq(t.name, 'Mizan Superadmin')
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.name, 'Mizan Superadmin')).limit(1);
+    let tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
     if (!tenant) {
       [tenant] = await db.insert(tenants).values({
@@ -271,9 +270,8 @@ app.post('/api/create-superadmin-temp', async (req, res) => {
     }
 
     // Check if user exists
-    const existing = await db.query.users.findFirst({
-      where: (u, { eq }) => eq(u.email, email)
-    });
+    const existingResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const existing = existingResult.length > 0 ? existingResult[0] : null;
 
     if (existing) {
       // Update
@@ -316,9 +314,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Find user
-    const user = await db.query.users.findFirst({
-      where: (u, { eq }) => eq(u.email, email)
-    });
+    const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const user = userResult.length > 0 ? userResult[0] : null;
 
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Invalid credentials' });

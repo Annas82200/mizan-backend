@@ -141,9 +141,8 @@ export class BillingService {
 
   async createSubscription(tenantId: string, planId: string, paymentMethodId?: string): Promise<SubscriptionData> {
     try {
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, tenantId)
-      });
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
       if (!tenant) {
         throw new Error('Tenant not found');
@@ -218,9 +217,8 @@ export class BillingService {
 
   async updateSubscription(tenantId: string, newPlanId: string): Promise<SubscriptionData> {
     try {
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, tenantId)
-      });
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
       if (!tenant || !tenant.stripeSubscriptionId) {
         throw new Error('No active subscription found');
@@ -266,9 +264,8 @@ export class BillingService {
 
   async cancelSubscription(tenantId: string, immediately: boolean = false): Promise<void> {
     try {
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, tenantId)
-      });
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
       if (!tenant || !tenant.stripeSubscriptionId) {
         throw new Error('No active subscription found');
@@ -298,9 +295,8 @@ export class BillingService {
 
   async createPaymentIntent(tenantId: string, amount: number, currency: string = 'usd'): Promise<string> {
     try {
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, tenantId)
-      });
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
       if (!tenant) {
         throw new Error('Tenant not found');
