@@ -35,12 +35,11 @@ export async function processScheduledPosts(): Promise<void> {
 
     // Get all posts scheduled for now or earlier
     const now = new Date();
-    const duePosts = await db.query.socialMediaPosts.findMany({
-      where: and(
+    const duePosts = await db.select().from(socialMediaPosts)
+      .where(and(
         eq(socialMediaPosts.status, 'scheduled'),
         lte(socialMediaPosts.scheduledFor, now)
-      )
-    });
+      ));
 
     logger.info(`Found ${duePosts.length} posts due for publishing`);
 
@@ -64,22 +63,24 @@ export async function processScheduledPosts(): Promise<void> {
  */
 export async function publishPost(postId: string): Promise<PostResult> {
   try {
-    const post = await db.query.socialMediaPosts.findFirst({
-      where: eq(socialMediaPosts.id, postId)
-    });
+    const postResult = await db.select().from(socialMediaPosts)
+      .where(eq(socialMediaPosts.id, postId))
+      .limit(1);
+    const post = postResult.length > 0 ? postResult[0] : null;
 
     if (!post) {
       throw new Error(`Post ${postId} not found`);
     }
 
     // Get account credentials - use first available account for the tenant and platform
-    const account = await db.query.socialMediaAccounts.findFirst({
-      where: and(
+    const accountResult = await db.select().from(socialMediaAccounts)
+      .where(and(
         eq(socialMediaAccounts.tenantId, post.tenantId),
         eq(socialMediaAccounts.platform, post.platform),
         eq(socialMediaAccounts.isActive, true)
-      )
-    });
+      ))
+      .limit(1);
+    const account = accountResult.length > 0 ? accountResult[0] : null;
 
     if (!account) {
       throw new Error(`No active account found for tenant ${post.tenantId} on platform ${post.platform}`);
