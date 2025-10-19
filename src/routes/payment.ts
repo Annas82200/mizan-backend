@@ -178,15 +178,17 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
     // Get session details from Stripe
     const stripeSession = await stripeService.getCheckoutSession(sessionId);
 
+    const metadata = paymentSession.metadata as { plan?: string; billingPeriod?: string; employeeCount?: number } | null;
+
     return res.status(200).json({
       success: true,
       data: {
         sessionId,
         status: stripeSession.payment_status,
         customerEmail: stripeSession.customer_details?.email,
-        plan: paymentSession.metadata?.plan || 'starter',
-        billingPeriod: paymentSession.metadata?.billingPeriod || 'monthly',
-        employeeCount: paymentSession.metadata?.employeeCount || 0,
+        plan: metadata?.plan || 'starter',
+        billingPeriod: metadata?.billingPeriod || 'monthly',
+        employeeCount: metadata?.employeeCount || 0,
         amount: paymentSession.amount,
         currency: paymentSession.currency,
         message: 'Session retrieved successfully'

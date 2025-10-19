@@ -1,16 +1,20 @@
 // backend/src/services/agents/lxp/lxp-agent.ts
 
 import { randomUUID } from 'crypto';
-import { db } from '../../../../db/index';
+import { db } from '../../../db/index';
 import {
   lxpWorkflowTable,
   learningProgressEventsTable as progressTable,
-  lxpTriggersTable as triggersTable
-} from '../../../../db/schema';
+  lxpTriggersTable as triggersTable,
+  lxpSkillsAcquiredTable,
+  lxpBehaviorChangesTable,
+  lxpPerformanceImpactTable
+} from '../../../db/schema/lxp';
 import { eq, and, desc } from 'drizzle-orm';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
+import { Assessment } from '../../../types/agent-types';
 
 // Strict TypeScript Interfaces
 interface SkillsGapTriggerData {
@@ -72,7 +76,15 @@ interface LearningLevel {
   requiredScore: number;
   estimatedTime: number;
   content: LearningContent;
-  assessments: Assessment[];
+  assessments: LearningAssessment[];
+}
+
+interface LearningAssessment {
+  id: string;
+  type: 'quiz' | 'project' | 'simulation' | 'peer_review';
+  title: string;
+  description: string;
+  passingScore: number;
 }
 
 interface LearningContent {
@@ -196,21 +208,27 @@ export class LXPAgentService {
         updatedAt: new Date()
       };
 
-      // Save to database
-      await db.insert(learningPathsTable).values({
-        id: learningExperience.id,
+      // Save to database using lxpWorkflowTable
+      await db.insert(lxpWorkflowTable).values({
+        learningExperienceId: learningExperience.id,
         tenantId: learningExperience.tenantId,
         employeeId: learningExperience.employeeId,
-        title: learningExperience.title,
-        description: learningExperience.description,
-        gameType: learningExperience.gameType,
-        levels: JSON.stringify(learningExperience.levels),
-        scoringSystem: JSON.stringify(learningExperience.scoringSystem),
-        behaviorTargets: JSON.stringify(learningExperience.behaviorChangeTargets),
-        strategicAlignment: JSON.stringify(learningExperience.strategicAlignment),
-        status: learningExperience.status,
-        createdAt: learningExperience.createdAt,
-        updatedAt: learningExperience.updatedAt
+        triggeredBy: 'skills_gap',
+        triggerSourceId: triggerData.tenantId,
+        learningDesign: {
+          title: learningExperience.title,
+          description: learningExperience.description,
+          gameType: learningExperience.gameType,
+          levels: learningExperience.levels,
+          scoringSystem: learningExperience.scoringSystem,
+          behaviorTargets: learningExperience.behaviorChangeTargets,
+          strategicAlignment: learningExperience.strategicAlignment
+        },
+        currentLevel: 1,
+        totalScore: 0,
+        completionPercentage: '0',
+        timeSpent: 0,
+        status: 'assigned'
       });
 
       return learningExperience;
@@ -231,15 +249,15 @@ export class LXPAgentService {
       }
 
       // Update status to active
-      await db.update(learningPathsTable)
-        .set({ 
-          status: 'active',
+      await db.update(lxpWorkflowTable)
+        .set({
+          status: 'in_progress',
           updatedAt: new Date()
         })
         .where(
           and(
-            eq(learningPathsTable.id, learningExperienceId),
-            eq(learningPathsTable.tenantId, learningExp.tenantId)
+            eq(lxpWorkflowTable.learningExperienceId, learningExperienceId),
+            eq(lxpWorkflowTable.tenantId, learningExp.tenantId)
           )
         );
 
@@ -383,15 +401,16 @@ export class LXPAgentService {
       await this.triggerPerformanceGoalUpdate(learningExp.tenantId, employeeId, validatedOutcome);
 
       // Mark learning experience as completed
-      await db.update(learningPathsTable)
-        .set({ 
+      await db.update(lxpWorkflowTable)
+        .set({
           status: 'completed',
+          completedAt: new Date(),
           updatedAt: new Date()
         })
         .where(
           and(
-            eq(learningPathsTable.id, learningExperienceId),
-            eq(learningPathsTable.tenantId, learningExp.tenantId)
+            eq(lxpWorkflowTable.learningExperienceId, learningExperienceId),
+            eq(lxpWorkflowTable.tenantId, learningExp.tenantId)
           )
         );
 
@@ -481,25 +500,26 @@ export class LXPAgentService {
   private async getLearningExperience(id: string): Promise<LearningExperience | null> {
     try {
       const results = await db.select()
-        .from(learningPathsTable)
-        .where(eq(learningPathsTable.id, id))
+        .from(lxpWorkflowTable)
+        .where(eq(lxpWorkflowTable.learningExperienceId, id))
         .limit(1);
 
       if (results.length === 0) return null;
 
       const row = results[0];
+      const design = row.learningDesign as any;
       return {
-        id: row.id,
+        id: row.learningExperienceId,
         tenantId: row.tenantId,
         employeeId: row.employeeId,
-        title: row.title,
-        description: row.description || '',
-        gameType: row.gameType as any,
-        levels: JSON.parse(row.levels || '[]'),
-        scoringSystem: JSON.parse(row.scoringSystem || '{}'),
-        behaviorChangeTargets: JSON.parse(row.behaviorTargets || '[]'),
-        strategicAlignment: JSON.parse(row.strategicAlignment || '[]'),
-        status: row.status as any,
+        title: design?.title || '',
+        description: design?.description || '',
+        gameType: design?.gameType || 'simulation',
+        levels: design?.levels || [],
+        scoringSystem: design?.scoringSystem || {},
+        behaviorChangeTargets: design?.behaviorTargets || [],
+        strategicAlignment: design?.strategicAlignment || [],
+        status: row.status === 'assigned' ? 'design' : row.status === 'in_progress' ? 'active' : row.status as any,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt
       };
@@ -511,12 +531,13 @@ export class LXPAgentService {
 
   private async getEmployeeProgress(learningExperienceId: string, employeeId: string): Promise<LearningProgress | null> {
     try {
+      // Get workflow data which contains progress information
       const results = await db.select()
-        .from(progressTable)
+        .from(lxpWorkflowTable)
         .where(
           and(
-            eq(progressTable.learningExperienceId, learningExperienceId),
-            eq(progressTable.employeeId, employeeId)
+            eq(lxpWorkflowTable.learningExperienceId, learningExperienceId),
+            eq(lxpWorkflowTable.employeeId, employeeId)
           )
         )
         .limit(1);
@@ -524,17 +545,63 @@ export class LXPAgentService {
       if (results.length === 0) return null;
 
       const row = results[0];
+
+      // Get associated skills, behaviors, and performance impacts
+      const skillsAcquired = await db.select()
+        .from(lxpSkillsAcquiredTable)
+        .where(
+          and(
+            eq(lxpSkillsAcquiredTable.learningExperienceId, learningExperienceId),
+            eq(lxpSkillsAcquiredTable.employeeId, employeeId)
+          )
+        );
+
+      const behaviorChanges = await db.select()
+        .from(lxpBehaviorChangesTable)
+        .where(
+          and(
+            eq(lxpBehaviorChangesTable.learningExperienceId, learningExperienceId),
+            eq(lxpBehaviorChangesTable.employeeId, employeeId)
+          )
+        );
+
+      const performanceImpacts = await db.select()
+        .from(lxpPerformanceImpactTable)
+        .where(
+          and(
+            eq(lxpPerformanceImpactTable.learningExperienceId, learningExperienceId),
+            eq(lxpPerformanceImpactTable.employeeId, employeeId)
+          )
+        );
+
       return {
         employeeId: row.employeeId,
         learningExperienceId: row.learningExperienceId,
-        currentLevel: row.currentLevel,
-        totalScore: row.totalScore,
-        completionPercentage: row.completionPercentage,
-        timeSpent: row.timeSpent,
-        lastActivity: row.lastActivity,
-        skillsAcquired: JSON.parse(row.skillsAcquired || '[]'),
-        behaviorChanges: JSON.parse(row.behaviorChanges || '[]'),
-        performanceImpact: JSON.parse(row.performanceImpact || '[]')
+        currentLevel: row.currentLevel || 1,
+        totalScore: row.totalScore || 0,
+        completionPercentage: Number(row.completionPercentage) || 0,
+        timeSpent: row.timeSpent || 0,
+        lastActivity: row.lastActivity || new Date(),
+        skillsAcquired: skillsAcquired.map(s => ({
+          skillId: s.id,
+          skillName: s.skillName,
+          level: 1,
+          validated: s.validationStatus === 'validated'
+        })),
+        behaviorChanges: behaviorChanges.map(b => ({
+          behaviorId: b.id,
+          behaviorName: b.behaviorType,
+          before: b.baselineMetric?.toString() || '0',
+          after: b.currentMetric?.toString() || '0',
+          measuredImpact: Number(b.improvementPercentage) || 0
+        })),
+        performanceImpact: performanceImpacts.map(p => ({
+          metricId: p.id,
+          metricName: p.metricType,
+          baseline: Number(p.baselineValue) || 0,
+          current: Number(p.currentValue) || 0,
+          improvement: Number(p.improvementPercentage) || 0
+        }))
       };
     } catch (error) {
       console.error('Error getting employee progress:', error);

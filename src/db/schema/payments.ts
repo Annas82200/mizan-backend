@@ -135,3 +135,26 @@ export const demoRequests = pgTable('demo_requests', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
+
+export const paymentSessions = pgTable('payment_sessions', {
+  id: text('id').primaryKey(),
+  demoRequestId: integer('demo_request_id'),
+  stripeSessionId: text('stripe_session_id').unique().notNull(),
+
+  // Session details
+  amount: integer('amount').notNull(), // in cents
+  currency: text('currency').notNull().default('usd'),
+  status: text('status').notNull().default('pending'), // pending, complete, expired
+
+  // Session configuration
+  metadata: jsonb('metadata').$type<{
+    plan?: string;
+    billingPeriod?: string;
+    employeeCount?: number;
+  }>(),
+
+  // Timestamps
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow()
+});

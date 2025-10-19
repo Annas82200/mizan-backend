@@ -64,3 +64,43 @@ export interface ReasoningResult {
   limitations: string[];
 }
 
+// Production-ready MizanAgent definition for agent-manager
+export interface MizanAgent {
+  id: string;
+  name: string;
+  type: 'structure' | 'culture' | 'skills' | 'performance' | 'hiring' | 'talent' | 'lxp' | 'bonus';
+  tenantId: string;
+  status: 'active' | 'inactive' | 'processing';
+
+  // Three-Engine Architecture
+  knowledgeEngine: any;
+  dataEngine: any;
+  reasoningEngine: any;
+
+  // Core methods
+  analyze(input: any): Promise<any>;
+  process(data: any): Promise<any>;
+  generateInsights(context: any): Promise<any>;
+
+  // Integration methods
+  triggerModule?(targetModule: string, data: any): Promise<void>;
+  receiveData?(sourceModule: string, data: any): Promise<void>;
+
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Assessment type for LXP agent
+export interface Assessment {
+  id: string;
+  tenantId: string;
+  employeeId: string;
+  type: 'skills' | 'culture' | 'performance' | 'talent';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  results: any;
+  metadata?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+

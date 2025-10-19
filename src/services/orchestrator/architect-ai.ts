@@ -13,12 +13,19 @@ interface OrgChartData {
     name: string;
     title: string;
     department: string;
+    departmentId?: string;
     reportsTo?: string | null;
   }>;
   departments?: Array<{
     id: string;
     name: string;
     headId?: string;
+    headCount?: number;
+  }>;
+  reportingLines?: Array<{
+    from: string;
+    to: string;
+    type: string;
   }>;
 }
 
@@ -64,16 +71,21 @@ interface CultureAnalysisResult {
   isHealthy: boolean;
   culturalEntropy: number;
   focusCylinder: string;
-  interventions: string[];
-  recommendations: string[];
+  interventions: Array<{ type: string; priority: string }>;
+  recommendations: Array<{ title: string; description: string }>;
+  overallScore?: number;
+  valuesAlignment?: Record<string, unknown>;
+  culturalHealth?: Record<string, unknown>;
 }
 
 interface SkillsAnalysisResult {
+  healthScore?: number;
   overallReadiness: string;
   criticalGaps: Array<{
     skill: string;
     gap: number;
     priority: string;
+    severity?: string;
   }>;
   strengthAreas: Array<{
     skill: string;
@@ -81,6 +93,11 @@ interface SkillsAnalysisResult {
   }>;
   recommendedTraining: string[];
   strategicAlignmentScore: number;
+  overallScore?: number;
+  skillsGaps?: Array<{ skill: string; gap: number }>;
+  recommendations?: Array<{ title: string; description: string }>;
+  coverageScore?: number;
+  trainingNeeds?: Array<{ area: string; priority: string }>;
 }
 
 interface DefaultOrgChart {
@@ -99,6 +116,18 @@ interface DefaultOrgChart {
     departmentId: string;
     reportsTo: string | null;
   }>;
+  reportingLines?: Array<{
+    from: string;
+    to: string;
+    type: string;
+  }>;
+  roles?: Array<{
+    id: string;
+    title: string;
+    department: string;
+    departmentId: string;
+    reportsTo: string | null;
+  }>;
 }
 
 export interface ArchitectAIInput {
@@ -110,27 +139,6 @@ export interface ArchitectAIInput {
   companyValues?: string[];
   employeeData?: EmployeeData[];
   performanceMetrics?: PerformanceMetrics;
-}
-
-// Duplicate interface removed - using the more complete definition above
-
-interface CultureAnalysisResult {
-  overallScore?: number;
-  valuesAlignment?: Record<string, unknown>;
-  culturalHealth?: Record<string, unknown>;
-  recommendations?: Array<{ title: string; description: string }>;
-  alignmentScore?: number;
-  culturalEntropy?: number;
-  interventions?: Array<{ type: string; priority: string }>;
-}
-
-interface SkillsAnalysisResult {
-  overallScore?: number;
-  skillsGaps?: Array<{ skill: string; gap: number }>;
-  recommendations?: Array<{ title: string; description: string }>;
-  coverageScore?: number;
-  criticalGaps?: Array<{ skill: string; severity: string }>;
-  trainingNeeds?: Array<{ area: string; priority: string }>;
 }
 
 interface EngagementAnalysisResult {
@@ -244,13 +252,26 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
 
 async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAIInput): Promise<StructureAnalysisResult | null> {
   try {
+    const defaultOrgChart = await getDefaultOrgChart(input.companyId);
+    const orgChartData = input.orgChart || defaultOrgChart;
+
     const analysisInput = {
       companyId: input.companyId,
       tenantId: input.tenantId,
-      orgChart: input.orgChart || await getDefaultOrgChart(input.companyId),
-      strategy: input.strategy
+      orgChart: {
+        departments: orgChartData.departments || [],
+        reportingLines: orgChartData.reportingLines || [],
+        roles: orgChartData.employees?.map(e => ({
+          id: e.id,
+          title: e.title,
+          department: e.department,
+          departmentId: e.departmentId || e.department,
+          reportsTo: e.reportsTo || null
+        })) || []
+      },
+      strategy: input.strategy || ''
     };
-    
+
     const result = await agent.analyzeStructure(analysisInput);
 
     return {
@@ -292,8 +313,14 @@ async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput
       isHealthy: result.isHealthyForStrategy,
       culturalEntropy: result.entropyScore,
       focusCylinder: Object.keys(result.cylinderHealth)[0] || '',
-      interventions: [...result.recommendations.immediate, ...result.recommendations.shortTerm],
-      recommendations: [...result.recommendations.immediate, ...result.recommendations.shortTerm, ...result.recommendations.longTerm]
+      interventions: [...result.recommendations.immediate, ...result.recommendations.shortTerm].map(rec => ({
+        type: 'culture',
+        priority: 'high'
+      })),
+      recommendations: [...result.recommendations.immediate, ...result.recommendations.shortTerm, ...result.recommendations.longTerm].map(rec => ({
+        title: rec,
+        description: rec
+      }))
     };
   } catch (error) {
     console.error('Culture analysis failed:', error);
@@ -332,20 +359,26 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
 
     return {
       healthScore: result.skillsCoverage,
+      overallReadiness: result.skillsCoverage > 0.8 ? 'ready' : result.skillsCoverage > 0.6 ? 'partially-ready' : 'not-ready',
       coverageScore: result.skillsCoverage,
-      hasRightSkills: result.skillsCoverage > 0.7,
+      strategicAlignmentScore: result.skillsCoverage * 100,
       criticalGaps: result.criticalGaps.map(gap => ({
-        skill: gap.skill,
-        gap: gap.gap === 'critical' ? 1.0 : gap.gap === 'high' ? 0.75 : gap.gap === 'medium' ? 0.5 : 0.25,
-        priority: gap.gap
+        skill: gap.skill || 'Unknown',
+        gap: typeof gap.gap === 'string'
+          ? (gap.gap === 'critical' ? 1.0 : gap.gap === 'high' ? 0.75 : gap.gap === 'medium' ? 0.5 : 0.25)
+          : gap.gap || 0,
+        priority: typeof gap.gap === 'string' ? gap.gap : 'medium',
+        severity: typeof gap.gap === 'string' ? gap.gap : 'medium'
       })),
+      strengthAreas: [],
+      recommendedTraining: result.lxpTriggers?.map(trigger => (trigger as any).skill || 'general') || [],
       trainingNeeds: result.lxpTriggers?.map(trigger => ({
-        area: trigger.skill || 'general',
-        priority: trigger.priority || 'medium'
+        area: (trigger as any).skill || 'general',
+        priority: (trigger as any).priority || 'medium'
       })) || [],
       recommendations: result.recommendations?.map(r => ({
-        title: typeof r === 'string' ? r : r.title || 'Recommendation',
-        description: typeof r === 'string' ? r : r.description || ''
+        title: typeof r === 'string' ? r : (r as any).title || 'Recommendation',
+        description: typeof r === 'string' ? r : (r as any).description || ''
       })) || []
     };
   } catch (error) {

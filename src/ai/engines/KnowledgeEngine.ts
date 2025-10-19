@@ -503,4 +503,128 @@ export class KnowledgeEngine {
     const context = await this.getContext(domain);
     return context.benchmarks;
   }
+
+  async getBehaviorChangeContext(): Promise<DomainContext> {
+    // Return behavior change theories and frameworks for LXP
+    return {
+      frameworks: [
+        {
+          name: 'Fogg Behavior Model',
+          description: 'Behavior = Motivation × Ability × Prompt',
+          applicability: 0.92,
+          components: ['Motivation', 'Ability', 'Prompt', 'Behavior']
+        },
+        {
+          name: 'Transtheoretical Model',
+          description: 'Stages of Change model',
+          applicability: 0.88,
+          components: ['Precontemplation', 'Contemplation', 'Preparation', 'Action', 'Maintenance']
+        },
+        {
+          name: 'Social Cognitive Theory',
+          description: 'Learning through observation and modeling',
+          applicability: 0.90,
+          components: ['Observational Learning', 'Self-Efficacy', 'Reciprocal Determinism']
+        }
+      ],
+      bestPractices: [
+        {
+          practice: 'Start with small wins',
+          rationale: 'Build confidence and momentum for behavior change',
+          implementation: 'Micro-habits, incremental goals, early success milestones',
+          priority: 'critical'
+        },
+        {
+          practice: 'Provide immediate feedback',
+          rationale: 'Reinforce positive behaviors quickly',
+          implementation: 'Real-time notifications, progress bars, achievement badges',
+          priority: 'high'
+        },
+        {
+          practice: 'Social reinforcement',
+          rationale: 'Leverage peer support for sustained change',
+          implementation: 'Peer recognition, team challenges, social sharing',
+          priority: 'medium'
+        }
+      ],
+      benchmarks: [
+        {
+          metric: 'Behavior Change Adoption',
+          industry: 'Learning & Development',
+          percentile25: 0.45,
+          percentile50: 0.60,
+          percentile75: 0.75,
+          percentile90: 0.85
+        }
+      ],
+      industryContext: {
+        trends: ['Microlearning', 'Behavioral nudges', 'Habit formation', 'Neuroscience-based learning'],
+        challenges: ['Sustaining change', 'Transfer to workplace', 'Measuring impact'],
+        opportunities: ['AI-personalized learning', 'Real-time coaching', 'Adaptive pathways'],
+        regulations: ['Privacy in behavioral tracking', 'Ethical nudging', 'Data protection']
+      }
+    };
+  }
+
+  async getGamificationPrinciples(): Promise<DomainContext> {
+    // Return gamification principles and frameworks for LXP
+    return {
+      frameworks: [
+        {
+          name: 'Octalysis Framework',
+          description: 'Eight core drives of gamification',
+          applicability: 0.90,
+          components: ['Epic Meaning', 'Accomplishment', 'Empowerment', 'Ownership', 'Social Influence', 'Scarcity', 'Unpredictability', 'Avoidance']
+        },
+        {
+          name: 'MDA Framework',
+          description: 'Mechanics, Dynamics, Aesthetics',
+          applicability: 0.85,
+          components: ['Mechanics', 'Dynamics', 'Aesthetics']
+        },
+        {
+          name: 'Self-Determination Theory',
+          description: 'Intrinsic motivation through autonomy, competence, mastery',
+          applicability: 0.93,
+          components: ['Autonomy', 'Competence', 'Relatedness']
+        }
+      ],
+      bestPractices: [
+        {
+          practice: 'Balance extrinsic and intrinsic motivation',
+          rationale: 'Avoid over-reliance on points and badges',
+          implementation: 'Mix rewards with meaningful goals, purpose-driven challenges',
+          priority: 'critical'
+        },
+        {
+          practice: 'Progressive difficulty',
+          rationale: 'Maintain engagement through optimal challenge',
+          implementation: 'Adaptive difficulty, skill-based matching, flow state optimization',
+          priority: 'high'
+        },
+        {
+          practice: 'Social elements',
+          rationale: 'Leverage social dynamics for engagement',
+          implementation: 'Leaderboards, team challenges, peer collaboration',
+          priority: 'medium'
+        }
+      ],
+      benchmarks: [
+        {
+          metric: 'Engagement Rate',
+          industry: 'Learning & Development',
+          percentile25: 0.55,
+          percentile50: 0.68,
+          percentile75: 0.79,
+          percentile90: 0.88
+        }
+      ],
+      industryContext: {
+        trends: ['Experience points', 'Leveling systems', 'Achievement unlocks', 'Narrative-driven learning'],
+        challenges: ['Over-gamification', 'Maintaining long-term engagement', 'Meaningful rewards'],
+        opportunities: ['VR/AR gamification', 'AI-adaptive challenges', 'Personalized game mechanics'],
+        regulations: ['Ethical game design', 'Addiction prevention', 'Fair play policies']
+      }
+    };
+  }
 }

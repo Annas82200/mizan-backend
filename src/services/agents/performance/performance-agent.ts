@@ -57,7 +57,7 @@ interface DepartmentStructure {
     id: string;
     name: string;
     parentId?: string;
-    headCount: number;
+    headCount?: number;
     manager?: string;
 }
 
@@ -349,7 +349,6 @@ class PerformanceAgent {
         const individualGoals = this.createIndividualGoals(analysisResult, culturePriorities, skillsGaps);
         for (const goal of individualGoals) {
              await db.insert(performanceGoals).values({
-                id: randomUUID(),
                 tenantId,
                 employeeId: 'employee-placeholder-id', // This should be the actual employee ID
                 managerId: 'manager-placeholder-id', // This should be the actual manager ID

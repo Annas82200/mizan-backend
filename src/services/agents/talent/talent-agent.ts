@@ -120,6 +120,154 @@ class TalentAgent {
         // See AGENT_CONTEXT_ULTIMATE.md Lines 2308-2388 for succession planning details
         console.log(`Potential future roles for ${employeeId}: ${potentialRoles.join(', ')}`);
     }
+
+    /**
+     * Get 9-box distribution for talent analysis
+     * Returns distribution of employees across the 9-box grid (performance x potential)
+     */
+    public async getNineBoxDistribution(tenantId: string) {
+        // Get all talent profiles for the tenant
+        const profiles = await db.query.talentProfiles.findMany({
+            where: eq(talentProfiles.tenantId, tenantId),
+        });
+
+        // Initialize 9-box grid (3x3 matrix)
+        const distribution: Record<string, number> = {
+            'high-high': 0,
+            'high-medium': 0,
+            'high-low': 0,
+            'medium-high': 0,
+            'medium-medium': 0,
+            'medium-low': 0,
+            'low-high': 0,
+            'low-medium': 0,
+            'low-low': 0,
+        };
+
+        // Categorize employees based on their profiles
+        for (const profile of profiles) {
+            const profileData = profile.profileData as Record<string, unknown>;
+            const potentialRating = (profileData.potentialRating as string) || 'medium';
+            // For performance, we'd need to integrate with performance data
+            // For now, use a default performance rating
+            const performanceRating = 'medium';
+
+            const key = `${performanceRating}-${potentialRating}`;
+            if (key in distribution) {
+                distribution[key]++;
+            }
+        }
+
+        return {
+            distribution,
+            totalEmployees: profiles.length,
+            summary: {
+                highPotential: distribution['high-high'] + distribution['medium-high'] + distribution['low-high'],
+                mediumPotential: distribution['high-medium'] + distribution['medium-medium'] + distribution['low-medium'],
+                lowPotential: distribution['high-low'] + distribution['medium-low'] + distribution['low-low'],
+            }
+        };
+    }
+
+    /**
+     * Get succession plans for critical positions
+     * Returns succession planning data for key roles
+     */
+    public async getSuccessionPlans(tenantId: string) {
+        // Get high-potential talent profiles
+        const profiles = await db.query.talentProfiles.findMany({
+            where: eq(talentProfiles.tenantId, tenantId),
+        });
+
+        const successionPlans = profiles
+            .filter(profile => {
+                const profileData = profile.profileData as Record<string, unknown>;
+                return profileData.potentialRating === 'high';
+            })
+            .map(profile => {
+                const profileData = profile.profileData as Record<string, unknown>;
+                return {
+                    employeeId: profile.employeeId,
+                    currentRole: 'Current Position', // Would come from employee data
+                    potentialRoles: (profileData.careerAspirations as string) || 'Leadership',
+                    readinessLevel: 'Ready in 1-2 years',
+                    developmentAreas: (profileData.developmentAreas as string[]) || [],
+                    strengths: (profileData.strengths as string[]) || [],
+                };
+            });
+
+        return {
+            successionPlans,
+            totalPlans: successionPlans.length,
+        };
+    }
+
+    /**
+     * Get development plans for employees
+     * Returns personalized development plans based on talent analysis
+     */
+    public async getDevelopmentPlans(tenantId: string) {
+        const profiles = await db.query.talentProfiles.findMany({
+            where: eq(talentProfiles.tenantId, tenantId),
+        });
+
+        const developmentPlans = profiles.map(profile => {
+            const profileData = profile.profileData as Record<string, unknown>;
+            return {
+                employeeId: profile.employeeId,
+                potentialRating: (profileData.potentialRating as string) || 'medium',
+                developmentAreas: (profileData.developmentAreas as string[]) || [],
+                strengths: (profileData.strengths as string[]) || [],
+                careerAspirations: (profileData.careerAspirations as string) || 'Not defined',
+                recommendedActions: [
+                    'Complete leadership training',
+                    'Shadow senior leaders',
+                    'Lead cross-functional project',
+                ],
+                timeline: '6-12 months',
+            };
+        });
+
+        return {
+            developmentPlans,
+            totalPlans: developmentPlans.length,
+        };
+    }
+
+    /**
+     * Update 9-box configuration for the tenant
+     * Allows customization of the 9-box grid parameters
+     */
+    public async updateNineBoxConfig(
+        tenantId: string,
+        config: {
+            customBoxNames?: Record<string, string>;
+            performanceThresholds?: number[];
+            potentialThresholds?: number[];
+        }
+    ) {
+        // In a production system, this would be stored in a tenant configuration table
+        // For now, return the updated configuration
+        return {
+            tenantId,
+            config: {
+                customBoxNames: config.customBoxNames || {
+                    'high-high': 'Stars',
+                    'high-medium': 'High Performers',
+                    'high-low': 'Solid Performers',
+                    'medium-high': 'High Potentials',
+                    'medium-medium': 'Core Contributors',
+                    'medium-low': 'Steady Performers',
+                    'low-high': 'Rough Diamonds',
+                    'low-medium': 'Inconsistent',
+                    'low-low': 'Low Performers',
+                },
+                performanceThresholds: config.performanceThresholds || [33, 66],
+                potentialThresholds: config.potentialThresholds || [33, 66],
+            },
+            updatedAt: new Date(),
+        };
+    }
 }
 
 export const talentAgent = new TalentAgent();
