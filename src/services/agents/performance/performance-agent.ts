@@ -157,7 +157,17 @@ class PerformanceAgent {
         const cycle = await this.createPerformanceCycle(cycleId, tenantId, clientStrategy, culturePriorities, skillsGaps);
 
         // TODO: Persist departmental and individual goals based on analysisResult
-        await this.generateAndPersistGoals(cycleId, tenantId, analysisResult, departmentStructure || [], culturePriorities, skillsGaps);
+        // Ensure department structure has required fields
+        const validDepartments = (departmentStructure || [])
+            .filter(dept => dept.id && dept.name)
+            .map(dept => ({
+                id: dept.id!,
+                name: dept.name!,
+                parentId: dept.parentId,
+                headCount: dept.headCount,
+                manager: dept.manager
+            })) as DepartmentStructure[];
+        await this.generateAndPersistGoals(cycleId, tenantId, analysisResult, validDepartments, culturePriorities, skillsGaps);
 
 
         const recommendations = this.generateRecommendations(analysisResult);
@@ -323,7 +333,7 @@ class PerformanceAgent {
                 const deptGoals = this.createDepartmentGoals(dept, analysisResult);
                 for (const goal of deptGoals) {
                     await db.insert(performanceGoals).values({
-                        id: randomUUID(),
+                        // Remove id as it's auto-generated
                         tenantId,
                         // departmentId: dept.id, // Need to add departmentId to performanceGoals schema or link differently
                         title: goal.description,

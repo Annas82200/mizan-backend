@@ -46,31 +46,32 @@ export interface FlowExecution {
 // Mizan Production-Ready Step Result Types
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
 interface StepResult {
-  success: boolean;
-  data: Record<string, unknown>;
+  success?: boolean;
+  data?: Record<string, unknown>;
   error?: string;
-  timestamp: Date;
+  timestamp?: Date;
+  [key: string]: unknown;
 }
 
-interface TriggerStepResult {
+interface TriggerStepResult extends StepResult {
   triggerExecuted: boolean;
   triggerType: string;
   triggerData?: Record<string, unknown>;
 }
 
-interface ActionStepResult {
+interface ActionStepResult extends StepResult {
   actionExecuted: boolean;
   actionType: string;
   actionData?: Record<string, unknown>;
 }
 
-interface ConditionStepResult {
+interface ConditionStepResult extends StepResult {
   conditionMet: boolean;
   conditionType?: string;
   evaluationData?: Record<string, unknown>;
 }
 
-interface DelayStepResult {
+interface DelayStepResult extends StepResult {
   delayCompleted: boolean;
   delayDuration: number;
   completedAt: Date;

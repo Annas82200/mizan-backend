@@ -229,7 +229,7 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
       const agentResponse = await Promise.race([analysisPromise, timeoutPromise]) as any;
 
       richAnalysis = {
-        overallAssessment: agentResponse.overallHealthInterpretation || '',
+        // Remove overallAssessment as it's not in StructureAnalysisOutput type
         keyFindings: [
           agentResponse.spanAnalysis?.interpretation || `Span of Control: Average ${agentResponse.spanAnalysis?.average || 0} direct reports`,
           agentResponse.layerAnalysis?.interpretation || `Organization Layers: ${agentResponse.layerAnalysis?.totalLayers || 0} hierarchical levels`,

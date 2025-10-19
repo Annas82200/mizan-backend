@@ -259,7 +259,13 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
       companyId: input.companyId,
       tenantId: input.tenantId,
       orgChart: {
-        departments: orgChartData.departments || [],
+        departments: (orgChartData.departments || []).map(d => ({
+          id: d.id,
+          name: d.name,
+          parentId: d.parentId || d.headId,
+          headCount: d.headCount || 0, // Ensure headCount is always present
+          manager: d.manager || d.headId
+        })),
         reportingLines: orgChartData.reportingLines || [],
         roles: orgChartData.employees?.map(e => ({
           id: e.id,
@@ -278,7 +284,7 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
       healthScore: result.healthScore,
       structureType: result.structureType,
       isOptimal: result.isOptimalForStrategy,
-      gaps: result.gaps.map(g => g.description), // Extract descriptions from gap objects
+      gaps: result.gaps.map(g => typeof g === 'string' ? g : (g as any).description || g), // Handle both string and object gaps
       hiringNeeds: result.hiringNeeds.map(h => ({
         position: h.role,
         department: h.department,
@@ -419,9 +425,10 @@ async function getDefaultOrgChart(companyId: string): Promise<DefaultOrgChart> {
     reportingLines: [], // Would be populated from actual data
     roles: usersList.map(user => ({
       id: user.id,
-      title: user.role,
-      department: user.departmentId,
-      level: 1 // Would be calculated from hierarchy
+      title: user.title || user.role,
+      department: departments.find(d => d.id === user.departmentId)?.name || 'Unknown',
+      departmentId: user.departmentId || '',
+      reportsTo: user.managerId || ''
     }))
   };
 }

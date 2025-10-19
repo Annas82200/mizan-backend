@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { CultureAgentV2 as CultureAgent } from '../services/agents/culture/culture-agent';
 import { authenticate, requireRole, validateTenantAccess } from '../middleware/auth';
-import { db } from '../db/connection';
-import { tenantsTable } from '../db/schema/tenants';
+import { db } from '../../db/index';
+import { tenants as tenantsTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 const router = Router();

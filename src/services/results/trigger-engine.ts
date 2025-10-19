@@ -267,12 +267,12 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       const hiringResult = await hiringModule.handleTrigger({
         tenantId: resultsWithTenant.tenantId || trigger.tenantId || 'default-tenant',
         recommendation: {
-          positionTitle: config.title || '',
-          department: config.department || '',
-          reportingTo: config.reportingTo || '',
-          responsibilities: config.responsibilities || [],
-          requiredSkills: config.qualifications || [],
-          justification: config.rationale || 'Strategic hire needed based on organizational analysis'
+          positionTitle: String(config.title || ''),
+          department: String(config.department || ''),
+          reportingTo: String(config.reportingTo || ''),
+          responsibilities: Array.isArray(config.responsibilities) ? config.responsibilities : [],
+          requiredSkills: Array.isArray(config.qualifications) ? config.qualifications : [],
+          justification: String(config.rationale || 'Strategic hire needed based on organizational analysis')
         }
       });
       

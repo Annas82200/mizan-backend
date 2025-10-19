@@ -70,6 +70,10 @@ interface SkillGap {
 // Mizan Production-Ready Resume Data Types
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO MOCK DATA
 interface ResumeData {
+    // Top-level name and email for backward compatibility with validation
+    name?: string;
+    email?: string;
+
     personalInfo: {
         firstName: string;
         lastName: string;

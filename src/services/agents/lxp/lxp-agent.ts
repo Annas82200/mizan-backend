@@ -165,12 +165,21 @@ export class LXPAgentService {
       }, context);
 
       // Reasoning Engine: Design customized learning experience
-      const learningDesign = await this.reasoningEngine.analyze(processedData, {
+      // Extend context with additional data for analysis
+      const extendedContext = {
         ...context,
-        behaviorChangeTheories: behaviorContext,
-        gamificationPrinciples: gamificationContext,
-        strategicRequirements: tenantStrategy
-      });
+        strategicRequirements: [tenantStrategy],
+        // Store behavior and gamification in historicalData for access
+        historicalData: [
+          {
+            metadata: {
+              behaviorChangeTheories: behaviorContext,
+              gamificationPrinciples: gamificationContext
+            }
+          } as any
+        ]
+      };
+      const learningDesign = await this.reasoningEngine.analyze(processedData, extendedContext);
 
       // Create learning experience
       const learningExperience = await this.createLearningExperience(
@@ -358,15 +367,19 @@ export class LXPAgentService {
       
       // Use Reasoning Engine to analyze behavior change indicators
       const behaviorAnalysis = await this.reasoningEngine.analyze({
-        progress,
-        behaviorTargets: learningExp.behaviorChangeTargets,
-        learningContent: learningExp.levels,
-        employeeInteractions: await this.getEmployeeInteractions(employeeId, learningExperienceId)
+        metadata: {
+          progress,
+          behaviorTargets: learningExp.behaviorChangeTargets,
+          learningContent: learningExp.levels,
+          employeeInteractions: await this.getEmployeeInteractions(employeeId, learningExperienceId)
+        }
       }, behaviorContext);
 
       // Update progress with behavior change assessment
-      if (behaviorAnalysis.behaviorChanges && behaviorAnalysis.behaviorChanges.length > 0) {
-        await this.updateBehaviorChangeMetrics(learningExperienceId, employeeId, behaviorAnalysis.behaviorChanges);
+      // Extract behavior changes from analysis insights or recommendations
+      const behaviorChanges = (behaviorAnalysis.insights || []).filter(i => i.includes('behavior'));
+      if (behaviorChanges.length > 0) {
+        await this.updateBehaviorChangeMetrics(learningExperienceId, employeeId, behaviorChanges);
       }
 
     } catch (error) {

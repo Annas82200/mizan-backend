@@ -80,12 +80,10 @@ export async function generateEmployeeReport(
     await db.insert(cultureReports).values({
       id: randomUUID(),
       tenantId,
-      assessmentId,
-      employeeId,
+      analysisId: assessmentId,
       reportType: 'individual',
-      reportData: JSON.stringify(reportData),
-      createdAt: new Date(),
-      updatedAt: new Date()
+      reportData: reportData,
+      createdAt: new Date()
     });
 
     console.log(`Successfully generated individual culture report for employee ${employeeId}`);

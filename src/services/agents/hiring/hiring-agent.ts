@@ -164,13 +164,39 @@ class HiringAgent {
         const requisition = await this.createHiringRequisition(requisitionId, tenantId, structureRecommendation, analysisResult);
 
         // Step 5: Generate artifacts
-        const jobDescription = this.generateJobDescription(requisition, analysisResult);
+        // Ensure responsibilities is an array (handle jsonb type from database)
+        const requisitionWithArrays = {
+            ...requisition,
+            responsibilities: Array.isArray(requisition.responsibilities)
+                ? requisition.responsibilities
+                : (requisition.responsibilities as any)?.length > 0
+                    ? Object.values(requisition.responsibilities as any)
+                    : [],
+            qualifications: Array.isArray(requisition.qualifications)
+                ? requisition.qualifications
+                : (requisition.qualifications as any)?.length > 0
+                    ? Object.values(requisition.qualifications as any)
+                    : []
+        } as HiringRequisition;
+        const jobDescription = this.generateJobDescription(requisitionWithArrays, analysisResult);
         const platformRecommendations = this.recommendPlatforms(requisition.positionTitle, clientContext.industry);
         // Generate culture-fit assessment questions
         // Integrated with Culture Agent per AGENT_CONTEXT_ULTIMATE.md Lines 1890-1893
         const cultureQuestions = this.generateCultureQuestions();
         const interviewGuide = this.generateInterviewGuide(requisition.positionTitle, analysisResult);
-        const compensationAnalysis = await this.performCompensationAnalysis(requisition.positionTitle, clientContext, industryData);
+        // Convert IndustryData to IndustryCompensationData with required fields
+        const compensationIndustryData: IndustryCompensationData = {
+            ...industryData,
+            location: requisition.location || clientContext.location || 'Global',
+            companySize: clientContext.companySize || 'medium',
+            marketData: {
+                averageSalary: industryData.averageSalary || 0,
+                salaryRange: industryData.salaryRange || { min: 0, max: 0 },
+                growthRate: industryData.growthRate || 0
+            },
+            benefits: industryData.benefits || []
+        };
+        const compensationAnalysis = await this.performCompensationAnalysis(requisition.positionTitle, clientContext, compensationIndustryData);
 
         return {
             requisitionId: requisition.id,
