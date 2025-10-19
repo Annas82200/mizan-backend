@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
 import { tenants, users } from '../../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticate, requireRole } from '../middleware/auth';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
@@ -99,6 +99,41 @@ const validateTenantExists = async (tenantId: string): Promise<boolean> => {
 router.use(authenticate);
 router.use(requireRole('superadmin'));
 router.use(validateTenantAccess);
+
+/**
+ * Database health check endpoint for debugging
+ */
+router.get('/health/database', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    console.log('Testing database connection...');
+    
+    // Test basic connection
+    await db.execute(sql`SELECT 1`);
+    console.log('Basic connection test passed');
+    
+    // Test table access
+    const tenantCount = await db.select().from(tenants);
+    const userCount = await db.select().from(users);
+    
+    console.log('Table access test passed');
+    
+    return res.json({
+      status: 'healthy',
+      database: 'connected',
+      tenants: tenantCount.length,
+      users: userCount.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    return res.status(500).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 /**
  * Create new client/tenant with structure CSV
@@ -211,8 +246,26 @@ router.get('/tenants', async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const user = authReq.user;
 
+    console.log('Fetching tenants for user:', user?.id);
+
+    // Test database connection first
+    try {
+      await db.execute(sql`SELECT 1`);
+      console.log('Database connection verified for tenants');
+    } catch (dbError) {
+      console.error('Database connection failed for tenants:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+
     // Superadmin can access all tenants
-    const allTenants = await db.select().from(tenants);
+    let allTenants;
+    try {
+      allTenants = await db.select().from(tenants);
+      console.log('Fetched tenants:', allTenants.length);
+    } catch (tenantError) {
+      console.error('Error fetching tenants:', tenantError);
+      return res.status(500).json({ error: 'Failed to fetch tenants data' });
+    }
 
     // Get user counts for each tenant
     const tenantsWithCounts = await Promise.all(
@@ -390,9 +443,35 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user;
 
+    console.log('Fetching superadmin stats for user:', user?.id);
+
+    // Test database connection first
+    try {
+      await db.execute(sql`SELECT 1`);
+      console.log('Database connection verified');
+    } catch (dbError) {
+      console.error('Database connection failed:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+
     // Superadmin can see platform-wide stats
-    const allTenants = await db.select().from(tenants);
-    const allUsers = await db.select().from(users);
+    let allTenants, allUsers;
+    
+    try {
+      allTenants = await db.select().from(tenants);
+      console.log('Fetched tenants:', allTenants.length);
+    } catch (tenantError) {
+      console.error('Error fetching tenants:', tenantError);
+      return res.status(500).json({ error: 'Failed to fetch tenants data' });
+    }
+
+    try {
+      allUsers = await db.select().from(users);
+      console.log('Fetched users:', allUsers.length);
+    } catch (userError) {
+      console.error('Error fetching users:', userError);
+      return res.status(500).json({ error: 'Failed to fetch users data' });
+    }
 
     const stats = {
       totalTenants: allTenants.length,
@@ -402,6 +481,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       platformHealth: 99.5 // System health metric
     };
 
+    console.log('Stats calculated successfully:', stats);
     return res.json(stats);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stats';
@@ -417,8 +497,26 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user;
 
+    console.log('Fetching revenue data for user:', user?.id);
+
+    // Test database connection first
+    try {
+      await db.execute(sql`SELECT 1`);
+      console.log('Database connection verified for revenue');
+    } catch (dbError) {
+      console.error('Database connection failed for revenue:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+
     // Calculate real revenue data from active tenants
-    const activeTenants = await db.select().from(tenants).where(eq(tenants.status, 'active'));
+    let activeTenants;
+    try {
+      activeTenants = await db.select().from(tenants).where(eq(tenants.status, 'active'));
+      console.log('Fetched active tenants:', activeTenants.length);
+    } catch (tenantError) {
+      console.error('Error fetching active tenants:', tenantError);
+      return res.status(500).json({ error: 'Failed to fetch tenants data' });
+    }
     
     // Calculate MRR based on tenant plans (assuming a base rate per employee)
     const baseRatePerEmployee = 10; // $10 per employee per month
@@ -460,10 +558,35 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user;
     const limit = parseInt(req.query.limit as string) || 10;
 
+    console.log('Fetching activity data for user:', user?.id);
+
+    // Test database connection first
+    try {
+      await db.execute(sql`SELECT 1`);
+      console.log('Database connection verified for activity');
+    } catch (dbError) {
+      console.error('Database connection failed for activity:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+
     // Get real activity data from audit logs or recent tenant/user activities
-    const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(Math.min(limit, 5));
+    let recentTenants, recentUsers;
     
-    const recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(Math.min(limit, 5));
+    try {
+      recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(Math.min(limit, 5));
+      console.log('Fetched recent tenants:', recentTenants.length);
+    } catch (tenantError) {
+      console.error('Error fetching recent tenants:', tenantError);
+      return res.status(500).json({ error: 'Failed to fetch tenants data' });
+    }
+    
+    try {
+      recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(Math.min(limit, 5));
+      console.log('Fetched recent users:', recentUsers.length);
+    } catch (userError) {
+      console.error('Error fetching recent users:', userError);
+      return res.status(500).json({ error: 'Failed to fetch users data' });
+    }
     
     // Combine and format activities
     const activities = [
