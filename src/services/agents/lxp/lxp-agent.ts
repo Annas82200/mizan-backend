@@ -217,13 +217,14 @@ export class LXPAgentService {
         updatedAt: new Date()
       };
 
-      // Save to database using lxpWorkflowTable
+      // Save to database using lxpWorkflowTable with correct schema
       await db.insert(lxpWorkflowTable).values({
-        learningExperienceId: learningExperience.id,
         tenantId: learningExperience.tenantId,
         employeeId: learningExperience.employeeId,
-        triggeredBy: 'skills_gap',
-        triggerSourceId: triggerData.tenantId,
+        workflowType: 'skills_gap',
+        status: 'assigned',
+        triggeredBy: 'skills_agent',
+        learningExperienceId: learningExperience.id,
         learningDesign: {
           title: learningExperience.title,
           description: learningExperience.description,
@@ -235,9 +236,11 @@ export class LXPAgentService {
         },
         currentLevel: 1,
         totalScore: 0,
-        completionPercentage: '0',
+        completionPercentage: 0,
         timeSpent: 0,
-        status: 'assigned'
+        metadata: {
+          triggerSourceId: triggerData.tenantId
+        }
       });
 
       return learningExperience;
@@ -596,11 +599,14 @@ export class LXPAgentService {
       const row = results[0];
 
       // Get associated skills, behaviors, and performance impacts
+      // First, we need the workflow ID from the learningExperienceId
+      const workflowId = row.id;
+
       const skillsAcquired = await db.select()
         .from(lxpSkillsAcquiredTable)
         .where(
           and(
-            eq(lxpSkillsAcquiredTable.learningExperienceId, learningExperienceId),
+            eq(lxpSkillsAcquiredTable.workflowId, workflowId),
             eq(lxpSkillsAcquiredTable.employeeId, employeeId)
           )
         );
@@ -609,7 +615,7 @@ export class LXPAgentService {
         .from(lxpBehaviorChangesTable)
         .where(
           and(
-            eq(lxpBehaviorChangesTable.learningExperienceId, learningExperienceId),
+            eq(lxpBehaviorChangesTable.workflowId, workflowId),
             eq(lxpBehaviorChangesTable.employeeId, employeeId)
           )
         );
@@ -618,7 +624,7 @@ export class LXPAgentService {
         .from(lxpPerformanceImpactTable)
         .where(
           and(
-            eq(lxpPerformanceImpactTable.learningExperienceId, learningExperienceId),
+            eq(lxpPerformanceImpactTable.workflowId, workflowId),
             eq(lxpPerformanceImpactTable.employeeId, employeeId)
           )
         );
@@ -634,14 +640,14 @@ export class LXPAgentService {
         skillsAcquired: skillsAcquired.map(s => ({
           skillId: s.id,
           skillName: s.skillName,
-          level: 1,
-          validated: s.validationStatus === 'validated'
+          level: s.proficiencyLevel || 1,
+          validated: s.validatedBy !== null && s.validatedBy !== undefined
         })),
         behaviorChanges: behaviorChanges.map(b => ({
           behaviorId: b.id,
           behaviorName: b.behaviorType,
-          before: b.baselineMetric?.toString() || '0',
-          after: b.currentMetric?.toString() || '0',
+          before: b.targetBehavior || 'Not measured',
+          after: b.currentBehavior || 'Not measured',
           measuredImpact: Number(b.improvementPercentage) || 0
         })),
         performanceImpact: performanceImpacts.map(p => ({
