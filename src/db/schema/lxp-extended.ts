@@ -4,6 +4,140 @@
 import { pgTable, text, uuid, timestamp, integer, jsonb, boolean, decimal } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+// Additional exports for missing tables (production-ready implementation)
+// Enhanced with LXP-specific fields per AGENT_CONTEXT_ULTIMATE.md requirements
+export const lxpWorkflowTable = pgTable('lxp_workflows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  workflowType: text('workflow_type').notNull(), // skills_gap, performance_goal, development_plan
+  status: text('status').notNull().default('pending'), // pending, active, completed, cancelled
+  triggeredBy: text('triggered_by'), // skills_agent, performance_agent, manual
+
+  // LXP-specific fields for learning experience tracking
+  learningExperienceId: uuid('learning_experience_id'),
+  learningDesign: jsonb('learning_design'), // Contains game design, levels, scoring system
+  currentLevel: integer('current_level').default(1),
+  totalScore: integer('total_score').default(0),
+  completionPercentage: integer('completion_percentage').default(0),
+  timeSpent: integer('time_spent').default(0), // in minutes
+  lastActivity: timestamp('last_activity'),
+  completedAt: timestamp('completed_at'),
+
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const learningProgressEventsTable = pgTable('learning_progress_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  pathId: uuid('path_id').notNull(),
+  courseId: uuid('course_id'),
+  eventType: text('event_type').notNull(), // started, progress, completed, abandoned
+  progressPercentage: integer('progress_percentage'),
+  metadata: jsonb('metadata'),
+  timestamp: timestamp('timestamp').notNull().defaultNow(),
+});
+
+export const lxpTriggersTable = pgTable('lxp_triggers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  sourceModule: text('source_module').notNull(), // skills, performance, talent
+  targetModule: text('target_module').notNull().default('lxp'),
+  triggerType: text('trigger_type').notNull(),
+  employeeId: uuid('employee_id'),
+  data: jsonb('data').notNull(),
+  status: text('status').notNull().default('pending'), // pending, processing, completed, failed
+  processedAt: timestamp('processed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ============================================================================
+// LXP Skills Acquired Table - Track skills gained through learning
+// ============================================================================
+// Production-ready implementation per AGENT_CONTEXT_ULTIMATE.md
+export const lxpSkillsAcquiredTable = pgTable('lxp_skills_acquired', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  workflowId: uuid('workflow_id').notNull().references(() => lxpWorkflowTable.id),
+  employeeId: uuid('employee_id').notNull(),
+  skillId: uuid('skill_id'),
+  skillName: text('skill_name').notNull(),
+  skillCategory: text('skill_category'), // technical, soft, leadership, etc.
+  proficiencyLevel: integer('proficiency_level').default(1), // 1-5 scale
+  previousLevel: integer('previous_level'),
+  validatedBy: text('validated_by'), // system, supervisor, assessment
+  metadata: jsonb('metadata'),
+  acquiredAt: timestamp('acquired_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ============================================================================
+// LXP Behavior Changes Table - Track behavioral improvements
+// ============================================================================
+// Production-ready implementation per AGENT_CONTEXT_ULTIMATE.md
+export const lxpBehaviorChangesTable = pgTable('lxp_behavior_changes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  workflowId: uuid('workflow_id').notNull().references(() => lxpWorkflowTable.id),
+  employeeId: uuid('employee_id').notNull(),
+  behaviorType: text('behavior_type').notNull(), // communication, collaboration, leadership, etc.
+  changeDescription: text('change_description'),
+  targetBehavior: text('target_behavior'),
+  currentBehavior: text('current_behavior'),
+  measurementMethod: text('measurement_method'), // observation, feedback, self-assessment
+  measurementValue: decimal('measurement_value', { precision: 10, scale: 2 }),
+  measurementUnit: text('measurement_unit'),
+  improvementPercentage: integer('improvement_percentage'),
+  validated: boolean('validated').default(false),
+  metadata: jsonb('metadata'),
+  measuredAt: timestamp('measured_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ============================================================================
+// LXP Performance Impact Table - Track learning impact on performance
+// ============================================================================
+// Production-ready implementation per AGENT_CONTEXT_ULTIMATE.md
+export const lxpPerformanceImpactTable = pgTable('lxp_performance_impact', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  workflowId: uuid('workflow_id').notNull().references(() => lxpWorkflowTable.id),
+  employeeId: uuid('employee_id').notNull(),
+  metricType: text('metric_type').notNull(), // productivity, quality, efficiency, etc.
+  metricName: text('metric_name').notNull(),
+  baselineValue: decimal('baseline_value', { precision: 10, scale: 2 }),
+  currentValue: decimal('current_value', { precision: 10, scale: 2 }),
+  targetValue: decimal('target_value', { precision: 10, scale: 2 }),
+  improvementValue: decimal('improvement_value', { precision: 10, scale: 2 }),
+  improvementPercentage: integer('improvement_percentage'),
+  impactDescription: text('impact_description'),
+  businessImpact: text('business_impact'), // cost savings, revenue increase, etc.
+  validationStatus: text('validation_status').default('pending'), // pending, validated, rejected
+  metadata: jsonb('metadata'),
+  assessedAt: timestamp('assessed_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const learningPathsTable = pgTable('learning_paths', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  pathType: text('path_type').notNull(), // skills_development, performance_goal, career_progression
+  courses: jsonb('courses').notNull(), // Array of course IDs with sequence
+  totalDuration: integer('total_duration'), // Total duration in minutes
+  progress: integer('progress').default(0), // 0-100
+  status: text('status').notNull().default('active'), // active, completed, paused, cancelled
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ============================================================================
 // TASK 1.1.1: Courses Table
 // ============================================================================
