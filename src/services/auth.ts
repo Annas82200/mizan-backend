@@ -5,7 +5,8 @@ import { db } from "../db/client";
 import { users, sessions, tenants } from "../db/schema";
 import { z } from "zod";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+// In development, ensure JWT_SECRET is loaded
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SALT_ROUNDS = 10; // Standard bcrypt salt rounds
 
@@ -53,7 +54,14 @@ export function generateToken(userId: string): string {
 
 export function verifyToken(token: string): { userId: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    // Handle both formats: { userId } and { id }
+    if (decoded.userId) {
+      return { userId: decoded.userId };
+    } else if (decoded.id) {
+      return { userId: decoded.id };
+    }
+    return null;
   } catch {
     return null;
   }

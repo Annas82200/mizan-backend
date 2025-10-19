@@ -121,17 +121,18 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
   }
 };
 
-// Helper function to generate JWT
+// Helper function to generate JWT - matches format expected by verifyToken
 function generateToken(user: any): string {
+  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
   return jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email, 
+    {
+      id: user.id,
+      email: user.email,
       tenantId: user.tenantId,
       role: user.role,
       name: user.name
     },
-    process.env.JWT_SECRET || 'default-secret',
+    JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
