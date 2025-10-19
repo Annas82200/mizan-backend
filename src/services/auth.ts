@@ -52,17 +52,39 @@ export function generateToken(userId: string): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
 }
 
-export function verifyToken(token: string): { userId: string } | null {
+export function generateFullToken(user: { id: string; email: string; tenantId: string; role: string; name?: string }): string {
+  return jwt.sign(
+    {
+      id: user.id,
+      userId: user.id, // Include both for compatibility
+      email: user.email,
+      tenantId: user.tenantId,
+      role: user.role,
+      name: user.name
+    },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+export function verifyToken(token: string): { userId: string; tenantId?: string; role?: string; email?: string } | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    // Handle both formats: { userId } and { id }
-    if (decoded.userId) {
-      return { userId: decoded.userId };
-    } else if (decoded.id) {
-      return { userId: decoded.id };
+
+    // Handle both formats: { userId } and { id } and return extended info if available
+    if (decoded.userId || decoded.id) {
+      return {
+        userId: decoded.userId || decoded.id,
+        tenantId: decoded.tenantId,
+        role: decoded.role,
+        email: decoded.email
+      };
     }
+    
+    console.error('Token verification failed - no userId or id in decoded token:', decoded);
     return null;
-  } catch {
+  } catch (error) {
+    console.error('Token verification failed - JWT error:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }

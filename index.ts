@@ -331,16 +331,19 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate token
+    // Generate token - use consistent JWT_SECRET
     const jwt = await import('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
     const token = jwt.default.sign(
       {
         id: user.id,
+        userId: user.id, // Include both for compatibility
         email: user.email,
         tenantId: user.tenantId,
-        role: user.role
+        role: user.role,
+        name: user.name
       },
-      process.env.SESSION_SECRET || process.env.JWT_SECRET || 'default-secret',
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 

@@ -9,6 +9,7 @@ import { users, tenants, socialMediaAccounts } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedUser } from '../middleware/auth';
+import { generateFullToken } from '../services/auth';
 
 const router = Router();
 
@@ -40,6 +41,74 @@ interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
 
+// Token refresh endpoint
+router.post('/refresh', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'No token provided',
+        code: 'MISSING_TOKEN' 
+      });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
+      
+      // Verify user still exists and is active
+      const userResult = await db.select()
+        .from(users)
+        .where(
+          and(
+            eq(users.id, decoded.id),
+            eq(users.isActive, true)
+          )
+        )
+        .limit(1);
+      
+      if (userResult.length === 0) {
+        return res.status(401).json({ 
+          error: 'User not found or inactive',
+          code: 'USER_NOT_FOUND' 
+        });
+      }
+      
+      const user = userResult[0];
+      
+      // Generate new token
+      const newToken = generateFullToken(user);
+      
+      return res.json({
+        success: true,
+        token: newToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId
+        }
+      });
+      
+    } catch (jwtError) {
+      return res.status(401).json({ 
+        error: 'Invalid or expired token',
+        code: 'TOKEN_INVALID' 
+      });
+    }
+    
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR' 
+    });
+  }
+});
+
 // Middleware: Tenant Access Validation
 const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -55,7 +124,7 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as TokenUser;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
       
       // Validate user exists and is active with tenant isolation
       const user = await db.select()
@@ -121,21 +190,7 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
   }
 };
 
-// Helper function to generate JWT - matches format expected by verifyToken
-function generateToken(user: any): string {
-  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
-  return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      tenantId: user.tenantId,
-      role: user.role,
-      name: user.name
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-}
+// Use generateFullToken from auth service for consistency
 
 // Helper function to validate tenant isolation
 async function validateUserTenantAccess(userId: string, tenantId: string): Promise<boolean> {
@@ -214,8 +269,8 @@ router.post('/signup', async (req, res) => {
         })
         .returning();
       
-      // Generate token
-      const token = generateToken(user);
+      // Generate token using the full token generator from auth service
+      const token = generateFullToken(user);
       
       return res.json({
         success: true,
@@ -297,8 +352,8 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Generate token
-    const token = generateToken(user);
+    // Generate token using the full token generator from auth service
+    const token = generateFullToken(user);
     
     return res.json({
       success: true,
@@ -418,7 +473,7 @@ router.get('/verify', async (req: Request, res: Response) => {
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as TokenUser;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
       
       // Validate user exists and is active with tenant isolation
       const user = await db.select()
@@ -503,7 +558,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as TokenUser;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
       
       // Validate user still exists and is active with tenant isolation
       const userResult = await db.select({
@@ -538,7 +593,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
       }
       
       // Generate new token with updated expiry
-      const newToken = generateToken(user);
+      const newToken = generateFullToken(user);
       
       return res.json({
         success: true,
