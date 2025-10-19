@@ -40,7 +40,7 @@ console.log('📚 Loading database module...');
 import bcrypt from 'bcryptjs';
 import { db } from './db/index';
 import { tenants, users } from './db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { authenticate, authorize } from './src/middleware/auth';
 import { BillingService } from './src/services/stripe';
 import { CultureAgentV2 } from './src/services/agents/culture/culture-agent';
@@ -243,6 +243,41 @@ app.get('/health', (req, res) => {
       'Role-Based Access Control'
     ]
   });
+});
+
+// Database test endpoint for debugging
+app.get('/api/test-db', async (req, res) => {
+  try {
+    console.log('🧪 Testing database connection...');
+    
+    // Test basic connection
+    const result = await db.execute(sql`SELECT NOW()`);
+    console.log('✅ Basic connection test passed');
+    
+    // Test table access
+    const userCount = await db.select().from(users).limit(1);
+    const tenantCount = await db.select().from(tenants).limit(1);
+    
+    console.log('✅ Table access test passed');
+    
+    res.json({
+      status: 'OK',
+      timestamp: result,
+      usersAccessible: userCount.length > 0,
+      tenantsAccessible: tenantCount.length > 0,
+      databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('❌ Database test failed:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      error: error instanceof Error ? error.message : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+      databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
 });
 
 // TEMPORARY: Create superadmin endpoint - REMOVE AFTER USE

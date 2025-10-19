@@ -65,7 +65,16 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
             userData = userResult[0];
         } catch (dbError) {
             console.error('Database error during user lookup:', dbError);
-            return res.status(500).json({ error: 'Database error' });
+            console.error('Error details:', {
+                message: dbError instanceof Error ? dbError.message : 'Unknown',
+                stack: dbError instanceof Error ? dbError.stack : undefined,
+                userId: decoded.userId,
+                databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET'
+            });
+            return res.status(500).json({ 
+                error: 'Database error',
+                details: process.env.NODE_ENV === 'development' ? (dbError instanceof Error ? dbError.message : 'Unknown error') : undefined
+            });
         }
 
         if (!userData) {
@@ -89,7 +98,16 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
                 }
             } catch (tenantError) {
                 console.error('Error checking tenant status:', tenantError);
-                return res.status(500).json({ error: 'Database error' });
+                console.error('Tenant error details:', {
+                    message: tenantError instanceof Error ? tenantError.message : 'Unknown',
+                    stack: tenantError instanceof Error ? tenantError.stack : undefined,
+                    tenantId: userData.tenantId,
+                    databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET'
+                });
+                return res.status(500).json({ 
+                    error: 'Database error',
+                    details: process.env.NODE_ENV === 'development' ? (tenantError instanceof Error ? tenantError.message : 'Unknown error') : undefined
+                });
             }
         }
 
