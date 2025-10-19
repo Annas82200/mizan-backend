@@ -309,11 +309,13 @@ router.post('/users/invite', async (req: Request, res: Response) => {
       const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation/${invitationToken}`;
 
       // Get tenant info for the email with tenant isolation
-      const tenant = await db.select().from(tenants).where(eq(tenants.id, req.user.tenantId)).limit(1);
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, req.user.tenantId)).limit(1);
 
-      if (tenant.length === 0) {
+      if (tenantResult.length === 0) {
         throw new Error('Tenant not found');
       }
+
+      const tenant = tenantResult[0];
 
       await emailService.sendEmail({
         to: validatedData.email,
@@ -528,6 +530,8 @@ router.get('/security/verify', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Invalid tenant access' });
     }
 
+    const tenant = tenantInfo[0];
+
     return res.json({
       verified: true,
       user: {
@@ -537,8 +541,8 @@ router.get('/security/verify', async (req: Request, res: Response) => {
         tenantId: req.user.tenantId
       },
       tenant: {
-        id: tenantInfo[0].id,
-        name: tenantInfo[0].name
+        id: tenant.id,
+        name: tenant.name
       }
     });
     
