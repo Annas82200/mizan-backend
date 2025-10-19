@@ -25,9 +25,13 @@ console.log('========================================');
 import express from 'express';
 import cors from 'cors';
 
-// Environment variables are injected by Railway (no dotenv needed in production)
-// In development, use: tsx watch --env-file=.env index.ts
-console.log('⚙️  Environment variables ready (injected by platform)');
+// Load environment variables from .env file in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+  console.log('⚙️  Environment variables loaded from .env file');
+} else {
+  console.log('⚙️  Environment variables ready (injected by platform)');
+}
 
 // Log critical environment variables (without exposing secrets)
 console.log('📊 Environment Check:');
@@ -252,7 +256,7 @@ app.get('/api/test-db', async (req, res) => {
     console.log('🧪 Testing database connection...');
     
     // Test basic connection
-    const result = await db.execute(sql`SELECT NOW()`);
+    const result = await db.select().from(tenants).limit(1);
     console.log('✅ Basic connection test passed');
     
     // Test table access

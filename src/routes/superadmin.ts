@@ -108,7 +108,7 @@ router.get('/health/database', async (req: AuthenticatedRequest, res: Response) 
     console.log('Testing database connection...');
     
     // Test basic connection
-    await db.execute(sql`SELECT 1`);
+    await db.select().from(tenants).limit(1);
     console.log('Basic connection test passed');
     
     // Test table access
@@ -250,7 +250,7 @@ router.get('/tenants', async (req: Request, res: Response) => {
 
     // Test database connection first
     try {
-      await db.execute(sql`SELECT 1`);
+      await db.select().from(tenants).limit(1);
       console.log('Database connection verified for tenants');
     } catch (dbError) {
       console.error('Database connection failed for tenants:', dbError);
@@ -465,19 +465,16 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
  */
 router.get('/health/database', async (req: Request, res: Response) => {
   try {
-    // Test SELECT query
-    await db.execute(sql`SELECT 1`);
-    
     // Test table access
-    const tenantCount = await db.select({ count: sql<number>`count(*)` }).from(tenants);
-    const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const tenantCount = await db.select().from(tenants);
+    const userCount = await db.select().from(users);
     
     return res.json({
       status: 'healthy',
       database: {
         connected: true,
-        tenants: tenantCount[0]?.count || 0,
-        users: userCount[0]?.count || 0
+        tenants: tenantCount.length,
+        users: userCount.length
       },
       timestamp: new Date().toISOString()
     });
@@ -505,7 +502,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
 
     // Test database connection first
     try {
-      await db.execute(sql`SELECT 1`);
+      await db.select().from(tenants).limit(1);
       console.log('Database connection verified');
     } catch (dbError) {
       console.error('Database connection failed:', dbError);
@@ -568,7 +565,7 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
 
     // Test database connection first
     try {
-      await db.execute(sql`SELECT 1`);
+      await db.select().from(tenants).limit(1);
       console.log('Database connection verified for revenue');
     } catch (dbError) {
       console.error('Database connection failed for revenue:', dbError);
@@ -638,7 +635,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
 
     // Test database connection first
     try {
-      await db.execute(sql`SELECT 1`);
+      await db.select().from(tenants).limit(1);
       console.log('Database connection verified for activity');
     } catch (dbError) {
       console.error('Database connection failed for activity:', dbError);
