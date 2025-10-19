@@ -19,6 +19,7 @@ console.log('🚀 Mizan Server Process Starting...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Node Version:', process.version);
 console.log('📦 Environment:', process.env.NODE_ENV || 'development');
+console.log('🔄 Deployment Version: 7df2998 - Enhanced error logging');
 console.log('========================================');
 
 import express from 'express';
