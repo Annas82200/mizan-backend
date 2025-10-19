@@ -265,7 +265,7 @@ export class SkillsBotService {
       const extractedSkills = await this.extractSkillsFromResume(resumeData);
 
       // Save extracted skills to employee profile
-      const profileData = typeof resumeData === 'object' && resumeData !== null ? resumeData as Record<string, unknown> : {};
+      const profileData = typeof resumeData === 'object' && resumeData !== null ? resumeData as unknown as Record<string, unknown> : {};
       await db.insert(employeeSkillsProfiles).values({
         tenantId,
         employeeId: userId,
@@ -318,7 +318,7 @@ export class SkillsBotService {
       const context = await this.buildBotContext(userId, tenantId);
       
       // Analyze current resume data completeness
-      const completeness = await this.analyzeResumeCompleteness(currentData);
+      const completeness = await this.analyzeResumeCompleteness(currentData as unknown as Record<string, unknown>);
       
       if (completeness.percentage < 50) {
         return {
@@ -335,7 +335,7 @@ export class SkillsBotService {
       }
 
       // Suggest improvements
-      const improvements = await this.suggestResumeImprovements(currentData);
+      const improvements = await this.suggestResumeImprovements(currentData as unknown as Record<string, unknown>);
       
       return {
         response: `Your resume looks good at ${completeness.percentage}% complete! Here are some suggestions to make it even better:`,

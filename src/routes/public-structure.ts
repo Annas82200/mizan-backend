@@ -228,16 +228,18 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
 
       const agentResponse = await Promise.race([analysisPromise, timeoutPromise]) as any;
 
+      // Map the agent response to the correct StructureAnalysisOutput type
       richAnalysis = {
-        // Remove overallAssessment as it's not in StructureAnalysisOutput type
-        keyFindings: [
-          agentResponse.spanAnalysis?.interpretation || `Span of Control: Average ${agentResponse.spanAnalysis?.average || 0} direct reports`,
-          agentResponse.layerAnalysis?.interpretation || `Organization Layers: ${agentResponse.layerAnalysis?.totalLayers || 0} hierarchical levels`,
-          agentResponse.strategyAlignment?.interpretation || `Strategy Alignment: ${agentResponse.strategyAlignment?.score || 0}% score`,
-          agentResponse.humanImpact?.interpretation
-        ].filter(Boolean),
-        recommendations: (agentResponse.recommendations || []).slice(0, 5) // Limit recommendations for public
-      };
+        overallScore: agentResponse.overallScore || 0,
+        overallHealthInterpretation: agentResponse.overallHealthInterpretation,
+        humanImpact: agentResponse.humanImpact,
+        spanAnalysis: agentResponse.spanAnalysis,
+        layerAnalysis: agentResponse.layerAnalysis,
+        strategyAlignment: agentResponse.strategyAlignment,
+        recommendations: (agentResponse.recommendations || []).slice(0, 5), // Limit recommendations for public
+        gaps: agentResponse.gaps || [],
+        hiringNeeds: agentResponse.hiringNeeds || []
+      } as StructureAnalysisOutput;
 
     } catch (aiError) {
       const e = aiError as Error;

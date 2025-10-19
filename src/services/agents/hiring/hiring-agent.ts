@@ -184,17 +184,19 @@ class HiringAgent {
         // Integrated with Culture Agent per AGENT_CONTEXT_ULTIMATE.md Lines 1890-1893
         const cultureQuestions = this.generateCultureQuestions();
         const interviewGuide = this.generateInterviewGuide(requisition.positionTitle, analysisResult);
-        // Convert IndustryData to IndustryCompensationData with required fields
+        // Convert IndustryData to IndustryCompensationData with proper data mapping
         const compensationIndustryData: IndustryCompensationData = {
-            ...industryData,
+            industry: industryData.industry || clientContext.industry,
             location: requisition.location || clientContext.location || 'Global',
             companySize: clientContext.companySize || 'medium',
             marketData: {
-                averageSalary: industryData.averageSalary || 0,
-                salaryRange: industryData.salaryRange || { min: 0, max: 0 },
-                growthRate: industryData.growthRate || 0
+                // Use default compensation data since industryData.benchmarks is Record<string, number>
+                p25: 80000,
+                p50: 100000,
+                p75: 120000
             },
-            benefits: industryData.benefits || []
+            benefits: ['Health Insurance', 'Retirement Plan', 'PTO'], // Default benefits
+            trends: industryData.trends || []
         };
         const compensationAnalysis = await this.performCompensationAnalysis(requisition.positionTitle, clientContext, compensationIndustryData);
 

@@ -12,7 +12,7 @@ import {
 } from '../../../db/schema/lxp';
 import { eq, and, desc } from 'drizzle-orm';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
-import { DataEngine } from '../../../ai/engines/DataEngine';
+import { DataEngine, ProcessedData } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { Assessment } from '../../../types/agent-types';
 
@@ -364,20 +364,56 @@ export class LXPAgentService {
 
       // Use Knowledge Engine to assess behavior change
       const behaviorContext = await this.knowledgeEngine.getBehaviorChangeContext();
-      
+
       // Use Reasoning Engine to analyze behavior change indicators
-      const behaviorAnalysis = await this.reasoningEngine.analyze({
+      // Convert learning progress data to ProcessedData format
+      const processedProgressData: ProcessedData = {
+        cleaned: {
+          completionPercentage: progress.completionPercentage,
+          timeSpent: progress.timeSpent,
+          currentLevel: progress.currentLevel,
+          totalScore: progress.totalScore
+        },
+        normalized: {
+          completion: progress.completionPercentage / 100,
+          engagement: Math.min(progress.timeSpent / 3600, 1), // Normalize to hours, cap at 1
+          level: progress.currentLevel / (learningExp.levels?.length || 1),
+          performance: progress.totalScore / 100
+        },
+        structured: {
+          dimensions: ['completion', 'engagement', 'level', 'performance'],
+          metrics: {
+            completion: progress.completionPercentage,
+            timeSpent: progress.timeSpent,
+            level: progress.currentLevel,
+            score: progress.totalScore
+          },
+          categories: {
+            skills: progress.skillsAcquired?.map(s => s.skillName) || [],
+            behaviors: progress.behaviorChanges?.map(b => b.behaviorName) || []
+          },
+          relationships: [],
+          patterns: []
+        },
         metadata: {
-          progress,
-          behaviorTargets: learningExp.behaviorChangeTargets,
-          learningContent: learningExp.levels,
-          employeeInteractions: await this.getEmployeeInteractions(employeeId, learningExperienceId)
+          recordCount: 1,
+          completeness: progress.completionPercentage / 100,
+          quality: 0.8, // Default quality score
+          processingTime: Date.now() - progress.lastActivity.getTime(),
+          anomalies: []
         }
-      }, behaviorContext);
+      };
+
+      const behaviorAnalysis = await this.reasoningEngine.analyze(
+        processedProgressData,
+        behaviorContext
+      );
 
       // Update progress with behavior change assessment
-      // Extract behavior changes from analysis insights or recommendations
-      const behaviorChanges = (behaviorAnalysis.insights || []).filter(i => i.includes('behavior'));
+      // Extract behavior changes from analysis insights - filter by description containing 'behavior'
+      const behaviorChanges = (behaviorAnalysis.insights || []).filter(i =>
+        i.description && i.description.toLowerCase().includes('behavior')
+      );
       if (behaviorChanges.length > 0) {
         await this.updateBehaviorChangeMetrics(learningExperienceId, employeeId, behaviorChanges);
       }

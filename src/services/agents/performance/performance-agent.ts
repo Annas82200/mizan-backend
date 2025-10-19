@@ -194,8 +194,8 @@ class PerformanceAgent {
             objectives: clientStrategy,
             priorities: culturePriorities,
             skillsNeeded: skillsGaps.criticalGaps.map(g => g.skill),
-            createdBy: 'system', // or a user id
-            updatedBy: 'system',
+            createdBy: tenantId, // Use tenantId as the creator for system-generated goals
+            updatedBy: tenantId,
         }).returning();
         return cycle;
     }
@@ -346,10 +346,10 @@ class PerformanceAgent {
                         status: 'active',
                         startDate: new Date(),
                         targetDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
-                        createdBy: 'system',
-                        updatedBy: 'system',
-                        employeeId: 'system', // Department-level goals use system as placeholder
-                        managerId: dept.manager || 'system' // Department manager if available
+                        createdBy: tenantId, // Use tenantId as the creator for system-generated goals
+                        updatedBy: tenantId,
+                        employeeId: dept.manager || tenantId, // Use manager or tenantId for department goals
+                        managerId: dept.manager || tenantId // Department manager if available
                     });
                 }
             }
@@ -358,26 +358,42 @@ class PerformanceAgent {
         // Individual Goals - This is a simplified example. A real implementation would iterate through employees.
         const individualGoals = this.createIndividualGoals(analysisResult, culturePriorities, skillsGaps);
         for (const goal of individualGoals) {
-             await db.insert(performanceGoals).values({
-                tenantId,
-                employeeId: 'employee-placeholder-id', // This should be the actual employee ID
-                managerId: 'manager-placeholder-id', // This should be the actual manager ID
+            const goalData = {
+                tenantId: tenantId,
+                employeeId: tenantId, // TODO: This should be the actual employee ID - using tenantId as placeholder
+                managerId: tenantId, // TODO: This should be the actual manager ID - using tenantId as placeholder
                 title: goal.description,
                 description: goal.description,
-                type: 'individual',
-                category: goal.type,
-                goalFormat: 'smart',
+                type: 'individual' as const,
+                category: this.mapGoalTypeToCategory(goal.type),
+                goalFormat: 'smart' as const,
                 target: { description: 'Complete goal' },
-                weight: goal.weight.toString(),
-                status: goal.status,
+                weight: goal.weight.toFixed(2), // Ensure proper decimal format
+                status: this.mapGoalStatus(goal.status),
                 startDate: new Date(),
                 targetDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
-                createdBy: 'system',
-                updatedBy: 'system',
-            });
+                createdBy: tenantId, // Use tenantId as the creator for system-generated goals
+                updatedBy: tenantId  // Use tenantId as the updater for system-generated goals
+            };
+            await db.insert(performanceGoals).values(goalData);
         }
     }
     
+    private mapGoalTypeToCategory(type: 'performance' | 'culture' | 'learning' | 'skills'): 'revenue' | 'productivity' | 'quality' | 'learning' | 'leadership' | 'innovation' | 'customer_satisfaction' | 'operational_excellence' {
+        const mapping = {
+            'performance': 'productivity' as const,
+            'culture': 'leadership' as const,
+            'learning': 'learning' as const,
+            'skills': 'learning' as const
+        };
+        return mapping[type];
+    }
+
+    private mapGoalStatus(status: 'draft' | 'active' | 'pending' | 'completed'): 'draft' | 'active' | 'completed' | 'abandoned' | 'on_hold' | 'overdue' {
+        if (status === 'pending') return 'draft';
+        return status as 'draft' | 'active' | 'completed';
+    }
+
     private createDepartmentGoals(dept: DepartmentStructure, analysisResult: PerformanceAnalysisResult): PerformanceGoalTemplate[] {
         const goals = [];
         if (dept.name?.toLowerCase().includes('engineering')) {
