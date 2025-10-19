@@ -36,15 +36,13 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     }
 
     try {
-        const tenant = await db.query.tenants.findFirst({
-            where: eq(tenants.id, tenantId),
-        });
+        const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
 
-        if (!tenant) {
+        if (tenantResult.length === 0) {
             return res.status(404).json({ error: 'Tenant not found' });
         }
 
-        req.tenant = tenant;
+        req.tenant = tenantResult[0];
         next();
     } catch (error: unknown) {
         console.error('Error in tenant middleware:', error);

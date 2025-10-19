@@ -31,23 +31,22 @@ const validateTenantAccess = async (req: Request, res: Response, next: NextFunct
     }
 
     // Verify tenant exists and user has access
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, req.user.tenantId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, req.user.tenantId)).limit(1);
+    const tenant = tenantResult[0];
 
     if (!tenant) {
       return res.status(403).json({ error: 'Tenant not found or access denied' });
     }
 
     // Verify user belongs to this tenant
-    const userCheck = await db.query.users.findFirst({
-      where: and(
+    const userCheck = await db.select().from(users).where(
+      and(
         eq(users.id, req.user.id),
         eq(users.tenantId, req.user.tenantId)
       )
-    });
+    ).limit(1);
 
-    if (!userCheck) {
+    if (userCheck.length === 0) {
       return res.status(403).json({ error: 'User does not belong to this tenant' });
     }
 
@@ -149,17 +148,7 @@ router.get('/companies', async (req: Request, res: Response) => {
     }
 
     // Only return the current tenant (company) with tenant isolation
-    const companiesList = await db.query.tenants.findMany({
-      where: eq(tenants.id, req.user.tenantId),
-      with: {
-        departments: {
-          where: eq(departments.tenantId, req.user.tenantId)
-        },
-        users: {
-          where: eq(users.tenantId, req.user.tenantId)
-        }
-      }
-    });
+    const companiesList = await db.select().from(tenants).where(eq(tenants.id, req.user.tenantId));
     
     return res.json(companiesList);
     
@@ -218,14 +207,7 @@ router.get('/users', async (req: Request, res: Response) => {
     }
 
     // Only get users from the same tenant
-    const usersList = await db.query.users.findMany({
-      where: eq(users.tenantId, req.user.tenantId),
-      with: {
-        department: {
-          where: eq(departments.tenantId, req.user.tenantId) // Ensure department also belongs to tenant
-        }
-      }
-    });
+    const usersList = await db.select().from(users).where(eq(users.tenantId, req.user.tenantId));
     
     // Remove sensitive data
     interface UserWithRelations {
@@ -277,27 +259,27 @@ router.post('/users/invite', async (req: Request, res: Response) => {
     
     // If departmentId is provided, verify it belongs to the same tenant
     if (validatedData.departmentId) {
-      const department = await db.query.departments.findFirst({
-        where: and(
+      const department = await db.select().from(departments).where(
+        and(
           eq(departments.id, validatedData.departmentId),
           eq(departments.tenantId, req.user.tenantId)
         )
-      });
+      ).limit(1);
 
-      if (!department) {
+      if (department.length === 0) {
         return res.status(400).json({ error: 'Invalid department or department does not belong to your organization' });
       }
     }
     
     // Check if user with this email already exists in the tenant
-    const existingUser = await db.query.users.findFirst({
-      where: and(
+    const existingUser = await db.select().from(users).where(
+      and(
         eq(users.email, validatedData.email),
         eq(users.tenantId, req.user.tenantId)
       )
-    });
+    ).limit(1);
 
-    if (existingUser) {
+    if (existingUser.length > 0) {
       return res.status(400).json({ error: 'User with this email already exists in your organization' });
     }
     
@@ -327,11 +309,9 @@ router.post('/users/invite', async (req: Request, res: Response) => {
       const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation/${invitationToken}`;
 
       // Get tenant info for the email with tenant isolation
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, req.user.tenantId)
-      });
+      const tenant = await db.select().from(tenants).where(eq(tenants.id, req.user.tenantId)).limit(1);
 
-      if (!tenant) {
+      if (tenant.length === 0) {
         throw new Error('Tenant not found');
       }
 
@@ -373,18 +353,7 @@ router.get('/analyses', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const analysesList = await db.query.analyses.findMany({
-      where: eq(analyses.tenantId, req.user.tenantId),
-      orderBy: [desc(analyses.createdAt)],
-      with: {
-        company: {
-          where: eq(companies.id, req.user.tenantId) // Ensure company matches tenant
-        },
-        requestedByUser: {
-          where: eq(users.tenantId, req.user.tenantId) // Ensure user also belongs to tenant
-        }
-      }
-    });
+    const analysesList = await db.select().from(analyses).where(eq(analyses.tenantId, req.user.tenantId)).orderBy(desc(analyses.createdAt)).limit(50);
     
     return res.json(analysesList);
     
@@ -401,16 +370,7 @@ router.get('/triggers', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const triggersList = await db.query.triggers.findMany({
-      where: eq(triggers.tenantId, req.user.tenantId),
-      orderBy: [desc(triggers.createdAt)],
-      with: {
-        executions: {
-          orderBy: [desc(triggers.createdAt)],
-          limit: 5
-        }
-      }
-    });
+    const triggersList = await db.select().from(triggers).where(eq(triggers.tenantId, req.user.tenantId)).orderBy(desc(triggers.createdAt)).limit(50);
     
     return res.json(triggersList);
     
@@ -434,14 +394,14 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
     const validatedData = schema.parse(req.body);
 
     // First verify the trigger belongs to the current tenant
-    const existingTrigger = await db.query.triggers.findFirst({
-      where: and(
+    const existingTrigger = await db.select().from(triggers).where(
+      and(
         eq(triggers.id, req.params.id),
         eq(triggers.tenantId, req.user.tenantId)
       )
-    });
+    ).limit(1);
 
-    if (!existingTrigger) {
+    if (existingTrigger.length === 0) {
       return res.status(404).json({ error: 'Trigger not found or access denied' });
     }
 
@@ -476,17 +436,7 @@ router.get('/departments', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const departmentsList = await db.query.departments.findMany({
-      where: eq(departments.tenantId, req.user.tenantId),
-      with: {
-        manager: {
-          where: eq(users.tenantId, req.user.tenantId) // Ensure manager also belongs to tenant
-        },
-        users: {
-          where: eq(users.tenantId, req.user.tenantId) // Ensure users also belong to tenant
-        }
-      }
-    });
+    const departmentsList = await db.select().from(departments).where(eq(departments.tenantId, req.user.tenantId));
     
     return res.json(departmentsList);
     
@@ -507,29 +457,19 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     
     // If companyId is provided, verify it belongs to the current tenant
     if (companyId) {
-      const company = await db.query.companies.findFirst({
-        where: eq(companies.id, req.user.tenantId)
-      });
+      const company = await db.select().from(companies).where(eq(companies.id, req.user.tenantId)).limit(1);
 
-      if (!company) {
+      if (company.length === 0) {
         return res.status(400).json({ error: 'Company not found or access denied' });
       }
     }
     
-    const assessments = await db.query.cultureAssessments.findMany({
-      where: and(
+    const assessments = await db.select().from(cultureAssessments).where(
+      and(
         eq(cultureAssessments.tenantId, req.user.tenantId),
         companyId ? eq(cultureAssessments.companyId, companyId as string) : undefined
-      ),
-      with: {
-        tenant: {
-          where: eq(tenants.id, req.user.tenantId) // Ensure tenant matches
-        },
-        user: {
-          where: eq(users.tenantId, req.user.tenantId) // Ensure user belongs to tenant
-        }
-      }
-    });
+      )
+    ).orderBy(desc(cultureAssessments.createdAt)).limit(50);
     
     // Calculate average alignment score
     interface AssessmentWithScore {
