@@ -28,13 +28,13 @@ const validateTenantAccess = async (req: Request, res: Response, next: Function)
     }
 
     // Verify tenant exists
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, targetTenantId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, targetTenantId)).limit(1);
 
-    if (!tenant) {
+    if (tenantResult.length === 0) {
       return res.status(404).json({ error: "Tenant not found" });
     }
+
+    const tenant = tenantResult[0];
 
     next();
   } catch (error) {
@@ -338,14 +338,14 @@ async function handleOrgChartUpload(req: Request, res: Response) {
           if (employeeEmail && employeeName) {
             try {
               // Check if user already exists - WITH TENANT ISOLATION
-              const existingUser = await db.query.users.findFirst({
-                where: and(
+              const existingUser = await db.select().from(users).where(
+                and(
                   eq(users.email, employeeEmail.toLowerCase()),
                   eq(users.tenantId, targetTenantId)
                 )
-              });
+              ).limit(1);
 
-              if (!existingUser) {
+              if (existingUser.length === 0) {
                 await db.insert(users).values({
                   tenantId: targetTenantId,
                   email: employeeEmail.toLowerCase(),
@@ -365,12 +365,12 @@ async function handleOrgChartUpload(req: Request, res: Response) {
 
         // Update tenant employee count - WITH TENANT ISOLATION
         if (employeesCreated > 0) {
-          const allEmployees = await db.query.users.findMany({
-            where: and(
+          const allEmployees = await db.select().from(users).where(
+            and(
               eq(users.tenantId, targetTenantId),
               eq(users.role, 'employee')
             )
-          });
+          );
 
           await db.update(tenants)
             .set({ employeeCount: allEmployees.length })
@@ -526,11 +526,9 @@ router.get("/structures", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Tenant access required" });
     }
 
-    const structures = await db.query.orgStructures.findMany({
-      where: eq(orgStructures.tenantId, req.user.tenantId),
-      orderBy: [desc(orgStructures.createdAt)],
-      limit: 10,
-    });
+    const structures = await db.select().from(orgStructures).where(
+      eq(orgStructures.tenantId, req.user.tenantId)
+    ).orderBy(desc(orgStructures.createdAt)).limit(10);
     
     return res.json({ structures });
   } catch (error) {
