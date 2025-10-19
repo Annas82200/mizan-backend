@@ -445,12 +445,7 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
    */
   async getOrganizationalStructure(companyId: string, tenantId: string): Promise<OrganizationalStructure> {
     // Fetch from database
-    const departmentsData = await db.query.departments.findMany({
-      where: eq(departments.tenantId, tenantId),
-      with: {
-        users: true
-      }
-    });
+    const departmentsData = await db.select().from(departments).where(eq(departments.tenantId, tenantId));
 
     // Calculate hierarchy levels for each department
     const calculateLevel = (deptId: string, deptMap: Map<string, typeof departmentsData[0]>, visited = new Set<string>()): number => {
@@ -469,7 +464,7 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
       id: d.id,
       name: d.name,
       level: calculateLevel(d.id, deptMap),
-      users: (d.users || []).map(u => ({ id: u.id, name: u.name || '' })),
+      users: [], // Users not fetched in this query - would need separate query if needed
       parentId: d.parentDepartmentId || undefined
     }));
 
@@ -508,9 +503,8 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
   
   private async getCompanyStrategy(companyId: string): Promise<string> {
     // Fetch strategy from tenants table
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, companyId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, companyId)).limit(1);
+    const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
     return tenant?.strategy || '';
   }

@@ -182,12 +182,13 @@ router.get('/analysis/:id/status', async (req, res) => {
     }
 
     // Fetch analysis with strict tenant isolation
-    const analysis = await db.query.analyses.findFirst({
-      where: and(
+    const analysisResult = await db.select().from(analyses)
+      .where(and(
         eq(analyses.id, req.params.id),
         eq(analyses.tenantId, req.user.tenantId)
-      )
-    });
+      ))
+      .limit(1);
+    const analysis = analysisResult.length > 0 ? analysisResult[0] : null;
     
     if (!analysis) {
       return res.status(404).json({ error: 'Analysis not found or access denied' });
@@ -218,12 +219,13 @@ router.get('/analysis/:id/results', async (req, res) => {
     }
 
     // Fetch analysis with strict tenant isolation
-    const analysis = await db.query.analyses.findFirst({
-      where: and(
+    const analysisResult = await db.select().from(analyses)
+      .where(and(
         eq(analyses.id, req.params.id),
         eq(analyses.tenantId, req.user.tenantId)
-      )
-    });
+      ))
+      .limit(1);
+    const analysis = analysisResult.length > 0 ? analysisResult[0] : null;
     
     if (!analysis) {
       return res.status(404).json({ error: 'Analysis not found or access denied' });
@@ -442,12 +444,13 @@ router.delete('/analysis/:id', authorize(['clientAdmin', 'superadmin']), async (
     }
 
     // Verify analysis belongs to tenant before deletion
-    const analysis = await db.query.analyses.findFirst({
-      where: and(
+    const analysisResult = await db.select().from(analyses)
+      .where(and(
         eq(analyses.id, req.params.id),
         eq(analyses.tenantId, req.user.tenantId)
-      )
-    });
+      ))
+      .limit(1);
+    const analysis = analysisResult.length > 0 ? analysisResult[0] : null;
 
     if (!analysis) {
       return res.status(404).json({ error: 'Analysis not found or access denied' });

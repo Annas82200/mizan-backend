@@ -425,9 +425,8 @@ Return ONLY valid JSON. Be specific and actionable.`;
   private async getCompanyStrategy(companyId: string, tenantId: string): Promise<string> {
     // Using tenantId as the primary identifier for multi-tenant architecture
     // companyId is kept for future company-specific strategies within tenants
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+    const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
     return tenant?.strategy || '';
   }
 

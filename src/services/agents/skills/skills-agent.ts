@@ -553,16 +553,13 @@ export class SkillsAgent extends ThreeEngineAgent {
 
   // Helper methods
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, companyId)
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, companyId)).limit(1);
+    const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
     return tenant?.strategy || '';
   }
 
   private async getEmployeeSkillsData(tenantId: string): Promise<EmployeeSkillData[]> {
-    const employees = await db.query.users.findMany({
-      where: eq(users.tenantId, tenantId)
-    });
+    const employees = await db.select().from(users).where(eq(users.tenantId, tenantId));
 
     // Fetch skills for each employee
     const employeeData: EmployeeSkillData[] = [];
@@ -583,9 +580,7 @@ export class SkillsAgent extends ThreeEngineAgent {
 
   private async getEmployeeSkills(employeeId: string): Promise<Skill[]> {
     // Fetch skills from database
-    const userSkills = await db.query.skills.findMany({
-      where: eq(skills.userId, employeeId)
-    });
+    const userSkills = await db.select().from(skills).where(eq(skills.userId, employeeId));
 
     return userSkills.map((s: Record<string, unknown>) => ({
       name: s.name as string,

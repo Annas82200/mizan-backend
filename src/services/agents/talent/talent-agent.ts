@@ -79,9 +79,10 @@ class TalentAgent {
     }
 
     private async updateTalentProfile(tenantId: string, employeeId: string, analysis: TalentAnalysisResult) {
-        const existingProfile = await db.query.talentProfiles.findFirst({
-            where: and(eq(talentProfiles.tenantId, tenantId), eq(talentProfiles.employeeId, employeeId)),
-        });
+        const existingProfileResult = await db.select().from(talentProfiles)
+            .where(and(eq(talentProfiles.tenantId, tenantId), eq(talentProfiles.employeeId, employeeId)))
+            .limit(1);
+        const existingProfile = existingProfileResult.length > 0 ? existingProfileResult[0] : null;
 
         const profileData = {
             potentialRating: analysis.potentialRating || 'high',
@@ -127,9 +128,7 @@ class TalentAgent {
      */
     public async getNineBoxDistribution(tenantId: string) {
         // Get all talent profiles for the tenant
-        const profiles = await db.query.talentProfiles.findMany({
-            where: eq(talentProfiles.tenantId, tenantId),
-        });
+        const profiles = await db.select().from(talentProfiles).where(eq(talentProfiles.tenantId, tenantId));
 
         // Initialize 9-box grid (3x3 matrix)
         const distribution: Record<string, number> = {
@@ -175,9 +174,7 @@ class TalentAgent {
      */
     public async getSuccessionPlans(tenantId: string) {
         // Get high-potential talent profiles
-        const profiles = await db.query.talentProfiles.findMany({
-            where: eq(talentProfiles.tenantId, tenantId),
-        });
+        const profiles = await db.select().from(talentProfiles).where(eq(talentProfiles.tenantId, tenantId));
 
         const successionPlans = profiles
             .filter(profile => {
@@ -207,9 +204,7 @@ class TalentAgent {
      * Returns personalized development plans based on talent analysis
      */
     public async getDevelopmentPlans(tenantId: string) {
-        const profiles = await db.query.talentProfiles.findMany({
-            where: eq(talentProfiles.tenantId, tenantId),
-        });
+        const profiles = await db.select().from(talentProfiles).where(eq(talentProfiles.tenantId, tenantId));
 
         const developmentPlans = profiles.map(profile => {
             const profileData = profile.profileData as Record<string, unknown>;

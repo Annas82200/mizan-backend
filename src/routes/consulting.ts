@@ -105,20 +105,12 @@ router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, re
     
     // Superadmin can see all requests, clientAdmin only sees their tenant's requests
     if (user.role === 'superadmin') {
-      requests = await db.query.consultingRequests.findMany({
-        orderBy: [desc(consultingRequests.createdAt)],
-        with: {
-          assignedConsultant: true
-        }
-      });
+      requests = await db.select().from(consultingRequests)
+        .orderBy(desc(consultingRequests.createdAt));
     } else {
-      requests = await db.query.consultingRequests.findMany({
-        where: eq(consultingRequests.tenantId, user.tenantId),
-        orderBy: [desc(consultingRequests.createdAt)],
-        with: {
-          assignedConsultant: true
-        }
-      });
+      requests = await db.select().from(consultingRequests)
+        .where(eq(consultingRequests.tenantId, user.tenantId))
+        .orderBy(desc(consultingRequests.createdAt));
     }
     
     return res.json(requests);
@@ -140,9 +132,10 @@ router.put('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
     }
 
     // Validate request exists and check tenant access
-    const existingRequest = await db.query.consultingRequests.findFirst({
-      where: eq(consultingRequests.id, req.params.id)
-    });
+    const existingRequestResult = await db.select().from(consultingRequests)
+      .where(eq(consultingRequests.id, req.params.id))
+      .limit(1);
+    const existingRequest = existingRequestResult.length > 0 ? existingRequestResult[0] : null;
 
     if (!existingRequest) {
       return res.status(404).json({ error: 'Request not found' });
@@ -188,18 +181,16 @@ router.get('/consultants', authorize(['clientAdmin', 'superadmin']), async (req,
 
     // Superadmin can see all consultants, clientAdmin sees tenant-specific consultants
     if (user.role === 'superadmin') {
-      consultantList = await db.query.consultants.findMany({
-        where: eq(consultants.isActive, true)
-      });
+      consultantList = await db.select().from(consultants)
+        .where(eq(consultants.isActive, true));
     } else {
       // Client admins can only see consultants assigned to their tenant or global consultants
-      consultantList = await db.query.consultants.findMany({
-        where: and(
+      consultantList = await db.select().from(consultants)
+        .where(and(
           eq(consultants.isActive, true),
           // Add tenant filtering logic here if consultants table has tenantId
           // For now, assuming all active consultants are available to all tenants
-        )
-      });
+        ));
     }
     
     return res.json(consultantList);
@@ -274,22 +265,18 @@ router.get('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
     let request;
 
     if (user.role === 'superadmin') {
-      request = await db.query.consultingRequests.findFirst({
-        where: eq(consultingRequests.id, req.params.id),
-        with: {
-          assignedConsultant: true
-        }
-      });
+      const requestResult = await db.select().from(consultingRequests)
+        .where(eq(consultingRequests.id, req.params.id))
+        .limit(1);
+      request = requestResult.length > 0 ? requestResult[0] : null;
     } else {
-      request = await db.query.consultingRequests.findFirst({
-        where: and(
+      const requestResult = await db.select().from(consultingRequests)
+        .where(and(
           eq(consultingRequests.id, req.params.id),
           eq(consultingRequests.tenantId, user.tenantId)
-        ),
-        with: {
-          assignedConsultant: true
-        }
-      });
+        ))
+        .limit(1);
+      request = requestResult.length > 0 ? requestResult[0] : null;
     }
 
     if (!request) {
@@ -314,9 +301,10 @@ router.delete('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (
     }
 
     // Check if request exists and validate tenant access
-    const existingRequest = await db.query.consultingRequests.findFirst({
-      where: eq(consultingRequests.id, req.params.id)
-    });
+    const existingRequestResult = await db.select().from(consultingRequests)
+      .where(eq(consultingRequests.id, req.params.id))
+      .limit(1);
+    const existingRequest = existingRequestResult.length > 0 ? existingRequestResult[0] : null;
 
     if (!existingRequest) {
       return res.status(404).json({ error: 'Request not found' });
