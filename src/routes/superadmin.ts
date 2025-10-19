@@ -87,10 +87,8 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
 // Validate specific tenant exists (for tenant-specific operations)
 const validateTenantExists = async (tenantId: string): Promise<boolean> => {
   try {
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId)
-    });
-    return !!tenant;
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+    return tenant.length > 0;
   } catch (error) {
     console.error('Tenant existence validation error:', error);
     return false;
@@ -214,17 +212,18 @@ router.get('/tenants', async (req: Request, res: Response) => {
     const user = authReq.user;
 
     // Superadmin can access all tenants
-    const allTenants = await db.query.tenants.findMany({
-      with: {
-        users: true
-      }
-    });
+    const allTenants = await db.select().from(tenants);
 
-    const tenantsWithCounts = allTenants.map(tenant => ({
-      ...tenant,
-      userCount: tenant.users.length,
-      users: undefined
-    }));
+    // Get user counts for each tenant
+    const tenantsWithCounts = await Promise.all(
+      allTenants.map(async (tenant) => {
+        const userCount = await db.select().from(users).where(eq(users.tenantId, tenant.id));
+        return {
+          ...tenant,
+          userCount: userCount.length
+        };
+      })
+    );
 
     return res.json({
       tenants: tenantsWithCounts,
@@ -255,18 +254,15 @@ router.get('/tenants/:tenantId', async (req: Request, res: Response) => {
     }
 
     // Superadmin can access any tenant
-    const tenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId),
-      with: {
-        users: true
-      }
-    });
+    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
 
-    if (!tenant) {
+    if (tenantResult.length === 0) {
       return res.status(404).json({
         error: 'Tenant not found'
       });
     }
+
+    const tenant = tenantResult[0];
 
     return res.json(tenant);
   } catch (error: unknown) {
@@ -315,9 +311,8 @@ router.patch('/tenants/:tenantId', async (req: AuthenticatedRequest, res: Respon
       .set(filteredUpdates)
       .where(eq(tenants.id, tenantId));
 
-    const updatedTenant = await db.query.tenants.findFirst({
-      where: eq(tenants.id, tenantId)
-    });
+    const updatedTenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+    const updatedTenant = updatedTenantResult[0];
 
     return res.json(updatedTenant);
   } catch (error: unknown) {
@@ -335,11 +330,7 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user;
 
     // Superadmin can see users from all tenants
-    const allUsers = await db.query.users.findMany({
-      with: {
-        tenant: true
-      }
-    });
+    const allUsers = await db.select().from(users);
 
     return res.json({
       users: allUsers,
@@ -362,9 +353,8 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
     const user = req.user;
 
     // Validate user exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.id, userId)
-    });
+    const existingUserResult = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const existingUser = existingUserResult[0];
 
     if (!existingUser) {
       return res.status(404).json({
@@ -382,12 +372,8 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
       .set(updates)
       .where(eq(users.id, userId));
 
-    const updatedUser = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      with: {
-        tenant: true
-      }
-    });
+    const updatedUserResult = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const updatedUser = updatedUserResult[0];
 
     return res.json(updatedUser);
   } catch (error: unknown) {
@@ -405,8 +391,8 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user;
 
     // Superadmin can see platform-wide stats
-    const allTenants = await db.query.tenants.findMany();
-    const allUsers = await db.query.users.findMany();
+    const allTenants = await db.select().from(tenants);
+    const allUsers = await db.select().from(users);
 
     const stats = {
       totalTenants: allTenants.length,
@@ -432,9 +418,7 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user;
 
     // Calculate real revenue data from active tenants
-    const activeTenants = await db.query.tenants.findMany({
-      where: eq(tenants.status, 'active')
-    });
+    const activeTenants = await db.select().from(tenants).where(eq(tenants.status, 'active'));
     
     // Calculate MRR based on tenant plans (assuming a base rate per employee)
     const baseRatePerEmployee = 10; // $10 per employee per month
@@ -477,15 +461,9 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
 
     // Get real activity data from audit logs or recent tenant/user activities
-    const recentTenants = await db.query.tenants.findMany({
-      orderBy: desc(tenants.createdAt),
-      limit: Math.min(limit, 5)
-    });
+    const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(Math.min(limit, 5));
     
-    const recentUsers = await db.query.users.findMany({
-      orderBy: desc(users.createdAt),
-      limit: Math.min(limit, 5)
-    });
+    const recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(Math.min(limit, 5));
     
     // Combine and format activities
     const activities = [
@@ -522,7 +500,7 @@ router.get('/analytics/usage', async (req: AuthenticatedRequest, res: Response) 
     const user = req.user;
 
     // Superadmin can see platform-wide usage stats
-    const allUsers = await db.query.users.findMany();
+    const allUsers = await db.select().from(users);
 
     const stats = {
       dau: Math.floor(allUsers.length * 0.4), // Mock: 40% daily active
