@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "echo \"🚀 Executing Mizan Backend Start Command...\" && node dist/index.js",
     "start:dev": "tsx index.ts",
+    "setup:dev": "node scripts/dev-setup.js",
+    "setup:db": "node scripts/setup-database.js",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "db:seed": "tsx scripts/seed.ts",
