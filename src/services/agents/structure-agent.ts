@@ -88,10 +88,10 @@ export class StructureAgent extends ThreeEngineAgent {
         temperature: 0.4,
         maxTokens: 4000
       },
-      // Lowered from 0.8 to 0.75 to accommodate provider confidence scores
-      // Railway logs show providers returning 0.7-0.8, just below previous threshold
+      // Consensus threshold set to 0.8 for quality analysis
+      // Data format now fixed - AI providers should reach 0.8+ with proper StructureData
       // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready configuration
-      consensusThreshold: 0.75
+      consensusThreshold: 0.8
     };
 
     super('structure', config);
@@ -402,6 +402,19 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
     const rawStructureData = structure[0].structureData as Record<string, unknown>;
 
+    // LOG DATA QUALITY for debugging - Enhanced logging for root cause analysis
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready error handling
+    console.log('📊 Data Quality Check:', {
+      hasDepartments: !!(rawStructureData.departments),
+      departmentCount: (rawStructureData.departments as any[])?.length || 0,
+      hasReportingLines: !!(rawStructureData.reportingLines),
+      reportingLineCount: (rawStructureData.reportingLines as any[])?.length || 0,
+      hasRoles: !!(rawStructureData.roles),
+      roleCount: (rawStructureData.roles as any[])?.length || 0,
+      totalEmployees: rawStructureData.totalEmployees || 0,
+      organizationLevels: rawStructureData.organizationLevels || 0
+    });
+
     // Convert the raw structure data to StructureData type
     const structureData: StructureData = {
       departments: (rawStructureData.departments as Department[]) || [],
@@ -410,6 +423,13 @@ Return ONLY a valid JSON object with NO markdown formatting:
       totalEmployees: (rawStructureData.totalEmployees as number) || 0,
       organizationLevels: (rawStructureData.organizationLevels as number) || 0
     };
+
+    // VALIDATE we have actual data - prevents AI from analyzing empty structures
+    if (structureData.roles.length === 0 && structureData.departments.length === 0) {
+      console.error('❌ Data quality issue: Structure has no roles or departments');
+      console.error('💡 This indicates a parser problem - check parseOrgTextToStructure()');
+      throw new Error('Organization structure data is empty or malformed. Please re-upload with valid data.');
+    }
 
     const strategyData = strategy.length > 0 ? strategy[0] : null;
 

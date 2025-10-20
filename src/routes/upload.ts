@@ -388,46 +388,72 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       }
     }
 
-    // Use actual StructureAgent with Three-Engine Architecture
-    const { StructureAgent } = await import('../services/agents/structure-agent.js');
-    const structureAgent = new StructureAgent();
-    
-    // Analyze the structure using the Three-Engine Architecture - WITH TENANT ISOLATION
-    const result = await structureAgent.analyzeOrganizationStructure({
-      tenantId: targetTenantId,
-      structureId: randomUUID() // Generate a new ID for this analysis
-    });
-
-    // Parse the org text into structured data for organization_structure table
+    // STEP 1: Parse org text into structured data with ENHANCED parser
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Proper StructureData format
     const parsedData = parseOrgTextToStructure(orgText);
 
-    // Save to BOTH tables - WITH TENANT ISOLATION:
-    // 1. org_structures (for historical records)
-    const [saved] = await db.insert(orgStructures).values({
-      submittedBy: req.user!.id,
-      tenantId: targetTenantId,
-      rawText: orgText,
-      parsedData: [],  // Store parsed structure data here if needed
-      analysisResult: result,
-      isPublic: false,
-    }).returning();
-
-    // 2. organization_structure (for analysis engine to read) - WITH TENANT ISOLATION
-    // Delete old structure for this tenant first
+    // STEP 2: Save to organization_structure table FIRST (before analysis)
+    // This ensures data persists even if analysis fails - WITH TENANT ISOLATION
     await db.delete(organizationStructure).where(
       eq(organizationStructure.tenantId, targetTenantId)
     );
 
     await db.insert(organizationStructure).values({
       tenantId: targetTenantId,
-      structureData: parsedData,
+      structureData: parsedData,  // Now contains RICH data: departments, reportingLines, roles, etc.
       uploadedBy: req.user!.id,
     });
+    
+    console.log('✅ Organization structure saved successfully');
+    console.log(`📊 Data quality: ${parsedData.totalEmployees} employees, ${parsedData.organizationLevels} levels, ${parsedData.departments.length} departments`);
+
+    // STEP 3: NOW run analysis (data already saved, so failure won't block persistence)
+    // Use actual StructureAgent with Three-Engine Architecture
+    let analysisResult = null;
+    try {
+      const { StructureAgent } = await import('../services/agents/structure-agent.js');
+      const structureAgent = new StructureAgent();
+      
+      analysisResult = await structureAgent.analyzeOrganizationStructure({
+        tenantId: targetTenantId,
+        structureId: randomUUID()
+      });
+      
+      console.log('✅ Structure analysis completed successfully');
+    } catch (analysisError) {
+      // Log but don't fail the entire upload - data already saved
+      const e = analysisError as Error;
+      console.error('⚠️  Structure analysis failed (data already saved):', e.message);
+      console.error('💡 User can retry analysis from dashboard');
+      
+      // Return success with warning - GRACEFUL DEGRADATION
+      return res.status(201).json({
+        success: true,
+        dataSaved: true,
+        analysisCompleted: false,
+        employeesCreated,
+        warning: 'Organization structure saved, but analysis failed. You can retry from the dashboard.',
+        error: e.message
+      });
+    }
+
+    // STEP 4: Save historical record with analysis results
+    const [saved] = await db.insert(orgStructures).values({
+      submittedBy: req.user!.id,
+      tenantId: targetTenantId,
+      rawText: orgText,
+      parsedData: parsedData.roles,  // Store roles for historical reference
+      analysisResult,
+      isPublic: false,
+    }).returning();
 
     return res.json({
       id: saved.id,
+      success: true,
+      dataSaved: true,
+      analysisCompleted: true,
       employeesCreated,
-      ...result,
+      ...analysisResult,
     });
   } catch (error: unknown) {
     const e = error as Error;
@@ -440,6 +466,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
   }
 }
 
+// Legacy interface kept for backward compatibility
 interface ParsedRole {
   id: string;
   name: string;
@@ -448,37 +475,146 @@ interface ParsedRole {
   children?: ParsedRole[];
 }
 
-interface OrgStructure {
-  roles: ParsedRole[];
-  hierarchy: ParsedRole | Record<string, never>;
-  uploadedAt: string;
+// NEW: Enhanced interfaces matching Structure Agent expectations
+interface Department {
+  id: string;
+  name: string;
+  headId: string;
+  employeeCount: number;
+  subDepartments: string[];
 }
 
-// Parse org text into structured data for organization_structure table
-function parseOrgTextToStructure(orgText: string): OrgStructure {
-  const lines = orgText.split('\n').filter(l => l.trim());
-  const roles: ParsedRole[] = [];
+interface ReportingLine {
+  id: string;
+  fromRoleId: string;
+  toRoleId: string;
+  reportingType: 'direct' | 'dotted' | 'matrix';
+  strength: number;
+}
 
+interface Role {
+  id: string;
+  title: string;
+  level: number;
+  department: string;
+  reportsTo: string | null;
+  directReports: number;
+  employeeCount: number;
+}
+
+interface StructureData {
+  departments: Department[];
+  reportingLines: ReportingLine[];
+  roles: Role[];
+  totalEmployees: number;
+  organizationLevels: number;
+}
+
+// ENHANCED: Parse org text into structured data with proper format for AI analysis
+// Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready data transformation
+function parseOrgTextToStructure(orgText: string): StructureData {
+  const lines = orgText.split('\n').filter(l => l.trim());
+  
+  // Extract roles with hierarchy (ParsedRole format)
+  const parsedRoles: ParsedRole[] = [];
   lines.forEach((line, index) => {
     const indent = line.search(/\S/);
     const level = Math.floor(indent / 2);
     const name = line.trim();
-
-    roles.push({
+    
+    parsedRoles.push({
       id: `role-${index}`,
       name,
       level,
-      reports: level > 0 ? lines.slice(0, index).reverse().find(l => Math.floor(l.search(/\S/) / 2) === level - 1)?.trim() || null : null
+      reports: level > 0 ? lines.slice(0, index).reverse()
+        .find(l => Math.floor(l.search(/\S/) / 2) === level - 1)?.trim() || null : null
     });
   });
 
+  // Build departments from hierarchy
+  const departments: Department[] = extractDepartments(parsedRoles);
+  
+  // Build reporting lines
+  const reportingLines: ReportingLine[] = buildReportingLines(parsedRoles);
+  
+  // Transform to Role[] format expected by agent
+  const roles: Role[] = parsedRoles.map((pr) => ({
+    id: pr.id,
+    title: pr.name,
+    level: pr.level,
+    department: findDepartmentForRole(pr, departments),
+    reportsTo: pr.reports,
+    directReports: parsedRoles.filter(r => r.reports === pr.name).length,
+    employeeCount: 1 // Each role = 1 employee (can enhance with CSV data)
+  }));
+
   return {
+    departments,
+    reportingLines,
     roles,
-    hierarchy: buildHierarchy(roles),
-    uploadedAt: new Date().toISOString()
+    totalEmployees: roles.length,
+    organizationLevels: Math.max(...roles.map(r => r.level)) + 1
   };
 }
 
+// Helper: Extract departments from role hierarchy
+function extractDepartments(roles: ParsedRole[]): Department[] {
+  const deptMap = new Map<string, Department>();
+  
+  // Identify top-level roles as departments (level 1-2)
+  roles.filter(r => r.level >= 1 && r.level <= 2).forEach(role => {
+    const deptName = role.name;
+    if (!deptMap.has(deptName)) {
+      deptMap.set(deptName, {
+        id: `dept-${deptMap.size}`,
+        name: deptName,
+        headId: role.id,
+        employeeCount: roles.filter(r => 
+          r.name === deptName || r.reports === deptName
+        ).length,
+        subDepartments: []
+      });
+    }
+  });
+  
+  return Array.from(deptMap.values());
+}
+
+// Helper: Build reporting lines from role relationships
+function buildReportingLines(roles: ParsedRole[]): ReportingLine[] {
+  const lines: ReportingLine[] = [];
+  
+  roles.forEach(role => {
+    if (role.reports) {
+      const manager = roles.find(r => r.name === role.reports);
+      if (manager) {
+        lines.push({
+          id: `line-${lines.length}`,
+          fromRoleId: role.id,
+          toRoleId: manager.id,
+          reportingType: 'direct' as const,
+          strength: 1.0
+        });
+      }
+    }
+  });
+  
+  return lines;
+}
+
+// Helper: Find department for a role
+function findDepartmentForRole(role: ParsedRole, departments: Department[]): string {
+  // Find closest department up the hierarchy
+  if (role.level === 0) return 'Executive';
+  
+  const dept = departments.find(d => 
+    d.name === role.name || d.name === role.reports
+  );
+  
+  return dept?.name || 'Unassigned';
+}
+
+// Legacy function kept for backward compatibility
 function buildHierarchy(roles: ParsedRole[]): ParsedRole | Record<string, never> {
   const root = roles.find(r => r.level === 0);
   if (!root) return {};
