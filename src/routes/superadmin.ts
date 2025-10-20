@@ -385,8 +385,12 @@ router.get('/tenants', async (req: Request, res: Response) => {
           monthlyRevenue = empCount * 15; // $15 per employee for enterprise
         }
 
+        // Log for debugging
+        const numericId = getTenantNumericId(tenant.id, Math.floor(Math.random() * 100000) + 1);
+        console.log(`Converting tenant ID: ${tenant.id} -> ${numericId}`);
+
         return {
-          id: getTenantNumericId(tenant.id, Math.floor(Math.random() * 100000)), // Convert UUID to number properly
+          id: numericId, // Use converted numeric ID
           name: tenant.name,
           domain: tenant.domain || tenant.name.toLowerCase().replace(/\s+/g, '-') + '.mizan.ai', // Use tenant name as fallback domain
           plan: tenant.plan === 'pro' ? 'professional' : tenant.plan as 'starter' | 'professional' | 'enterprise', // Map 'pro' to 'professional'
