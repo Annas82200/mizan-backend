@@ -914,4 +914,101 @@ router.get('/report/survey/:surveyToken', async (req: Request, res: Response) =>
   }
 });
 
+/**
+ * GET /api/culture-assessment/report/company
+ * Get company-wide culture report (admin only)
+ */
+router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmin']),
+  async (req: Request, res: Response) => {
+  try {
+    // Allow superadmin to query any tenant, otherwise use user's tenant
+    const tenantId = (req.query.tenantId as string) || req.user!.tenantId;
+
+    console.log('🎯 COMPANY REPORT - Endpoint hit for tenant:', tenantId);
+
+    // Check if report already exists
+    const existingReport = await db.query.cultureReports.findFirst({
+      where: and(
+        eq(cultureReports.tenantId, tenantId),
+        eq(cultureReports.reportType, 'company')
+      ),
+      orderBy: (reports, { desc }) => [desc(reports.createdAt)]
+    });
+
+    if (existingReport) {
+      console.log('🎯 COMPANY REPORT - Returning cached report from:', existingReport.createdAt);
+      return res.json({
+        success: true,
+        report: existingReport.reportData
+      });
+    }
+
+    console.log('🎯 COMPANY REPORT - No cache, generating new report...');
+
+    // Generate new company report using Culture Agent
+    const assessments = await db.query.cultureAssessments.findMany({
+      where: eq(cultureAssessments.tenantId, tenantId),
+      with: {
+        user: true
+      }
+    });
+
+    if (assessments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No culture assessments found. Please complete assessments first.'
+      });
+    }
+
+    // Get tenant info for company name and values
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId)
+    });
+
+    const companyName = tenant?.name || 'Your Organization';
+    const tenantValues = (tenant?.values as string[]) || [];
+
+    console.log('🎯 COMPANY REPORT - Tenant:', companyName, 'Values:', tenantValues.length, 'Assessments:', assessments.length);
+
+    // Use Culture Agent's AI analysis method
+    const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
+    console.log('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
+    const report = await cultureAgent.analyzeOrganizationCulture(
+      tenantId,
+      assessments.map(a => ({
+        personalValues: a.personalValues as string[],
+        currentExperienceValues: a.currentExperience as string[],
+        desiredFutureValues: a.desiredExperience as string[],
+        engagementLevel: a.engagement || 0,
+        recognitionLevel: a.recognition || 0
+      }))
+    );
+
+    console.log('🎯 COMPANY REPORT - Culture Agent returned report');
+    console.log('🎯 COMPANY REPORT - Report keys:', Object.keys(report));
+
+    // Store the report in database for caching
+    await db.insert(cultureReports).values({
+      id: randomUUID(),
+      tenantId,
+      analysisId: tenantId,
+      reportType: 'company',
+      reportData: report,
+      createdAt: new Date()
+    });
+
+    return res.json({
+      success: true,
+      report
+    });
+
+  } catch (error) {
+    console.error('Error generating company report:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to generate company report'
+    });
+  }
+});
+
 export default router;
