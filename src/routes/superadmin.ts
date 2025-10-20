@@ -1014,13 +1014,53 @@ router.get('/analytics/api', async (req: AuthenticatedRequest, res: Response) =>
   try {
     const user = req.user;
 
-    // Define endpoint statistics
+    // Define endpoint statistics with all required fields for frontend validation
     const endpointStats = [
-      { endpoint: '/api/admin/overview', calls: 245000, avgTime: 180, errors: 0.1 },
-      { endpoint: '/api/analyses/structure', calls: 185000, avgTime: 3200, errors: 0.5 },
-      { endpoint: '/api/admin/employees', calls: 167000, avgTime: 220, errors: 0.2 },
-      { endpoint: '/api/culture/assessments', calls: 143000, avgTime: 450, errors: 0.3 },
-      { endpoint: '/api/skills/mapping', calls: 128000, avgTime: 380, errors: 0.2 }
+      { 
+        endpoint: '/api/admin/overview', 
+        calls: 245000, 
+        requests: 245000,
+        avgTime: 180, 
+        averageTime: 180,
+        errors: 0.1,
+        errorCount: 245
+      },
+      { 
+        endpoint: '/api/analyses/structure', 
+        calls: 185000, 
+        requests: 185000,
+        avgTime: 3200, 
+        averageTime: 3200,
+        errors: 0.5,
+        errorCount: 925
+      },
+      { 
+        endpoint: '/api/admin/employees', 
+        calls: 167000, 
+        requests: 167000,
+        avgTime: 220, 
+        averageTime: 220,
+        errors: 0.2,
+        errorCount: 334
+      },
+      { 
+        endpoint: '/api/culture/assessments', 
+        calls: 143000, 
+        requests: 143000,
+        avgTime: 450, 
+        averageTime: 450,
+        errors: 0.3,
+        errorCount: 429
+      },
+      { 
+        endpoint: '/api/skills/mapping', 
+        calls: 128000, 
+        requests: 128000,
+        avgTime: 380, 
+        averageTime: 380,
+        errors: 0.2,
+        errorCount: 256
+      }
     ];
 
     // Calculate total requests and average response time
@@ -1070,7 +1110,7 @@ router.get('/analytics/agents', async (req: AuthenticatedRequest, res: Response)
       performanceAnalyses: performanceAnalyses,
       hiringAnalyses: hiringAnalyses,
       averageProcessingTime: 2.8, // Average processing time in seconds
-      successRate: 98.7, // Success rate as percentage
+      successRate: 0.987, // Success rate as decimal (was 98.7% - fixed for frontend validation)
       agents: [
         { name: 'Structure Agent', symbol: '⬢', usage: structureAnalyses, avgTime: 3.2, errors: 0.3 },
         { name: 'Culture Agent', symbol: '△', usage: cultureAnalyses, avgTime: 2.8, errors: 0.2 },

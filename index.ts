@@ -126,7 +126,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
       exposedHeaders: ['Content-Range', 'X-Content-Range'],
       maxAge: 600 // Cache preflight for 10 minutes
     };
@@ -136,7 +136,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
       exposedHeaders: ['Content-Range', 'X-Content-Range'],
       maxAge: 600
     };
@@ -146,7 +146,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
       exposedHeaders: ['Content-Range', 'X-Content-Range'],
       maxAge: 600
     };

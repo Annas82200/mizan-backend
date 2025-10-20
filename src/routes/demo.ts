@@ -4,7 +4,6 @@ import { db } from '../../db/index';
 import { demoRequests } from '../../db/schema/payments';
 import { eq, desc, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
-import { validateTenantAccess } from '../middleware/tenant';
 import { emailService } from '../services/email';
 
 const router = Router();
@@ -184,8 +183,9 @@ router.post('/submit', async (req: Request, res: Response) => {
  * Get all demo requests (for superadmin dashboard)
  * AUTH: Superadmin only
  * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
+ * COMPLIANCE: AGENT_CONTEXT_ULTIMATE.md - No tenant isolation for pre-tenant data
  */
-router.get('/requests', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/requests', authenticate, async (req: Request, res: Response) => {
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
@@ -275,8 +275,9 @@ router.get('/requests', authenticate, validateTenantAccess, async (req: Request,
  * Get a single demo request by ID
  * AUTH: Superadmin only
  * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
+ * COMPLIANCE: AGENT_CONTEXT_ULTIMATE.md - No tenant isolation for pre-tenant data
  */
-router.get('/requests/:id', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/requests/:id', authenticate, async (req: Request, res: Response) => {
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
@@ -344,8 +345,9 @@ router.get('/requests/:id', authenticate, validateTenantAccess, async (req: Requ
  * Update demo request status
  * AUTH: Superadmin only
  * NOTE: Demo requests are global (pre-tenant) data, accessible only by superadmins
+ * COMPLIANCE: AGENT_CONTEXT_ULTIMATE.md - No tenant isolation for pre-tenant data
  */
-router.patch('/requests/:id/status', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.patch('/requests/:id/status', authenticate, async (req: Request, res: Response) => {
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
@@ -448,8 +450,9 @@ router.patch('/requests/:id/status', authenticate, validateTenantAccess, async (
  * Get demo request statistics
  * AUTH: Superadmin only
  * NOTE: Provides aggregated statistics for the superadmin dashboard
+ * COMPLIANCE: AGENT_CONTEXT_ULTIMATE.md - No tenant isolation for pre-tenant data
  */
-router.get('/stats', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/stats', authenticate, async (req: Request, res: Response) => {
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {

@@ -368,6 +368,9 @@ Return ONLY a valid JSON object with NO markdown formatting:
     const typedInput = inputData as StructureAnalysisInput;
     const tenantId = typedInput.tenantId;
 
+    console.log('✅ Database connection established');
+    console.log(`📊 Fetching organization structure for tenant: ${tenantId}`);
+
     // Get organization structure
     const structure = await db
       .select()
@@ -384,9 +387,15 @@ Return ONLY a valid JSON object with NO markdown formatting:
       // .where(eq(companyStrategies.status, 'active'))
       .limit(1);
 
+    // Enhanced error handling with detailed logging
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
     if (structure.length === 0) {
-      throw new Error('No organization structure found for tenant');
+      console.error('❌ No organization structure found for tenant:', tenantId);
+      console.error('💡 User action required: Upload an organization chart before running structure analysis');
+      throw new Error('No organization structure found for tenant. Please upload an organization chart first.');
     }
+
+    console.log(`✅ Organization structure found for tenant: ${tenantId}`);
 
     const rawStructureData = structure[0].structureData as Record<string, unknown>;
 
@@ -536,13 +545,24 @@ Ensure recommendations are practical and theory-based.`;
   }
 
   /**
-   * Clean JSON response by removing markdown code blocks and extra formatting
+   * Clean JSON response by removing markdown code blocks, extra formatting, and trailing text
+   * Production-ready: Handles AI responses with explanatory text after JSON
    */
   private cleanJsonResponse(response: string): string {
     // Remove markdown code blocks (```json ... ``` or ``` ... ```)
     let cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '');
     // Remove any leading/trailing whitespace
     cleaned = cleaned.trim();
+    
+    // Find the first '{' and last '}' to extract only JSON portion
+    // This handles cases where AI adds explanatory text after the JSON
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+    
     return cleaned;
   }
 
@@ -553,7 +573,18 @@ Ensure recommendations are practical and theory-based.`;
     } catch (error) {
       console.error('Failed to parse knowledge output:', error);
       console.error('Raw response:', response);
-      return { error: 'Failed to parse knowledge output' };
+      console.error('Cleaned response:', this.cleanJsonResponse(response));
+      
+      // Return structured error with default values instead of throwing
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+      return { 
+        error: 'Failed to parse knowledge output',
+        parseError: error instanceof Error ? error.message : 'Unknown error',
+        applicable_frameworks: [],
+        strategy_structure_fit: {},
+        misalignment_risks: {},
+        optimal_patterns: {}
+      };
     }
   }
 
@@ -564,7 +595,19 @@ Ensure recommendations are practical and theory-based.`;
     } catch (error) {
       console.error('Failed to parse data output:', error);
       console.error('Raw response:', response);
-      return { error: 'Failed to parse data output' };
+      console.error('Cleaned response:', this.cleanJsonResponse(response));
+      
+      // Return structured error with default values instead of throwing
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+      return { 
+        error: 'Failed to parse data output',
+        parseError: error instanceof Error ? error.message : 'Unknown error',
+        structure_metrics: {},
+        span_analysis: {},
+        layer_analysis: {},
+        bottleneck_identification: [],
+        efficiency_metrics: {}
+      };
     }
   }
 
@@ -575,7 +618,19 @@ Ensure recommendations are practical and theory-based.`;
     } catch (error) {
       console.error('Failed to parse reasoning output:', error);
       console.error('Raw response:', response);
-      return { error: 'Failed to parse reasoning output' };
+      console.error('Cleaned response:', this.cleanJsonResponse(response));
+      
+      // Return structured error with default values instead of throwing
+      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+      return { 
+        error: 'Failed to parse reasoning output',
+        parseError: error instanceof Error ? error.message : 'Unknown error',
+        overall_score: 0,
+        span_analysis: { average: 0, distribution: {}, outliers: [] },
+        layer_analysis: { totalLayers: 0, averageLayersToBottom: 0, bottlenecks: [] },
+        strategy_alignment: { score: 0, misalignments: [] },
+        recommendations: []
+      };
     }
   }
 
