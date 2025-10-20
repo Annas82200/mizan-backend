@@ -127,7 +127,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600 // Cache preflight for 10 minutes
     };
   } else if (allowedOrigins.includes(origin)) {
@@ -137,7 +137,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600
     };
   } else if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
@@ -147,7 +147,7 @@ const corsOptionsDelegate = function (req: any, callback: any) {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600
     };
   } else {

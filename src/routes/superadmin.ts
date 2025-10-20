@@ -1015,6 +1015,8 @@ router.get('/analytics/api', async (req: AuthenticatedRequest, res: Response) =>
     const user = req.user;
 
     // Define endpoint statistics with all required fields for frontend validation
+    // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready data structure
+    // Both field name variants included for backward compatibility
     const endpointStats = [
       { 
         endpoint: '/api/admin/overview', 
