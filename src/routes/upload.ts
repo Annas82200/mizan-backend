@@ -337,7 +337,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
 
           if (employeeEmail && employeeName) {
             try {
-              // Check if user already exists - WITH TENANT ISOLATION
+              // Check if user already exists in THIS tenant
               const existingUser = await db.select().from(users).where(
                 and(
                   eq(users.email, employeeEmail.toLowerCase()),
@@ -346,7 +346,8 @@ async function handleOrgChartUpload(req: Request, res: Response) {
               ).limit(1);
 
               if (existingUser.length === 0) {
-                await db.insert(users).values({
+                // Insert with onConflictDoNothing to handle global email constraint
+                const insertResult = await db.insert(users).values({
                   tenantId: targetTenantId,
                   email: employeeEmail.toLowerCase(),
                   passwordHash,
@@ -354,11 +355,19 @@ async function handleOrgChartUpload(req: Request, res: Response) {
                   title,
                   role: 'employee',
                   isActive: true
-                });
-                employeesCreated++;
+                }).onConflictDoNothing({ target: users.email }).returning({ id: users.id });
+
+                // Only count as created if insert was successful (not a conflict)
+                if (insertResult && insertResult.length > 0) {
+                  employeesCreated++;
+                }
               }
             } catch (err) {
-              console.error(`Skipped user ${employeeEmail}:`, err);
+              // Silently skip duplicate email errors
+              const error = err as any;
+              if (error.code !== '23505') {  // 23505 = unique_violation
+                console.error(`Error creating user ${employeeEmail}:`, err);
+              }
             }
           }
         }

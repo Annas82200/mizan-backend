@@ -535,29 +535,46 @@ Please provide:
 Ensure recommendations are practical and theory-based.`;
   }
 
+  /**
+   * Clean JSON response by removing markdown code blocks and extra formatting
+   */
+  private cleanJsonResponse(response: string): string {
+    // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+    let cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    // Remove any leading/trailing whitespace
+    cleaned = cleaned.trim();
+    return cleaned;
+  }
+
   protected parseKnowledgeOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response);
+      const cleaned = this.cleanJsonResponse(response);
+      return JSON.parse(cleaned);
     } catch (error) {
       console.error('Failed to parse knowledge output:', error);
+      console.error('Raw response:', response);
       return { error: 'Failed to parse knowledge output' };
     }
   }
 
   protected parseDataOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response);
+      const cleaned = this.cleanJsonResponse(response);
+      return JSON.parse(cleaned);
     } catch (error) {
       console.error('Failed to parse data output:', error);
+      console.error('Raw response:', response);
       return { error: 'Failed to parse data output' };
     }
   }
 
   protected parseReasoningOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response);
+      const cleaned = this.cleanJsonResponse(response);
+      return JSON.parse(cleaned);
     } catch (error) {
       console.error('Failed to parse reasoning output:', error);
+      console.error('Raw response:', response);
       return { error: 'Failed to parse reasoning output' };
     }
   }
