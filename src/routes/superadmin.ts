@@ -7,6 +7,7 @@ import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { parse } from 'csv-parse/sync';
+import { uuidToNumber, getTenantNumericId } from '../utils/idConverter';
 
 const router = Router();
 
@@ -385,7 +386,7 @@ router.get('/tenants', async (req: Request, res: Response) => {
         }
 
         return {
-          id: Number(tenant.id) || Math.floor(Math.random() * 100000), // Convert ID to number
+          id: getTenantNumericId(tenant.id, Math.floor(Math.random() * 100000)), // Convert UUID to number properly
           name: tenant.name,
           domain: tenant.domain || tenant.name.toLowerCase().replace(/\s+/g, '-') + '.mizan.ai', // Use tenant name as fallback domain
           plan: tenant.plan === 'pro' ? 'professional' : tenant.plan as 'starter' | 'professional' | 'enterprise', // Map 'pro' to 'professional'
@@ -904,7 +905,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
         type: 'tenant_created' as const, // Correct enum value
         description: `New tenant registered: ${tenant.name}`, // Correct field name
         timestamp: tenant.createdAt?.toISOString() || new Date().toISOString(), // Correct field name
-        tenantId: Number(tenant.id) || (idx + 1), // Always provide a number for tenantId
+        tenantId: getTenantNumericId(tenant.id, idx + 1), // Convert UUID to number properly
         tenantName: tenant.name // Add tenantName
       })),
       ...recentUsers.map((user, idx) => ({
@@ -912,7 +913,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
         type: 'user_registered' as const, // Correct enum value
         description: `New user joined: ${user.email}`, // Correct field name
         timestamp: user.createdAt?.toISOString() || new Date().toISOString(), // Correct field name
-        tenantId: user.tenantId ? Number(user.tenantId) : (recentTenants.length + idx + 1), // Always provide a number, never undefined
+        tenantId: getTenantNumericId(user.tenantId, recentTenants.length + idx + 1), // Convert UUID to number properly
         metadata: { email: user.email } // Add metadata
       }))
     ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
