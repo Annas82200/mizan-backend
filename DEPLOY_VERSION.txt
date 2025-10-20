@@ -1,0 +1,4 @@
+Deployment Version: 2025-10-20T02:00:00Z
+Commit: e0fc4c9
+Purpose: Force Railway rebuild with validation fixes
+Status: Production deployment trigger
