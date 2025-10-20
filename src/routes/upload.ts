@@ -542,7 +542,7 @@ function parseOrgTextToStructure(orgText: string): StructureData {
     id: pr.id,
     title: pr.name,
     level: pr.level,
-    department: findDepartmentForRole(pr, departments),
+    department: findDepartmentForRole(pr, parsedRoles, departments),
     reportsTo: pr.reports,
     directReports: parsedRoles.filter(r => r.reports === pr.name).length,
     employeeCount: 1 // Each role = 1 employee (can enhance with CSV data)
@@ -558,11 +558,13 @@ function parseOrgTextToStructure(orgText: string): StructureData {
 }
 
 // Helper: Extract departments from role hierarchy
+// FIXED: Only level 1 roles are departments (VPs, Directors)
+// Level 2+ are managers/employees WITHIN departments
 function extractDepartments(roles: ParsedRole[]): Department[] {
   const deptMap = new Map<string, Department>();
   
-  // Identify top-level roles as departments (level 1-2)
-  roles.filter(r => r.level >= 1 && r.level <= 2).forEach(role => {
+  // Identify ONLY level 1 roles as departments
+  roles.filter(r => r.level === 1).forEach(role => {
     const deptName = role.name;
     if (!deptMap.has(deptName)) {
       deptMap.set(deptName, {
@@ -602,16 +604,27 @@ function buildReportingLines(roles: ParsedRole[]): ReportingLine[] {
   return lines;
 }
 
-// Helper: Find department for a role
-function findDepartmentForRole(role: ParsedRole, departments: Department[]): string {
-  // Find closest department up the hierarchy
+// Helper: Find department for a role by traversing UP to level 1
+// FIXED: Managers (level 2+) should be assigned to their level 1 parent department
+function findDepartmentForRole(role: ParsedRole, allRoles: ParsedRole[], departments: Department[]): string {
   if (role.level === 0) return 'Executive';
   
-  const dept = departments.find(d => 
-    d.name === role.name || d.name === role.reports
-  );
+  // Level 1 roles ARE departments
+  const dept = departments.find(d => d.name === role.name);
+  if (dept) return dept.name;
   
-  return dept?.name || 'Unassigned';
+  // For level 2+, traverse UP to find parent department (level 1)
+  let current = role;
+  while (current && current.level > 1) {
+    const parent = allRoles.find(r => r.name === current.reports);
+    if (!parent) break;
+    if (parent.level === 1) {
+      return parent.name; // Found level 1 parent = department
+    }
+    current = parent;
+  }
+  
+  return 'Unassigned';
 }
 
 // Legacy function kept for backward compatibility
