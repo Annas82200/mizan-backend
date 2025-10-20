@@ -385,12 +385,26 @@ router.get('/tenants', async (req: Request, res: Response) => {
           monthlyRevenue = empCount * 15; // $15 per employee for enterprise
         }
 
-        // Log for debugging
-        const numericId = getTenantNumericId(tenant.id, Math.floor(Math.random() * 100000) + 1);
-        console.log(`Converting tenant ID: ${tenant.id} -> ${numericId}`);
+        // Convert tenant UUID to numeric ID with comprehensive logging
+        const fallbackId = Math.floor(Math.random() * 100000) + 1;
+        let numericId: number;
+
+        try {
+          numericId = getTenantNumericId(tenant.id, fallbackId);
+          console.log(`✅ Converted tenant ID: "${tenant.id}" -> ${numericId} (type: ${typeof numericId})`);
+
+          // Validate the result is actually a number
+          if (typeof numericId !== 'number' || isNaN(numericId) || numericId === null || numericId === undefined) {
+            console.error(`❌ Invalid numeric ID generated: ${numericId}, using fallback: ${fallbackId}`);
+            numericId = fallbackId;
+          }
+        } catch (error) {
+          console.error(`❌ Error converting tenant ID "${tenant.id}":`, error);
+          numericId = fallbackId;
+        }
 
         return {
-          id: numericId, // Use converted numeric ID
+          id: numericId, // Use converted numeric ID (guaranteed to be a valid number)
           name: tenant.name,
           domain: tenant.domain || tenant.name.toLowerCase().replace(/\s+/g, '-') + '.mizan.ai', // Use tenant name as fallback domain
           plan: tenant.plan === 'pro' ? 'professional' : tenant.plan as 'starter' | 'professional' | 'enterprise', // Map 'pro' to 'professional'
@@ -904,22 +918,30 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     
     // Combine and format activities with correct field names and enum values
     const activities = [
-      ...recentTenants.map((tenant, idx) => ({
-        id: idx + 1,
-        type: 'tenant_created' as const, // Correct enum value
-        description: `New tenant registered: ${tenant.name}`, // Correct field name
-        timestamp: tenant.createdAt?.toISOString() || new Date().toISOString(), // Correct field name
-        tenantId: getTenantNumericId(tenant.id, idx + 1), // Convert UUID to number properly
-        tenantName: tenant.name // Add tenantName
-      })),
-      ...recentUsers.map((user, idx) => ({
-        id: recentTenants.length + idx + 1,
-        type: 'user_registered' as const, // Correct enum value
-        description: `New user joined: ${user.email}`, // Correct field name
-        timestamp: user.createdAt?.toISOString() || new Date().toISOString(), // Correct field name
-        tenantId: getTenantNumericId(user.tenantId, recentTenants.length + idx + 1), // Convert UUID to number properly
-        metadata: { email: user.email } // Add metadata
-      }))
+      ...recentTenants.map((tenant, idx) => {
+        const tenantNumId = getTenantNumericId(tenant.id, idx + 1);
+        console.log(`Activity: Tenant ${tenant.name} ID: ${tenant.id} -> ${tenantNumId}`);
+        return {
+          id: idx + 1,
+          type: 'tenant_created' as const,
+          description: `New tenant registered: ${tenant.name}`,
+          timestamp: tenant.createdAt?.toISOString() || new Date().toISOString(),
+          tenantId: tenantNumId, // Guaranteed numeric ID
+          tenantName: tenant.name
+        };
+      }),
+      ...recentUsers.map((user, idx) => {
+        const userTenantNumId = getTenantNumericId(user.tenantId, recentTenants.length + idx + 1);
+        console.log(`Activity: User ${user.email} TenantID: ${user.tenantId} -> ${userTenantNumId}`);
+        return {
+          id: recentTenants.length + idx + 1,
+          type: 'user_registered' as const,
+          description: `New user joined: ${user.email}`,
+          timestamp: user.createdAt?.toISOString() || new Date().toISOString(),
+          tenantId: userTenantNumId, // Guaranteed numeric ID
+          metadata: { email: user.email }
+        };
+      })
     ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
      .slice(0, limit);
 
