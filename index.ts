@@ -19,7 +19,8 @@ console.log('🚀 Mizan Server Process Starting...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Node Version:', process.version);
 console.log('📦 Environment:', process.env.NODE_ENV || 'development');
-console.log('🔄 Deployment Version: 7df2998 - Enhanced error logging');
+const gitCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.substring(0, 7) || process.env.RAILWAY_DEPLOYMENT_ID?.substring(0, 7) || 'dev';
+console.log(`🔄 Deployment Version: ${gitCommit}`);
 console.log('========================================');
 
 import express from 'express';

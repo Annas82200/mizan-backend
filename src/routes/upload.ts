@@ -447,14 +447,26 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       isPublic: false,
     }).returning();
 
-    return res.json({
+    const response = {
       id: saved.id,
       success: true,
       dataSaved: true,
       analysisCompleted: true,
       employeesCreated,
-      ...analysisResult,
+      ...(analysisResult || {})
+    };
+    
+    console.log('📊 Sending response to frontend:', {
+      id: response.id,
+      success: response.success,
+      dataSaved: response.dataSaved,
+      analysisCompleted: response.analysisCompleted,
+      employeesCreated: response.employeesCreated,
+      hasAnalysisResult: !!analysisResult,
+      analysisResultKeys: analysisResult ? Object.keys(analysisResult) : []
     });
+
+    return res.json(response);
   } catch (error: unknown) {
     const e = error as Error;
     console.error("Save org structure failed:", e);
