@@ -607,6 +607,10 @@ Ensure recommendations are practical and theory-based.`;
     // Fix missing commas between array elements (][)
     cleaned = cleaned.replace(/\](\s*)\[/g, '],$1[');
 
+    // Fix missing commas: } or ] followed by { or [ (more comprehensive)
+    // Catches patterns like: }{ or ]{ or }[ that might have been missed
+    cleaned = cleaned.replace(/([}\]])(\s*)(?=[{\[])/g, '$1,$2');
+
     // Fix missing commas between object properties
     // Pattern: "value"[newline/whitespace]"key" -> "value","key"
     cleaned = cleaned.replace(/"(\s*\n\s*)"(?=[a-zA-Z_])/g, '",$1"');
@@ -671,6 +675,26 @@ Ensure recommendations are practical and theory-based.`;
       if (charAtError === '{' && charBefore === '}') {
         repaired = repaired.substring(0, errorPos) + ',' + repaired.substring(errorPos);
         console.log('✅ Fixed: Added missing comma between array elements');
+      }
+
+      // Fix: Missing comma after array element (more comprehensive check)
+      // Handles: "Expected ',' or ']' after array element" errors
+      if (errorMessage.includes("Expected ',' or ']' after array element")) {
+        // Look at context around error position
+        const beforeContext = repaired.substring(Math.max(0, errorPos - 20), errorPos);
+        const afterContext = repaired.substring(errorPos, Math.min(repaired.length, errorPos + 20));
+
+        // Check for missing comma patterns: }\s*{ or }\s*[ or ]\s*{ or ]\s*[
+        const contextWindow = beforeContext + afterContext;
+        if (/[}\]]\s*[{\[]/.test(contextWindow)) {
+          // Find the exact position where comma should be inserted
+          const commaMatch = (beforeContext + afterContext).match(/([}\]])(\s*)([{\[])/);
+          if (commaMatch) {
+            const insertPos = errorPos - beforeContext.length + beforeContext.lastIndexOf(commaMatch[1]) + 1;
+            repaired = repaired.substring(0, insertPos) + ',' + repaired.substring(insertPos);
+            console.log(`✅ Fixed: Added missing comma between array/object elements at position ${insertPos}`);
+          }
+        }
       }
 
       // Fix: Unexpected token (usually unquoted key)
