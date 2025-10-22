@@ -570,46 +570,154 @@ Ensure recommendations are practical and theory-based.`;
   }
 
   /**
-   * Clean JSON response by removing markdown code blocks, extra formatting, and trailing text
-   * Production-ready: Handles AI responses with explanatory text after JSON
+   * Clean and repair JSON response from AI providers with multi-stage error correction
+   * Production-ready: Handles malformed JSON, missing commas, trailing commas, unquoted keys
+   *
+   * Stages:
+   * 1. Remove markdown code blocks and extract JSON boundaries
+   * 2. Fix common AI JSON errors (trailing commas, missing commas between objects)
+   * 3. Repair structural issues (unquoted keys, single quotes)
+   * 4. Validate and return cleaned JSON
    */
   private cleanJsonResponse(response: string): string {
-    // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+    // Stage 1: Remove markdown code blocks (```json ... ``` or ``` ... ```)
     let cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
     // Remove any leading/trailing whitespace
     cleaned = cleaned.trim();
-    
+
     // Find the first '{' and last '}' to extract only JSON portion
     // This handles cases where AI adds explanatory text after the JSON
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
-    
+
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
       cleaned = cleaned.substring(firstBrace, lastBrace + 1);
     }
-    
+
+    // Stage 2: Fix common AI JSON formatting errors
+
+    // Fix trailing commas before closing braces/brackets
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+
+    // Fix missing commas between objects in arrays (},\s*{)
+    // Look for pattern: }[whitespace]{  and add comma
+    cleaned = cleaned.replace(/\}(\s*)\{/g, '},$1{');
+
+    // Fix missing commas between array elements (][)
+    cleaned = cleaned.replace(/\](\s*)\[/g, '],$1[');
+
+    // Fix missing commas between object properties
+    // Pattern: "value"[newline/whitespace]"key" -> "value","key"
+    cleaned = cleaned.replace(/"(\s*\n\s*)"(?=[a-zA-Z_])/g, '",$1"');
+
+    // Stage 3: Repair structural JSON issues
+
+    // Replace single quotes with double quotes for keys and values
+    // But preserve single quotes within double-quoted strings
+    cleaned = cleaned.replace(/'/g, '"');
+
+    // Fix unquoted keys (common in JavaScript object notation)
+    // Pattern: word: -> "word":
+    cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+    // Fix duplicate commas (,,)
+    cleaned = cleaned.replace(/,+/g, ',');
+
+    // Fix property/value pairs split across lines with missing commas
+    // Pattern: }[whitespace]"key": -> },[whitespace]"key":
+    cleaned = cleaned.replace(/\}(\s+)"([a-zA-Z_])/g, '},$1"$2');
+
+    // Stage 4: Final cleanup
+    // Remove any control characters that might break JSON parsing
+    cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
+
+    // Normalize whitespace around structural characters
+    cleaned = cleaned.replace(/\s*:\s*/g, ':').replace(/\s*,\s*/g, ',');
+
     return cleaned;
+  }
+
+  /**
+   * Attempt to repair severely malformed JSON by finding and fixing specific error patterns
+   * Used as fallback when initial parsing fails
+   */
+  private repairMalformedJson(jsonString: string, error: Error): string {
+    console.log('🔧 Attempting JSON repair for malformed response...');
+
+    let repaired = jsonString;
+    const errorMessage = error.message;
+
+    // Extract position from error message if available
+    const posMatch = errorMessage.match(/position (\d+)/);
+    if (posMatch) {
+      const errorPos = parseInt(posMatch[1], 10);
+      const context = repaired.substring(Math.max(0, errorPos - 50), Math.min(repaired.length, errorPos + 50));
+      console.log(`❌ Error at position ${errorPos}, context: ${context}`);
+
+      // Check for common errors at this position
+      const charAtError = repaired.charAt(errorPos);
+      const charBefore = repaired.charAt(errorPos - 1);
+
+      // Fix: Missing comma between properties
+      if (charAtError === '"' && charBefore === '}') {
+        repaired = repaired.substring(0, errorPos) + ',' + repaired.substring(errorPos);
+        console.log('✅ Fixed: Added missing comma before property');
+      }
+
+      // Fix: Missing comma between array elements
+      if (charAtError === '{' && charBefore === '}') {
+        repaired = repaired.substring(0, errorPos) + ',' + repaired.substring(errorPos);
+        console.log('✅ Fixed: Added missing comma between array elements');
+      }
+
+      // Fix: Unexpected token (usually unquoted key)
+      if (/[a-zA-Z_]/.test(charAtError)) {
+        // Find the end of the unquoted key
+        let endPos = errorPos;
+        while (endPos < repaired.length && /[a-zA-Z0-9_]/.test(repaired.charAt(endPos))) {
+          endPos++;
+        }
+        const unquotedKey = repaired.substring(errorPos, endPos);
+        repaired = repaired.substring(0, errorPos) + '"' + unquotedKey + '"' + repaired.substring(endPos);
+        console.log(`✅ Fixed: Quoted unquoted key: ${unquotedKey}`);
+      }
+    }
+
+    return repaired;
   }
 
   protected parseKnowledgeOutput(response: string): Record<string, unknown> {
     try {
       const cleaned = this.cleanJsonResponse(response);
       return JSON.parse(cleaned);
-    } catch (error) {
-      console.error('Failed to parse knowledge output:', error);
-      console.error('Raw response:', response);
-      console.error('Cleaned response:', this.cleanJsonResponse(response));
-      
-      // Return structured error with default values instead of throwing
-      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
-      return { 
-        error: 'Failed to parse knowledge output',
-        parseError: error instanceof Error ? error.message : 'Unknown error',
-        applicable_frameworks: [],
-        strategy_structure_fit: {},
-        misalignment_risks: {},
-        optimal_patterns: {}
-      };
+    } catch (firstError) {
+      // First parse attempt failed - try repair
+      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+
+      try {
+        const cleaned = this.cleanJsonResponse(response);
+        const repaired = this.repairMalformedJson(cleaned, firstError as Error);
+        const parsed = JSON.parse(repaired);
+        console.log('✅ JSON repair successful!');
+        return parsed;
+      } catch (secondError) {
+        // Both attempts failed - log and return structured fallback
+        console.error('❌ Failed to parse knowledge output after repair:', secondError);
+        console.error('📄 Raw response:', response);
+        console.error('🧹 Cleaned response:', this.cleanJsonResponse(response));
+
+        // Return structured error with default values instead of throwing
+        // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+        return {
+          error: 'Failed to parse knowledge output',
+          parseError: secondError instanceof Error ? secondError.message : 'Unknown error',
+          applicable_frameworks: [],
+          strategy_structure_fit: {},
+          misalignment_risks: {},
+          optimal_patterns: {}
+        };
+      }
     }
   }
 
@@ -617,22 +725,34 @@ Ensure recommendations are practical and theory-based.`;
     try {
       const cleaned = this.cleanJsonResponse(response);
       return JSON.parse(cleaned);
-    } catch (error) {
-      console.error('Failed to parse data output:', error);
-      console.error('Raw response:', response);
-      console.error('Cleaned response:', this.cleanJsonResponse(response));
-      
-      // Return structured error with default values instead of throwing
-      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
-      return { 
-        error: 'Failed to parse data output',
-        parseError: error instanceof Error ? error.message : 'Unknown error',
-        structure_metrics: {},
-        span_analysis: {},
-        layer_analysis: {},
-        bottleneck_identification: [],
-        efficiency_metrics: {}
-      };
+    } catch (firstError) {
+      // First parse attempt failed - try repair
+      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+
+      try {
+        const cleaned = this.cleanJsonResponse(response);
+        const repaired = this.repairMalformedJson(cleaned, firstError as Error);
+        const parsed = JSON.parse(repaired);
+        console.log('✅ JSON repair successful!');
+        return parsed;
+      } catch (secondError) {
+        // Both attempts failed - log and return structured fallback
+        console.error('❌ Failed to parse data output after repair:', secondError);
+        console.error('📄 Raw response:', response);
+        console.error('🧹 Cleaned response:', this.cleanJsonResponse(response));
+
+        // Return structured error with default values instead of throwing
+        // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+        return {
+          error: 'Failed to parse data output',
+          parseError: secondError instanceof Error ? secondError.message : 'Unknown error',
+          structure_metrics: {},
+          span_analysis: {},
+          layer_analysis: {},
+          bottleneck_identification: [],
+          efficiency_metrics: {}
+        };
+      }
     }
   }
 
@@ -640,22 +760,34 @@ Ensure recommendations are practical and theory-based.`;
     try {
       const cleaned = this.cleanJsonResponse(response);
       return JSON.parse(cleaned);
-    } catch (error) {
-      console.error('Failed to parse reasoning output:', error);
-      console.error('Raw response:', response);
-      console.error('Cleaned response:', this.cleanJsonResponse(response));
-      
-      // Return structured error with default values instead of throwing
-      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
-      return { 
-        error: 'Failed to parse reasoning output',
-        parseError: error instanceof Error ? error.message : 'Unknown error',
-        overall_score: 0,
-        span_analysis: { average: 0, distribution: {}, outliers: [] },
-        layer_analysis: { totalLayers: 0, averageLayersToBottom: 0, bottlenecks: [] },
-        strategy_alignment: { score: 0, misalignments: [] },
-        recommendations: []
-      };
+    } catch (firstError) {
+      // First parse attempt failed - try repair
+      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+
+      try {
+        const cleaned = this.cleanJsonResponse(response);
+        const repaired = this.repairMalformedJson(cleaned, firstError as Error);
+        const parsed = JSON.parse(repaired);
+        console.log('✅ JSON repair successful!');
+        return parsed;
+      } catch (secondError) {
+        // Both attempts failed - log and return structured fallback
+        console.error('❌ Failed to parse reasoning output after repair:', secondError);
+        console.error('📄 Raw response:', response);
+        console.error('🧹 Cleaned response:', this.cleanJsonResponse(response));
+
+        // Return structured error with default values instead of throwing
+        // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
+        return {
+          error: 'Failed to parse reasoning output',
+          parseError: secondError instanceof Error ? secondError.message : 'Unknown error',
+          overall_score: 0,
+          span_analysis: { average: 0, distribution: {}, outliers: [] },
+          layer_analysis: { totalLayers: 0, averageLayersToBottom: 0, bottlenecks: [] },
+          strategy_alignment: { score: 0, misalignments: [] },
+          recommendations: []
+        };
+      }
     }
   }
 

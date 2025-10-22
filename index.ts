@@ -117,43 +117,97 @@ if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_UR
 }
 
 // Add all Vercel preview deployments dynamically (*.vercel.app)
+// Production-ready: Enhanced CORS configuration with Next.js 14 RSC support
 const corsOptionsDelegate = function (req: any, callback: any) {
   const origin = req.header('Origin');
+  const referer = req.header('Referer');
+
+  // Next.js RSC headers detection
+  const isRSCRequest = req.header('RSC') === '1' ||
+                       req.header('Next-Router-State-Tree') ||
+                       req.header('Next-Url') ||
+                       req.query._rsc;
+
   let corsOptions;
 
-  if (!origin) {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
+  // Extract origin from referer if RSC request without origin header
+  let effectiveOrigin = origin;
+  if (!effectiveOrigin && referer && isRSCRequest) {
+    try {
+      const refererUrl = new URL(referer);
+      effectiveOrigin = refererUrl.origin;
+      console.log(`🔄 [RSC] Extracted origin from referer: ${effectiveOrigin}`);
+    } catch (error) {
+      console.warn('⚠️  Failed to parse referer URL:', referer);
+    }
+  }
+
+  if (!effectiveOrigin) {
+    // Allow requests with no origin (like mobile apps, curl, Postman, SSR)
     corsOptions = {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-Tenant-Id',
+        // Next.js RSC headers
+        'RSC',
+        'Next-Router-State-Tree',
+        'Next-Router-Prefetch',
+        'Next-Url',
+        'Next-Action'
+      ],
       exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600 // Cache preflight for 10 minutes
     };
-  } else if (allowedOrigins.includes(origin)) {
+  } else if (allowedOrigins.includes(effectiveOrigin)) {
     // Origin is in allowed list
     corsOptions = {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-Tenant-Id',
+        // Next.js RSC headers
+        'RSC',
+        'Next-Router-State-Tree',
+        'Next-Router-Prefetch',
+        'Next-Url',
+        'Next-Action'
+      ],
       exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600
     };
-  } else if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
+  } else if (effectiveOrigin.endsWith('.vercel.app') || effectiveOrigin.endsWith('.railway.app')) {
     // Allow all Vercel and Railway deployments for flexibility
     corsOptions = {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Id'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-Tenant-Id',
+        // Next.js RSC headers
+        'RSC',
+        'Next-Router-State-Tree',
+        'Next-Router-Prefetch',
+        'Next-Url',
+        'Next-Action'
+      ],
       exposedHeaders: ['Content-Range', 'X-Content-Range', 'X-Tenant-Id'],
       maxAge: 600
     };
   } else {
     // Origin not allowed
-    console.warn(`⚠️  CORS: Blocked request from unauthorized origin: ${origin}`);
+    console.warn(`⚠️  CORS: Blocked request from unauthorized origin: ${effectiveOrigin}`);
     corsOptions = {
       origin: false,
       credentials: false
