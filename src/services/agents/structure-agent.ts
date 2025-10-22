@@ -613,13 +613,15 @@ Ensure recommendations are practical and theory-based.`;
 
     // Stage 3: Repair structural JSON issues
 
-    // Replace single quotes with double quotes for keys and values
-    // But preserve single quotes within double-quoted strings
-    cleaned = cleaned.replace(/'/g, '"');
-
     // Fix unquoted keys (common in JavaScript object notation)
     // Pattern: word: -> "word":
     cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+    // Fix single-quoted strings ONLY when used as delimiters (not apostrophes within text)
+    // Pattern: 'value' where it's clearly a string delimiter, not an apostrophe
+    // This is a careful replacement that only fixes string delimiters, preserving apostrophes
+    // We match: ':' or ',' followed by optional whitespace, then 'text', then optional whitespace and ':' or ','
+    cleaned = cleaned.replace(/([,:{[])\s*'([^']*?)'\s*([,:\]}])/g, '$1"$2"$3');
 
     // Fix duplicate commas (,,)
     cleaned = cleaned.replace(/,+/g, ',');
