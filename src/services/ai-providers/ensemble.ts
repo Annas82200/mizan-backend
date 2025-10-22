@@ -75,7 +75,16 @@ export class EnsembleAI {
 
       // Validate response quality
       if (response.confidence < this.config.minConfidence!) {
-        console.warn(`Provider ${provider} confidence too low: ${response.confidence}`);
+        console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
+          threshold: this.config.minConfidence,
+          actual_confidence: response.confidence,
+          prompt_length: call.prompt?.length || 0,
+          response_length: typeof routerResponse.response === 'string'
+            ? routerResponse.response.length
+            : JSON.stringify(routerResponse.response).length,
+          timestamp: new Date().toISOString(),
+          engine: call.engine
+        });
         return null;
       }
 

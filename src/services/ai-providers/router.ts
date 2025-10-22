@@ -49,11 +49,23 @@ class AIProviderRouter {
   private gemini: GoogleGenerativeAI;
   private mistral: MistralClient;
 
+  // Timeout configuration for AI requests
+  // Increased to 120 seconds to allow comprehensive framework analysis
+  private readonly AI_REQUEST_TIMEOUT = 120000; // 120 seconds (2 minutes)
+
   constructor() {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: this.AI_REQUEST_TIMEOUT
+    });
+    this.anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: this.AI_REQUEST_TIMEOUT
+    });
     this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-    this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
+    this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!, {
+      timeout: this.AI_REQUEST_TIMEOUT
+    });
   }
 
   async invokeProvider(provider: AIProviderKey | "ensemble", call: ProviderCall): Promise<ProviderResponse> {
@@ -169,12 +181,17 @@ class AIProviderRouter {
   }
 
   private async invokeGemini(call: ProviderCall): Promise<ProviderResponse> {
+    // Gemini doesn't support timeout in SDK, so we use AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
+
     try {
       const model = this.gemini.getGenerativeModel({
         model: call.model || "gemini-2.5-flash"  // Current Gemini 2.5 model (faster, cheaper than pro)
       });
-      
-      const result = await model.generateContent({
+
+      // Note: Google SDK doesn't support AbortSignal directly, but timeout is handled by promise race
+      const generatePromise = model.generateContent({
         contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
         generationConfig: {
           temperature: call.temperature || 0.1,
@@ -182,14 +199,25 @@ class AIProviderRouter {
         }
       });
 
+      const result = await Promise.race([
+        generatePromise,
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () =>
+            reject(new Error('Gemini request timeout after 120 seconds'))
+          );
+        })
+      ]) as any;
+
+      clearTimeout(timeoutId);
       const content = result.response.text();
 
-  return { 
+      return {
         provider: 'gemini',
         response: call.requireJson ? JSON.parse(content) : content,
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('Gemini invocation failed:', error);
       throw error;
     }
