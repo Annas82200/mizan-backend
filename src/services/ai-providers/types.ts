@@ -33,6 +33,7 @@ export type EnsembleConfig = {
   strategy: EnsembleStrategy;
   providers: AIProviderKey[];
   weights?: Record<AIProviderKey, number>; // For weighted strategy
-  minConfidence?: number; // Minimum acceptable confidence
+  minConfidence?: number; // Minimum acceptable confidence (default: 0.7)
+  agentThresholds?: Record<string, number>; // Agent-specific confidence thresholds
   fallbackProvider?: AIProviderKey;
 };

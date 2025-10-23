@@ -18,6 +18,7 @@ export class EnsembleAI {
         cohere: 0.10
       },
       minConfidence: config.minConfidence || 0.7,
+      agentThresholds: config.agentThresholds || {},
       fallbackProvider: config.fallbackProvider || "openai"
     };
   }
@@ -65,10 +66,15 @@ export class EnsembleAI {
       };
       const response = await invokeProvider(provider, routerCall);
 
+      // ✅ PRODUCTION: Use agent-specific threshold if available, otherwise use default
+      const threshold = this.config.agentThresholds?.[call.agent] ?? this.config.minConfidence ?? 0.7;
+
       // Validate response quality
-      if (response.confidence < this.config.minConfidence!) {
+      if (response.confidence < threshold) {
         console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
-          threshold: this.config.minConfidence,
+          threshold,
+          agent: call.agent,
+          agent_specific_threshold: this.config.agentThresholds?.[call.agent] !== undefined,
           actual_confidence: response.confidence,
           prompt_length: (call.prompt ?? call.context?.join('\n') ?? '').length,
           response_length: response.narrative.length,
@@ -292,8 +298,21 @@ export class EnsembleAI {
 }
 
 // Singleton instance with default configuration
+// ✅ PRODUCTION: Structure-aware confidence thresholds for different agent types
 export const ensembleAI = new EnsembleAI({
   strategy: "weighted",
   providers: ["openai", "claude", "gemini", "mistral", "cohere"],
-  minConfidence: 0.6
+  minConfidence: 0.7,  // Default threshold restored (was 0.6, too low)
+
+  // Agent-specific thresholds based on complexity and accuracy requirements
+  agentThresholds: {
+    'structure-agent': 0.75,      // Complex hierarchical analysis - higher threshold
+    'culture-agent': 0.70,        // Standard analysis
+    'skills-agent': 0.70,         // Standard analysis
+    'engagement-agent': 0.65,     // Sentiment analysis - can be more flexible
+    'recognition-agent': 0.65,    // Pattern recognition - can be more flexible
+    'lxp-agent': 0.70,            // Standard analysis
+    'talent-agent': 0.70,         // Standard analysis
+    'bonus-agent': 0.70,          // Standard analysis
+  }
 });

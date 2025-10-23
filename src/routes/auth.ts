@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { db } from '../../db/index';
-import { users, tenants, socialMediaAccounts } from '../../db/schema';
+import { users, tenants } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedUser } from '../middleware/auth';
@@ -191,27 +191,6 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
 };
 
 // Use generateFullToken from auth service for consistency
-
-// Helper function to validate tenant isolation
-async function validateUserTenantAccess(userId: string, tenantId: string): Promise<boolean> {
-  try {
-    const user = await db.select()
-      .from(users)
-      .where(
-        and(
-          eq(users.id, userId),
-          eq(users.tenantId, tenantId),
-          eq(users.isActive, true)
-        )
-      )
-      .limit(1);
-    
-    return user.length > 0;
-  } catch (error) {
-    console.error('Tenant access validation error:', error);
-    return false;
-  }
-}
 
 // Signup endpoint (No tenant isolation needed for signup)
 router.post('/signup', async (req, res) => {
@@ -621,165 +600,6 @@ router.post('/refresh', async (req: Request, res: Response) => {
       error: 'Refresh failed',
       code: 'REFRESH_ERROR' 
     });
-  }
-});
-
-// Social media OAuth callbacks (Protected with tenant isolation)
-router.get('/linkedin/callback', validateTenantAccess, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=authentication-required`);
-    }
-    
-    const { code, state } = req.query;
-    
-    if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=linkedin-no-code`);
-    }
-    
-    // Validate user has access to this tenant
-    const hasAccess = await validateUserTenantAccess(req.user.id, req.user.tenantId);
-    if (!hasAccess) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=access-denied`);
-    }
-    
-    // TODO: Exchange code for LinkedIn access token
-    // TODO: Store token with tenant isolation
-    /*
-    await db.insert(socialMediaAccounts)
-      .values({
-        userId: req.user.id,
-        tenantId: req.user.tenantId,
-        platform: 'linkedin',
-        accessToken: linkedinToken,
-        refreshToken: linkedinRefreshToken,
-        expiresAt: new Date(Date.now() + expiresIn * 1000),
-        isActive: true
-      });
-    */
-    
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?status=linkedin-connected`);
-  } catch (error) {
-    console.error('LinkedIn OAuth error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=linkedin-failed`);
-  }
-});
-
-router.get('/twitter/callback', validateTenantAccess, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=authentication-required`);
-    }
-    
-    const { oauth_token, oauth_verifier } = req.query;
-    
-    if (!oauth_token || !oauth_verifier) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=twitter-no-token`);
-    }
-    
-    // Validate user has access to this tenant
-    const hasAccess = await validateUserTenantAccess(req.user.id, req.user.tenantId);
-    if (!hasAccess) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=access-denied`);
-    }
-    
-    // TODO: Exchange tokens for Twitter access token
-    // TODO: Store token with tenant isolation
-    /*
-    await db.insert(socialMediaAccounts)
-      .values({
-        userId: req.user.id,
-        tenantId: req.user.tenantId,
-        platform: 'twitter',
-        accessToken: twitterToken,
-        accessTokenSecret: twitterTokenSecret,
-        isActive: true
-      });
-    */
-    
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?status=twitter-connected`);
-  } catch (error) {
-    console.error('Twitter OAuth error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=twitter-failed`);
-  }
-});
-
-router.get('/facebook/callback', validateTenantAccess, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=authentication-required`);
-    }
-    
-    const { code, state } = req.query;
-    
-    if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=facebook-no-code`);
-    }
-    
-    // Validate user has access to this tenant
-    const hasAccess = await validateUserTenantAccess(req.user.id, req.user.tenantId);
-    if (!hasAccess) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=access-denied`);
-    }
-    
-    // TODO: Exchange code for Facebook access token
-    // TODO: Store token with tenant isolation
-    /*
-    await db.insert(socialMediaAccounts)
-      .values({
-        userId: req.user.id,
-        tenantId: req.user.tenantId,
-        platform: 'facebook',
-        accessToken: facebookToken,
-        expiresAt: new Date(Date.now() + expiresIn * 1000),
-        isActive: true
-      });
-    */
-    
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?status=facebook-connected`);
-  } catch (error) {
-    console.error('Facebook OAuth error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=facebook-failed`);
-  }
-});
-
-router.get('/google/callback', validateTenantAccess, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=authentication-required`);
-    }
-    
-    const { code, state } = req.query;
-    
-    if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=google-no-code`);
-    }
-    
-    // Validate user has access to this tenant
-    const hasAccess = await validateUserTenantAccess(req.user.id, req.user.tenantId);
-    if (!hasAccess) {
-      return res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=access-denied`);
-    }
-    
-    // TODO: Exchange code for Google access token
-    // TODO: Store token with tenant isolation
-    /*
-    await db.insert(socialMediaAccounts)
-      .values({
-        userId: req.user.id,
-        tenantId: req.user.tenantId,
-        platform: 'google',
-        accessToken: googleToken,
-        refreshToken: googleRefreshToken,
-        expiresAt: new Date(Date.now() + expiresIn * 1000),
-        isActive: true
-      });
-    */
-    
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?status=google-connected`);
-  } catch (error) {
-    console.error('Google OAuth error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/settings/social-media?error=google-failed`);
   }
 });
 
