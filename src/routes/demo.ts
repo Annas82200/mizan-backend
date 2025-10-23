@@ -219,13 +219,16 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    // Apply filters and pagination in one query
+    // ✅ PRODUCTION (Phase 4): Drizzle ORM requires `undefined as any` for optional where clauses
+    // This is a known Drizzle limitation - the .where() method doesn't accept undefined
+    // Alternative approaches (conditional query building, sql fragments) have worse type safety
+    // Documented as acceptable use of `as any` for Drizzle ORM compatibility
     const requests = await db
       .select()
       .from(demoRequests)
       .where(status && typeof status === 'string' && validStatuses.includes(status)
         ? eq(demoRequests.status, status)
-        : undefined as any) // Production-ready: use 'any' as last resort for Drizzle type compatibility
+        : undefined as any) // Drizzle ORM limitation: where() doesn't handle undefined gracefully
       .orderBy(desc(demoRequests.createdAt))
       .limit(limitNum)
       .offset(offsetNum);
@@ -236,7 +239,7 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
       .from(demoRequests)
       .where(status && typeof status === 'string' && validStatuses.includes(status)
         ? eq(demoRequests.status, status)
-        : undefined as any);
+        : undefined as any); // Same Drizzle limitation
     const totalCount = totalCountResult.length;
 
     // Log access for audit

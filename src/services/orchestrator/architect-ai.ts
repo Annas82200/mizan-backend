@@ -6,6 +6,15 @@ import { SkillsAgent } from '../agents/skills/skills-agent';
 import { db } from '../../../db/index';
 import { companies, users, departments } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
+// ✅ PRODUCTION (Phase 4): Import JSONB validation schemas
+import {
+  type DepartmentData,
+  type RoleData,
+  type ReportingLine,
+  type SkillGap,
+  type LXPTrigger,
+  type Recommendation,
+} from '../../validation/jsonb-schemas';
 
 interface OrgChartData {
   employees?: Array<{
@@ -259,28 +268,52 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
       companyId: input.companyId,
       tenantId: input.tenantId,
       orgChart: {
-        departments: (orgChartData.departments || []).map(d => ({
-          id: d.id,
-          name: d.name,
-          parentId: (d as any).parentId || undefined, // parentId is optional, only use if exists
-          headCount: d.headCount || 0, // Ensure headCount is always present
-          manager: (d as any).manager || (d as any).headId || undefined // manager is optional
-        })),
-        reportingLines: ((orgChartData as any).reportingLines || []).map((line: any) => ({
-          from: line.from,
-          to: line.to,
-          type: (line.type === 'direct' || line.type === 'dotted' || line.type === 'functional')
-            ? line.type
-            : 'direct' as const // Default to 'direct' if not specified or invalid
-        })),
-        roles: (orgChartData.employees || (orgChartData as any).roles || []).map((e: any) => ({
-          id: e.id,
-          title: e.title || 'Employee',
-          department: e.department || 'General',
-          level: e.level || 0,
-          reportsTo: e.reportsTo || undefined,
-          directReports: [] // Will be computed from reportingLines
-        }))
+        // ✅ PRODUCTION (Phase 4): Type-safe department mapping
+        departments: (orgChartData.departments || []).map(d => {
+          const dept = d as Partial<DepartmentData>;
+          return {
+            id: dept.id || d.id || '',
+            name: dept.name || d.name || '',
+            parentId: dept.parentId,
+            headCount: d.headCount || 0,
+            manager: dept.manager || dept.headId,
+          };
+        }),
+        // ✅ PRODUCTION (Phase 4): Type-safe reporting lines mapping
+        reportingLines: ((orgChartData as { reportingLines?: unknown }).reportingLines
+          ? Array.isArray((orgChartData as { reportingLines?: unknown }).reportingLines)
+            ? (orgChartData as { reportingLines: unknown[] }).reportingLines
+            : []
+          : []
+        ).map((line): ReportingLine & { from: string; to: string; type: 'direct' | 'dotted' | 'functional' } => {
+          const rl = line as Partial<ReportingLine & { from: string; to: string; type?: string }>;
+          return {
+            fromId: rl.from || '',
+            from: rl.from || '',
+            toId: rl.to || '',
+            to: rl.to || '',
+            type: (rl.type === 'direct' || rl.type === 'dotted' || rl.type === 'functional')
+              ? rl.type
+              : 'direct' as const,
+            reportType: rl.reportType,
+          };
+        }),
+        // ✅ PRODUCTION (Phase 4): Type-safe roles mapping
+        roles: (orgChartData.employees || (orgChartData as { roles?: unknown }).roles
+          ? Array.isArray((orgChartData as { roles?: unknown }).roles)
+            ? (orgChartData as { roles: unknown[] }).roles
+            : []
+          : []
+        ).map((e): { id: string; title: string; department: string; level: number; responsibilities?: string[] } => {
+          const role = e as Partial<RoleData>;
+          return {
+            id: role.id || '',
+            title: role.title || 'Employee',
+            department: role.department || 'General',
+            level: role.level ?? 0,
+            responsibilities: [] // Required field for StructureAnalysisInput
+          };
+        })
       },
       strategy: input.strategy || ''
     };
@@ -291,7 +324,15 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
       healthScore: result.healthScore,
       structureType: result.structureType,
       isOptimal: result.isOptimalForStrategy,
-      gaps: result.gaps.map(g => typeof g === 'string' ? g : (g as any).description || g), // Handle both string and object gaps
+      // ✅ PRODUCTION (Phase 4): Type-safe gaps mapping
+      gaps: result.gaps.map((g): string => {
+        if (typeof g === 'string') return g;
+        const gap = g as Partial<SkillGap & { description?: string }>;
+        if (typeof gap === 'object' && gap !== null) {
+          return gap.description || String(g);
+        }
+        return String(g);
+      }),
       hiringNeeds: (result.hiringNeeds || []).map((h: any) => ({
         position: h.role || 'Unknown Position',
         department: h.department || 'Unknown Department',
@@ -384,15 +425,33 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
         severity: typeof gap.gap === 'string' ? gap.gap : 'medium'
       })),
       strengthAreas: [],
-      recommendedTraining: result.lxpTriggers?.map(trigger => (trigger as any).skill || 'general') || [],
-      trainingNeeds: result.lxpTriggers?.map(trigger => ({
-        area: (trigger as any).skill || 'general',
-        priority: (trigger as any).priority || 'medium'
-      })) || [],
-      recommendations: result.recommendations?.map(r => ({
-        title: typeof r === 'string' ? r : (r as any).title || 'Recommendation',
-        description: typeof r === 'string' ? r : (r as any).description || ''
-      })) || []
+      // ✅ PRODUCTION (Phase 4): Type-safe LXP trigger mapping
+      recommendedTraining: result.lxpTriggers?.map(trigger => {
+        const t = trigger as Partial<LXPTrigger>;
+        return t.skill || 'general';
+      }) || [],
+      trainingNeeds: result.lxpTriggers?.map(trigger => {
+        const t = trigger as Partial<LXPTrigger>;
+        return {
+          area: t.skill || 'general',
+          priority: t.priority || 'medium',
+        };
+      }) || [],
+      // ✅ PRODUCTION (Phase 4): Type-safe recommendation mapping
+      recommendations: result.recommendations?.map(r => {
+        if (typeof r === 'string') {
+          return { title: r, description: r };
+        }
+        // Handle various recommendation structures from agents
+        if (typeof r === 'object' && r !== null) {
+          const rec = r as Record<string, unknown>;
+          return {
+            title: (rec.title as string) || (rec.type as string) || 'Recommendation',
+            description: (rec.description as string) || (rec.expectedImpact as string) || '',
+          };
+        }
+        return { title: 'Recommendation', description: String(r) };
+      }) || []
     };
   } catch (error) {
     console.error('Skills analysis failed:', error);

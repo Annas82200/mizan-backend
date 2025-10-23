@@ -6,6 +6,8 @@ import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+// ✅ PRODUCTION (Phase 4): Import JSONB validation helpers
+import { isArray, isObject } from '../../../validation/jsonb-schemas';
 
 // Zod schemas for validation, derived from db/schema/hiring.ts and AGENT_CONTEXT_ULTIMATE.md
 export const HiringAnalysisInputSchema = z.object({
@@ -165,18 +167,23 @@ class HiringAgent {
 
         // Step 5: Generate artifacts
         // Ensure responsibilities is an array (handle jsonb type from database)
+        // ✅ PRODUCTION (Phase 4): Type-safe array normalization
+        const normalizeToArray = (data: unknown): string[] => {
+            if (isArray(data)) {
+                return data.filter((item): item is string => typeof item === 'string');
+            }
+            if (isObject(data)) {
+                // Handle case where JSONB is stored as object instead of array
+                const values = Object.values(data);
+                return values.filter((item): item is string => typeof item === 'string');
+            }
+            return [];
+        };
+
         const requisitionWithArrays = {
             ...requisition,
-            responsibilities: Array.isArray(requisition.responsibilities)
-                ? requisition.responsibilities
-                : (requisition.responsibilities as any)?.length > 0
-                    ? Object.values(requisition.responsibilities as any)
-                    : [],
-            qualifications: Array.isArray(requisition.qualifications)
-                ? requisition.qualifications
-                : (requisition.qualifications as any)?.length > 0
-                    ? Object.values(requisition.qualifications as any)
-                    : []
+            responsibilities: normalizeToArray(requisition.responsibilities),
+            qualifications: normalizeToArray(requisition.qualifications)
         } as HiringRequisition;
         const jobDescription = this.generateJobDescription(requisitionWithArrays, analysisResult);
         const platformRecommendations = this.recommendPlatforms(requisition.positionTitle, clientContext.industry);
