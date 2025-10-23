@@ -27,22 +27,33 @@ declare global {
 
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
     try {
-        const authHeader = req.headers.authorization;
+        // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
+        let token: string | undefined;
 
-        if (!authHeader) {
+        // Priority 1: Check httpOnly cookie (secure, preferred method)
+        if (req.cookies && req.cookies.mizan_auth_token) {
+            token = req.cookies.mizan_auth_token;
+        }
+        // Priority 2: Check Authorization header (backward compatibility)
+        else if (req.headers.authorization) {
+            const authHeader = req.headers.authorization;
+            const parts = authHeader.split(' ');
+
+            if (parts.length !== 2) {
+                return res.status(401).json({ error: 'Token error' });
+            }
+
+            const [scheme, headerToken] = parts;
+
+            if (!/^Bearer$/i.test(scheme)) {
+                return res.status(401).json({ error: 'Token malformatted' });
+            }
+
+            token = headerToken;
+        }
+
+        if (!token) {
             return res.status(401).json({ error: 'No token provided' });
-        }
-
-        const parts = authHeader.split(' ');
-
-        if (parts.length !== 2) {
-            return res.status(401).json({ error: 'Token error' });
-        }
-
-        const [scheme, token] = parts;
-
-        if (!/^Bearer$/i.test(scheme)) {
-            return res.status(401).json({ error: 'Token malformatted' });
         }
 
         // Verify token using the auth service

@@ -25,6 +25,7 @@ console.log('========================================');
 
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables from .env file in development
 if (process.env.NODE_ENV !== 'production') {
@@ -262,6 +263,7 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser()); // Parse cookies for httpOnly authentication
 
 // Database connection status (will be updated during startup)
 let dbConnectionStatus = {

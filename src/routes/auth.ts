@@ -13,6 +13,16 @@ import { generateFullToken } from '../services/auth';
 
 const router = Router();
 
+// Cookie configuration for httpOnly authentication
+// ✅ PRODUCTION: Secure, httpOnly cookies to prevent XSS attacks
+const COOKIE_OPTIONS = {
+  httpOnly: true,  // Cannot be accessed by JavaScript (prevents XSS)
+  secure: process.env.NODE_ENV === 'production',  // HTTPS only in production
+  sameSite: 'lax' as const,  // CSRF protection (lax allows navigation)
+  maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days in milliseconds
+  path: '/',  // Available across entire domain
+};
+
 // Validation schemas
 const signupSchema = z.object({
   email: z.string().email(),
@@ -77,13 +87,16 @@ router.post('/refresh', async (req, res) => {
       }
       
       const user = userResult[0];
-      
+
       // Generate new token
       const newToken = generateFullToken(user);
-      
+
+      // ✅ PRODUCTION: Set httpOnly cookie (primary authentication)
+      res.cookie('mizan_auth_token', newToken, COOKIE_OPTIONS);
+
       return res.json({
         success: true,
-        token: newToken,
+        token: newToken, // Still return token for backward compatibility
         user: {
           id: user.id,
           email: user.email,
@@ -250,10 +263,13 @@ router.post('/signup', async (req, res) => {
       
       // Generate token using the full token generator from auth service
       const token = generateFullToken(user);
-      
+
+      // ✅ PRODUCTION: Set httpOnly cookie (primary authentication)
+      res.cookie('mizan_auth_token', token, COOKIE_OPTIONS);
+
       return res.json({
         success: true,
-        token,
+        token, // Still return token for backward compatibility
         user: {
           id: user.id,
           email: user.email,
@@ -333,10 +349,13 @@ router.post('/login', async (req, res) => {
     
     // Generate token using the full token generator from auth service
     const token = generateFullToken(user);
-    
+
+    // ✅ PRODUCTION: Set httpOnly cookie (primary authentication)
+    res.cookie('mizan_auth_token', token, COOKIE_OPTIONS);
+
     return res.json({
       success: true,
-      token,
+      token, // Still return token for backward compatibility
       user: {
         id: user.id,
         email: user.email,
@@ -368,17 +387,18 @@ router.post('/login', async (req, res) => {
 // Logout endpoint
 router.post('/logout', (req, res) => {
   try {
-    // JWT is stateless, so logout is handled client-side
-    // This endpoint exists for consistency and future session management
-    return res.json({ 
-      success: true, 
-      message: 'Logged out successfully' 
+    // ✅ PRODUCTION: Clear httpOnly cookie
+    res.clearCookie('mizan_auth_token', { path: '/' });
+
+    return res.json({
+      success: true,
+      message: 'Logged out successfully'
     });
   } catch (error) {
     console.error('Logout error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Logout failed',
-      code: 'LOGOUT_ERROR' 
+      code: 'LOGOUT_ERROR'
     });
   }
 });
@@ -573,10 +593,13 @@ router.post('/refresh', async (req: Request, res: Response) => {
       
       // Generate new token with updated expiry
       const newToken = generateFullToken(user);
-      
+
+      // ✅ PRODUCTION: Set httpOnly cookie (primary authentication)
+      res.cookie('mizan_auth_token', newToken, COOKIE_OPTIONS);
+
       return res.json({
         success: true,
-        token: newToken,
+        token: newToken, // Still return token for backward compatibility
         user: {
           id: user.id,
           email: user.email,
