@@ -15,10 +15,11 @@ const router = Router();
 
 // Cookie configuration for httpOnly authentication
 // ✅ PRODUCTION: Secure, httpOnly cookies to prevent XSS attacks
+// sameSite: 'none' required for cross-origin requests (frontend on Vercel, backend on Railway)
 const COOKIE_OPTIONS = {
   httpOnly: true,  // Cannot be accessed by JavaScript (prevents XSS)
-  secure: process.env.NODE_ENV === 'production',  // HTTPS only in production
-  sameSite: 'lax' as const,  // CSRF protection (lax allows navigation)
+  secure: true,  // REQUIRED for sameSite: 'none' (HTTPS only)
+  sameSite: 'none' as const,  // Allow cross-site cookies (frontend ≠ backend domain)
   maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days in milliseconds
   path: '/',  // Available across entire domain
 };
