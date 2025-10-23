@@ -41,7 +41,8 @@
     "src/routes/agents.ts",
     "src/routes/consulting.ts",
     "src/routes/framework.ts",
-    "src/routes/export.ts"
+    "src/routes/export.ts",
+    "drizzle.config.ts"
   ],
   "ts-node": {
     "esm": true,
