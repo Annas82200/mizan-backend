@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
 import { ProviderResponse, AIProviderKey, EngineType } from './types';
+import { withTimeout, AI_REQUEST_TIMEOUT } from './timeout';
 
 // ✅ PRODUCTION: Use canonical types from types.ts
 // Removed duplicate ProviderResponse interface (was lines 18-37)
@@ -19,24 +20,48 @@ export interface RouterProviderCall {
   requireJson?: boolean;
 }
 
+/**
+ * Unified System Prompt for AI Providers (Phase 5)
+ *
+ * Requests structured output with confidence scoring to enable reliable extraction
+ * and improve ensemble decision-making quality.
+ */
+const SYSTEM_PROMPT_WITH_CONFIDENCE = `You are a fact-based analyst for organizational assessment and decision support.
+
+Response Format Guidelines:
+- When possible, provide responses in JSON format with the following structure:
+  {
+    "analysis": "your detailed analysis here",
+    "confidence": 0.85,
+    "key_factors": ["factor1", "factor2"],
+    "assumptions": ["assumption1 if any"]
+  }
+
+- If JSON format is not appropriate, include confidence as: "Confidence: 85%" or "Confidence: 0.85"
+
+Confidence Scoring Guidelines:
+- 0.9-1.0: Strong evidence from multiple reliable data sources, high certainty
+- 0.7-0.9: Good evidence with reasonable verification, moderate certainty
+- 0.5-0.7: Limited evidence, some assumptions required, low-moderate certainty
+- 0.3-0.5: Significant speculation or insufficient data, low certainty
+- Below 0.3: Pure guess, recommend additional data collection
+
+Provide accurate, evidence-based responses. Be explicit about assumptions and data limitations.`;
+
 class AIProviderRouter {
   private openai: OpenAI;
   private anthropic: Anthropic;
   private gemini: GoogleGenerativeAI;
   private mistral: MistralClient;
 
-  // Timeout configuration for AI requests
-  // Increased to 120 seconds to allow comprehensive framework analysis
-  private readonly AI_REQUEST_TIMEOUT = 120000; // 120 seconds (2 minutes)
-
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
-      timeout: this.AI_REQUEST_TIMEOUT
+      timeout: AI_REQUEST_TIMEOUT
     });
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
-      timeout: this.AI_REQUEST_TIMEOUT
+      timeout: AI_REQUEST_TIMEOUT
     });
     this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
     this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
@@ -97,7 +122,7 @@ class AIProviderRouter {
         messages: [
           {
             role: "system",
-            content: "You are a fact-based analyst. Provide accurate, evidence-based responses."
+            content: SYSTEM_PROMPT_WITH_CONFIDENCE
           },
           { role: "user", content: call.prompt }
         ],
@@ -136,10 +161,11 @@ class AIProviderRouter {
     try {
       const response = await this.anthropic.messages.create({
         model: call.model || "claude-sonnet-4-5",
+        system: SYSTEM_PROMPT_WITH_CONFIDENCE,
         messages: [
           {
             role: "user",
-            content: call.prompt + (call.requireJson ? "\nReturn response as valid JSON." : "")
+            content: call.prompt
           }
         ],
         max_tokens: call.maxTokens || 4000,
@@ -168,16 +194,12 @@ class AIProviderRouter {
   }
 
   private async invokeGemini(call: RouterProviderCall): Promise<ProviderResponse> {
-    // Gemini doesn't support timeout in SDK, so we use AbortController
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
-
     try {
       const model = this.gemini.getGenerativeModel({
-        model: call.model || "gemini-2.5-flash"  // Current Gemini 2.5 model (faster, cheaper than pro)
+        model: call.model || "gemini-2.5-flash",  // Current Gemini 2.5 model (faster, cheaper than pro)
+        systemInstruction: SYSTEM_PROMPT_WITH_CONFIDENCE
       });
 
-      // Note: Google SDK doesn't support AbortSignal directly, but timeout is handled by promise race
       const generatePromise = model.generateContent({
         contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
         generationConfig: {
@@ -193,16 +215,13 @@ class AIProviderRouter {
         };
       }
 
-      const result = (await Promise.race([
+      // ✅ PRODUCTION: Unified timeout with automatic cleanup
+      const result = await withTimeout(
         generatePromise,
-        new Promise<never>((_, reject) => {
-          controller.signal.addEventListener('abort', () =>
-            reject(new Error('Gemini request timeout after 120 seconds'))
-          );
-        })
-      ])) as GeminiGenerateContentResponse;
+        AI_REQUEST_TIMEOUT,
+        'Gemini'
+      ) as GeminiGenerateContentResponse;
 
-      clearTimeout(timeoutId);
       const content = result.response.text();
 
       // ✅ Validate content exists before creating response (fail-fast, not defensive)
@@ -217,21 +236,19 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      clearTimeout(timeoutId);
       console.error('Gemini invocation failed:', error);
       throw error;
     }
   }
 
   private async invokeMistral(call: RouterProviderCall): Promise<ProviderResponse> {
-    // Mistral doesn't support timeout in SDK, so we use AbortController
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
-
     try {
       const chatPromise = this.mistral.chat({
         model: call.model || "mistral-large-latest",
-        messages: [{ role: "user", content: call.prompt }],
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT_WITH_CONFIDENCE },
+          { role: "user", content: call.prompt }
+        ],
         temperature: call.temperature || 0.1,
         maxTokens: call.maxTokens || 4000
       });
@@ -245,16 +262,13 @@ class AIProviderRouter {
         }>;
       }
 
-      const response = (await Promise.race([
+      // ✅ PRODUCTION: Unified timeout with automatic cleanup
+      const response = await withTimeout(
         chatPromise,
-        new Promise<never>((_, reject) => {
-          controller.signal.addEventListener('abort', () =>
-            reject(new Error('Mistral request timeout after 120 seconds'))
-          );
-        })
-      ])) as MistralChatResponse;
+        AI_REQUEST_TIMEOUT,
+        'Mistral'
+      ) as MistralChatResponse;
 
-      clearTimeout(timeoutId);
       const content = response.choices[0].message.content;
 
       // ✅ Validate content exists before creating response (fail-fast, not defensive)
@@ -269,29 +283,50 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      clearTimeout(timeoutId);
       console.error('Mistral invocation failed:', error);
       throw error;
     }
   }
 
   private extractConfidence(response: string): number {
-    // Extract confidence from response if mentioned
-    const confidenceMatch = response.match(/confidence[:\s]+(\d+)%/i);
-    if (confidenceMatch) {
-      return parseInt(confidenceMatch[1]) / 100;
+    // ✅ PRODUCTION: JSON-first confidence extraction
+    // Try 1: Parse as JSON and extract confidence field
+    try {
+      const json = JSON.parse(response);
+
+      // Check for confidence field (supports both 0-1 and 0-100 formats)
+      if (typeof json.confidence === 'number') {
+        const confidence = json.confidence > 1 ? json.confidence / 100 : json.confidence;
+        return Math.max(0, Math.min(1, confidence));
+      }
+
+      // Check for nested confidence (e.g., { result: {...}, metadata: { confidence: 0.85 } })
+      if (json.metadata && typeof json.metadata.confidence === 'number') {
+        const confidence = json.metadata.confidence > 1 ? json.metadata.confidence / 100 : json.metadata.confidence;
+        return Math.max(0, Math.min(1, confidence));
+      }
+    } catch {
+      // Not valid JSON, continue to regex extraction
     }
-    
-    // Default confidence based on response characteristics
+
+    // Try 2: Extract confidence from text using regex
+    const confidenceMatch = response.match(/confidence[:\s]+(\d+(?:\.\d+)?)(%)?/i);
+    if (confidenceMatch) {
+      const value = parseFloat(confidenceMatch[1]);
+      const isPercentage = confidenceMatch[2] === '%';
+      return isPercentage ? value / 100 : (value > 1 ? value / 100 : value);
+    }
+
+    // Try 3: Heuristic-based confidence (fallback)
     const hasCitations = response.includes('based on') || response.includes('according to');
     const hasNumbers = /\d+/.test(response);
     const hasQualifiers = /uncertain|unclear|insufficient data|missing/i.test(response);
-    
+
     let confidence = 0.7; // Base confidence
     if (hasCitations) confidence += 0.1;
     if (hasNumbers) confidence += 0.1;
     if (hasQualifiers) confidence -= 0.2;
-    
+
     return Math.max(0.3, Math.min(0.95, confidence));
   }
 }
