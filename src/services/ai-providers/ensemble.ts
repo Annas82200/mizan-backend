@@ -68,7 +68,7 @@ export class EnsembleAI {
       const response: ProviderResponse = {
         provider: routerResponse.provider,
         engine: call.engine,
-        narrative: typeof routerResponse.response === 'string' ? routerResponse.response : JSON.stringify(routerResponse.response),
+        narrative: routerResponse.response.content,
         confidence: routerResponse.confidence,
         usage: routerResponse.usage
       };
@@ -79,9 +79,7 @@ export class EnsembleAI {
           threshold: this.config.minConfidence,
           actual_confidence: response.confidence,
           prompt_length: (call.prompt ?? call.context?.join('\n') ?? '').length,
-          response_length: typeof routerResponse.response === 'string'
-            ? routerResponse.response.length
-            : JSON.stringify(routerResponse.response).length,
+          response_length: routerResponse.response.content.length,
           timestamp: new Date().toISOString(),
           engine: call.engine
         });
