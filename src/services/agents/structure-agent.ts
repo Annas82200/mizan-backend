@@ -415,8 +415,9 @@ Return ONLY a valid JSON object with NO markdown formatting:
       reportingLineCount: Array.isArray(rawStructureData.reportingLines) ? rawStructureData.reportingLines.length : 0,
       hasRoles: !!(rawStructureData.roles),
       roleCount: Array.isArray(rawStructureData.roles) ? rawStructureData.roles.length : 0,
-      totalEmployees: rawStructureData.totalEmployees || 0,
-      organizationLevels: rawStructureData.organizationLevels || 0
+      // ✅ PRODUCTION: Use ?? to preserve valid 0 values (not || which treats 0 as falsy)
+      totalEmployees: rawStructureData.totalEmployees ?? 0,
+      organizationLevels: rawStructureData.organizationLevels ?? 0
     });
 
     // Convert the raw structure data to StructureData type
@@ -424,8 +425,9 @@ Return ONLY a valid JSON object with NO markdown formatting:
       departments: (rawStructureData.departments as Department[]) || [],
       reportingLines: (rawStructureData.reportingLines as ReportingLine[]) || [],
       roles: (rawStructureData.roles as Role[]) || [],
-      totalEmployees: (rawStructureData.totalEmployees as number) || 0,
-      organizationLevels: (rawStructureData.organizationLevels as number) || 0
+      // ✅ PRODUCTION: Use ?? to preserve valid 0 values
+      totalEmployees: (rawStructureData.totalEmployees as number) ?? 0,
+      organizationLevels: (rawStructureData.organizationLevels as number) ?? 0
     };
 
     // VALIDATE we have actual data - prevents AI from analyzing empty structures
@@ -852,7 +854,8 @@ Ensure recommendations are practical and theory-based.`;
   }
 
   private calculateSpanMetrics(roles: Role[]): SpanMetrics {
-    const spans = roles.map(role => role.directReports?.length || 0);
+    // ✅ PRODUCTION: Use ?? for clarity (0 direct reports is valid)
+    const spans = roles.map(role => role.directReports?.length ?? 0);
     const nonZeroSpans = spans.filter(span => span > 0);
 
     if (nonZeroSpans.length === 0) {
@@ -876,12 +879,13 @@ Ensure recommendations are practical and theory-based.`;
 
     const outliers = roles
       .filter(role => {
-        const span = role.directReports?.length || 0;
+        // ✅ PRODUCTION: Use ?? to be explicit (though length 0 is valid here)
+        const span = role.directReports?.length ?? 0;
         return span > 15 || (span > 0 && span < 3); // Potential outliers
       })
       .map(role => ({
         roleId: role.id,
-        span: role.directReports?.length || 0,
+        span: role.directReports?.length ?? 0,
         recommendation: role.directReports && role.directReports.length > 15
           ? 'Consider splitting this role to reduce span of control'
           : 'Consider consolidating with other roles to increase efficiency'
@@ -891,18 +895,20 @@ Ensure recommendations are practical and theory-based.`;
   }
 
   private calculateLayerMetrics(roles: Role[]): LayerMetrics {
-    const levels = roles.map(role => role.level || 0);
+    // ✅ PRODUCTION: Use ?? to preserve valid level: 0 (CEO/root level)
+    // || 0 would incorrectly treat level: 0 as falsy and replace it
+    const levels = roles.map(role => role.level ?? 0);
     const maxLevel = Math.max(...levels);
     const minLevel = Math.min(...levels);
 
     // Calculate average layers to bottom for each role
-    const layersToBottom = roles.map(role => maxLevel - (role.level || 0));
+    const layersToBottom = roles.map(role => maxLevel - (role.level ?? 0));
     const averageLayersToBottom = layersToBottom.reduce((sum, layers) => sum + layers, 0) / layersToBottom.length;
 
     // Identify bottlenecks (layers with too many or too few roles)
     const layerCounts = new Map<number, string[]>();
     roles.forEach(role => {
-      const level = role.level || 0;
+      const level = role.level ?? 0;
       if (!layerCounts.has(level)) {
         layerCounts.set(level, []);
       }

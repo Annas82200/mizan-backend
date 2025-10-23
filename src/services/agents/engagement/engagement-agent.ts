@@ -65,10 +65,15 @@ export class EngagementAgent extends ThreeEngineAgent {
   async analyzeEngagement(input: EngagementInput): Promise<EngagementAnalysis> {
     const result = await this.analyze(input);
     const output = result.finalOutput;
-    
+
+    // ✅ PRODUCTION: Validate interpretation exists (no type assertion + fallback workaround)
+    if (typeof output.interpretation !== 'string' || !output.interpretation) {
+      throw new Error('Invalid engagement analysis output: interpretation is required');
+    }
+
     return {
       score: input.score,
-      interpretation: (output.interpretation as string) || '',
+      interpretation: output.interpretation,
       factors: (Array.isArray(output.factors) ? output.factors : []) as string[],
       drivers: (Array.isArray(output.drivers) ? output.drivers : []) as string[],
       barriers: (Array.isArray(output.barriers) ? output.barriers : []) as string[],
@@ -111,7 +116,13 @@ export class EngagementAgent extends ThreeEngineAgent {
       allPersonalValues: inputs.flatMap(i => i.personalValues),
       allCurrentExperience: inputs.flatMap(i => i.currentExperience),
       allDesiredExperience: inputs.flatMap(i => i.desiredExperience),
-      tenantId: inputs[0]?.tenantId || '',
+      // ✅ PRODUCTION: Tenant ID is REQUIRED (security - no fallback)
+      tenantId: (() => {
+        if (!inputs[0]?.tenantId) {
+          throw new Error('Tenant ID is required for aggregate engagement analysis');
+        }
+        return inputs[0].tenantId;
+      })(),
       aggregated: true
     });
 
