@@ -63,9 +63,7 @@ class AIProviderRouter {
       timeout: this.AI_REQUEST_TIMEOUT
     });
     this.gemini = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-    this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!, {
-      timeout: this.AI_REQUEST_TIMEOUT
-    });
+    this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
   }
 
   async invokeProvider(provider: AIProviderKey | "ensemble", call: ProviderCall): Promise<ProviderResponse> {
@@ -224,14 +222,28 @@ class AIProviderRouter {
   }
 
   private async invokeMistral(call: ProviderCall): Promise<ProviderResponse> {
+    // Mistral doesn't support timeout in SDK, so we use AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
+
     try {
-      const response = await this.mistral.chat({
+      const chatPromise = this.mistral.chat({
         model: call.model || "mistral-large-latest",
         messages: [{ role: "user", content: call.prompt }],
         temperature: call.temperature || 0.1,
         maxTokens: call.maxTokens || 4000
       });
 
+      const response = await Promise.race([
+        chatPromise,
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () =>
+            reject(new Error('Mistral request timeout after 120 seconds'))
+          );
+        })
+      ]) as any;
+
+      clearTimeout(timeoutId);
       const content = response.choices[0].message.content;
 
       return {
@@ -240,6 +252,7 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('Mistral invocation failed:', error);
       throw error;
     }

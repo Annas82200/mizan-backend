@@ -78,7 +78,7 @@ export class EnsembleAI {
         console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
           threshold: this.config.minConfidence,
           actual_confidence: response.confidence,
-          prompt_length: call.prompt?.length || 0,
+          prompt_length: (call.prompt ?? call.context?.join('\n') ?? '').length,
           response_length: typeof routerResponse.response === 'string'
             ? routerResponse.response.length
             : JSON.stringify(routerResponse.response).length,
