@@ -363,9 +363,14 @@ async function handleOrgChartUpload(req: Request, res: Response) {
                 }
               }
             } catch (err) {
-              // Silently skip duplicate email errors
-              const error = err as any;
-              if (error.code !== '23505') {  // 23505 = unique_violation
+              // ✅ PRODUCTION: Properly typed error handling (no 'as any')
+              // Silently skip duplicate email errors (PostgreSQL unique violation)
+              if (err && typeof err === 'object' && 'code' in err) {
+                const pgError = err as { code: string };
+                if (pgError.code !== '23505') {  // 23505 = unique_violation
+                  console.error(`Error creating user ${employeeEmail}:`, err);
+                }
+              } else {
                 console.error(`Error creating user ${employeeEmail}:`, err);
               }
             }

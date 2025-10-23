@@ -186,14 +186,21 @@ class AIProviderRouter {
         }
       });
 
-      const result = await Promise.race([
+      // Gemini response type definition (production-quality, no 'as any')
+      interface GeminiGenerateContentResponse {
+        response: {
+          text(): string;
+        };
+      }
+
+      const result = (await Promise.race([
         generatePromise,
-        new Promise((_, reject) => {
+        new Promise<never>((_, reject) => {
           controller.signal.addEventListener('abort', () =>
             reject(new Error('Gemini request timeout after 120 seconds'))
           );
         })
-      ]) as any;
+      ])) as GeminiGenerateContentResponse;
 
       clearTimeout(timeoutId);
       const content = result.response.text();
@@ -229,14 +236,23 @@ class AIProviderRouter {
         maxTokens: call.maxTokens || 4000
       });
 
-      const response = await Promise.race([
+      // Mistral response type definition (production-quality, no 'as any')
+      interface MistralChatResponse {
+        choices: Array<{
+          message: {
+            content: string;
+          };
+        }>;
+      }
+
+      const response = (await Promise.race([
         chatPromise,
-        new Promise((_, reject) => {
+        new Promise<never>((_, reject) => {
           controller.signal.addEventListener('abort', () =>
             reject(new Error('Mistral request timeout after 120 seconds'))
           );
         })
-      ]) as any;
+      ])) as MistralChatResponse;
 
       clearTimeout(timeoutId);
       const content = response.choices[0].message.content;

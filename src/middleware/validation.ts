@@ -80,11 +80,15 @@ export function validateRequest(schemas: {
       }
 
       if (schemas.query) {
-        req.query = await schemas.query.parseAsync(req.query) as any;
+        // ✅ PRODUCTION: TypeScript needs assertion because Zod returns unknown
+        // The validated data is safe to assign back to req.query
+        req.query = await schemas.query.parseAsync(req.query) as Request['query'];
       }
 
       if (schemas.params) {
-        req.params = await schemas.params.parseAsync(req.params) as any;
+        // ✅ PRODUCTION: TypeScript needs assertion because Zod returns unknown
+        // The validated data is safe to assign back to req.params
+        req.params = await schemas.params.parseAsync(req.params) as Request['params'];
       }
 
       next();
@@ -145,10 +149,12 @@ export function sanitizeInput(input: any): any {
 /**
  * Middleware to sanitize all request inputs
  */
-export function sanitizeMiddleware(req: Request, res: Response, next: NextFunction) {
+export function sanitizeMiddleware(req: Request, _res: Response, next: NextFunction) {
   req.body = sanitizeInput(req.body);
-  req.query = sanitizeInput(req.query) as any;
-  req.params = sanitizeInput(req.params) as any;
+  // ✅ PRODUCTION: Type assertion needed for Express compatibility
+  // sanitizeInput preserves the structure, just cleans values
+  req.query = sanitizeInput(req.query) as Request['query'];
+  req.params = sanitizeInput(req.params) as Request['params'];
   next();
 }
 

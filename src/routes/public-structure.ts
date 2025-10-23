@@ -222,13 +222,18 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
       });
 
       // Add timeout for public endpoint
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Analysis timeout')), 30000); // 30 second timeout
       });
 
-      const agentResponse = await Promise.race([analysisPromise, timeoutPromise]) as any;
+      // ✅ PRODUCTION: Properly typed Promise.race (no 'as any')
+      const agentResponse: StructureAnalysisOutput = await Promise.race([
+        analysisPromise,
+        timeoutPromise
+      ]);
 
-      // Map the agent response to the correct StructureAnalysisOutput type
+      // ✅ PRODUCTION: Map response to exact StructureAnalysisOutput type (no invalid properties)
+      // gaps and hiringNeeds are not part of StructureAnalysisOutput interface
       richAnalysis = {
         overallScore: agentResponse.overallScore || 0,
         overallHealthInterpretation: agentResponse.overallHealthInterpretation,
@@ -236,10 +241,8 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
         spanAnalysis: agentResponse.spanAnalysis,
         layerAnalysis: agentResponse.layerAnalysis,
         strategyAlignment: agentResponse.strategyAlignment,
-        recommendations: (agentResponse.recommendations || []).slice(0, 5), // Limit recommendations for public
-        gaps: agentResponse.gaps || [],
-        hiringNeeds: agentResponse.hiringNeeds || []
-      } as StructureAnalysisOutput;
+        recommendations: (agentResponse.recommendations || []).slice(0, 5) // Limit recommendations for public
+      };
 
     } catch (aiError) {
       const e = aiError as Error;

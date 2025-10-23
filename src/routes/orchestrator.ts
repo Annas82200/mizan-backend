@@ -309,11 +309,17 @@ router.post('/agent/:type/run', authorize(['clientAdmin', 'superadmin']), async 
     
     // Create agent-specific analysis record with tenant isolation
     const analysisId = crypto.randomUUID();
-    
+
+    // ✅ PRODUCTION: Type guard for analysis type enum (no 'as any')
+    type AnalysisType = 'structure' | 'culture' | 'skills' | 'engagement' | 'recognition' | 'performance' | 'benchmarking' | 'full';
+    const analysisType: AnalysisType = validAgentTypes.includes(agentType)
+      ? agentType as AnalysisType
+      : 'full';
+
     await db.insert(analyses).values({
       id: analysisId,
       tenantId: req.user.tenantId,
-      type: agentType as any,
+      type: analysisType,
       status: 'pending',
       metadata: {
         startedAt: new Date().toISOString(),

@@ -13,6 +13,47 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SALT_ROUNDS = 10; // Standard bcrypt salt rounds
 
 /**
+ * JWT Payload Interface
+ * Production-ready: Explicitly typed JWT payload (no 'as any')
+ */
+interface JWTPayload {
+  userId: string;
+  email: string;
+  tenantId: string;
+  role: string;
+  name?: string;
+  iat: number;
+  exp: number;
+}
+
+/**
+ * JWT Payload Validation Schema
+ * Production-ready: Runtime validation of JWT claims
+ */
+const JWTPayloadSchema = z.object({
+  userId: z.string().min(1),
+  email: z.string().email(),
+  tenantId: z.string().min(1),
+  role: z.string().min(1),
+  name: z.string().optional(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+/**
+ * Legacy JWT Payload Format (backward compatibility)
+ * Some tokens may use 'id' instead of 'userId'
+ */
+const LegacyJWTPayloadSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().email().optional(),
+  tenantId: z.string().min(1).optional(),
+  role: z.string().min(1).optional(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+/**
  * Generate cryptographically secure password
  * AGENT_CONTEXT_ULTIMATE.md Compliant: No Math.random(), uses crypto module
  */
@@ -93,19 +134,37 @@ export function generateFullToken(user: { id: string; email: string; tenantId: s
 
 export function verifyToken(token: string): { userId: string; tenantId?: string; role?: string; email?: string } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    // ✅ PRODUCTION: Verify JWT signature first
+    const unverified = jwt.verify(token, JWT_SECRET);
 
-    // Handle both formats: { userId } and { id } and return extended info if available
-    if (decoded.userId || decoded.id) {
+    // ✅ PRODUCTION: Runtime validation of JWT payload (no 'as any')
+    // Try modern format first
+    const modernResult = JWTPayloadSchema.safeParse(unverified);
+    if (modernResult.success) {
       return {
-        userId: decoded.userId || decoded.id,
-        tenantId: decoded.tenantId,
-        role: decoded.role,
-        email: decoded.email
+        userId: modernResult.data.userId,
+        tenantId: modernResult.data.tenantId,
+        role: modernResult.data.role,
+        email: modernResult.data.email
       };
     }
-    
-    console.error('Token verification failed - no userId or id in decoded token:', decoded);
+
+    // Try legacy format (backward compatibility)
+    const legacyResult = LegacyJWTPayloadSchema.safeParse(unverified);
+    if (legacyResult.success) {
+      return {
+        userId: legacyResult.data.id,
+        tenantId: legacyResult.data.tenantId,
+        role: legacyResult.data.role,
+        email: legacyResult.data.email
+      };
+    }
+
+    // Payload validation failed
+    console.error('Token verification failed - invalid payload structure:', {
+      modernErrors: modernResult.error.errors,
+      legacyErrors: legacyResult.error.errors
+    });
     return null;
   } catch (error) {
     console.error('Token verification failed - JWT error:', error instanceof Error ? error.message : 'Unknown error');

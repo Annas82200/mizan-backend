@@ -409,11 +409,12 @@ Return ONLY a valid JSON object with NO markdown formatting:
     // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready error handling
     console.log('📊 Data Quality Check:', {
       hasDepartments: !!(rawStructureData.departments),
-      departmentCount: (rawStructureData.departments as any[])?.length || 0,
+      // ✅ PRODUCTION: Use Array.isArray() type guard instead of 'as any'
+      departmentCount: Array.isArray(rawStructureData.departments) ? rawStructureData.departments.length : 0,
       hasReportingLines: !!(rawStructureData.reportingLines),
-      reportingLineCount: (rawStructureData.reportingLines as any[])?.length || 0,
+      reportingLineCount: Array.isArray(rawStructureData.reportingLines) ? rawStructureData.reportingLines.length : 0,
       hasRoles: !!(rawStructureData.roles),
-      roleCount: (rawStructureData.roles as any[])?.length || 0,
+      roleCount: Array.isArray(rawStructureData.roles) ? rawStructureData.roles.length : 0,
       totalEmployees: rawStructureData.totalEmployees || 0,
       organizationLevels: rawStructureData.organizationLevels || 0
     });

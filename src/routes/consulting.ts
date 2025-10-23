@@ -95,7 +95,8 @@ router.use(validateTenantAccess);
 // Get consultation requests (tenant-isolated)
 router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     
     if (!user || !user.tenantId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
@@ -124,7 +125,8 @@ router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, re
 // Update request status (superadmin only for global requests, clientAdmin for tenant requests)
 router.put('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     const { status, assignedTo, notes } = req.body;
     
     if (!user || !user.tenantId) {
@@ -171,7 +173,8 @@ router.put('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
 // Get consultants (tenant-isolated for client admins)
 router.get('/consultants', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     
     if (!user || !user.tenantId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
@@ -204,7 +207,8 @@ router.get('/consultants', authorize(['clientAdmin', 'superadmin']), async (req,
 // Create consultation request (authenticated users only)
 router.post('/requests', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     
     if (!user || !user.tenantId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
@@ -256,7 +260,8 @@ router.post('/requests', authorize(['clientAdmin', 'superadmin']), async (req, r
 // Get specific consultation request (tenant-isolated)
 router.get('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     
     if (!user || !user.tenantId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
@@ -294,7 +299,8 @@ router.get('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
 // Delete consultation request (tenant-isolated)
 router.delete('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req, res) => {
   try {
-    const { user } = req as any;
+    // ✅ PRODUCTION: No 'as any' - using Express.Request extension
+    const { user } = req;
     
     if (!user || !user.tenantId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant context' });
