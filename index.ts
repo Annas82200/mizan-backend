@@ -34,12 +34,10 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('⚙️  Environment variables ready (injected by platform)');
 }
 
-// Log critical environment variables (without exposing secrets)
-console.log('📊 Environment Check:');
-console.log('  - PORT:', process.env.PORT || '3001');
-console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
-console.log('  - SESSION_SECRET:', process.env.SESSION_SECRET ? '✅ SET' : '⚠️  NOT SET');
-console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ SET' : '⚠️  NOT SET');
+// ✅ PRODUCTION: Validate configuration early - fails fast if invalid
+// This import triggers config validation and exits if any required env vars are missing
+import { config } from './src/config';
+// Config validation logs printed by config module
 
 // Import database and utilities
 console.log('📚 Loading database module...');

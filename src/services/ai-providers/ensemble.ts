@@ -58,20 +58,12 @@ export class EnsembleAI {
       // Transform ProviderCall from types.ts format to router.ts format
       const routerCall = {
         prompt: call.prompt || call.context?.join('\n') || '',
+        engine: call.engine,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
         requireJson: false
       };
-      const routerResponse = await invokeProvider(provider, routerCall);
-
-      // Transform response back to types.ts format
-      const response: ProviderResponse = {
-        provider: routerResponse.provider,
-        engine: call.engine,
-        narrative: routerResponse.response.content,
-        confidence: routerResponse.confidence,
-        usage: routerResponse.usage
-      };
+      const response = await invokeProvider(provider, routerCall);
 
       // Validate response quality
       if (response.confidence < this.config.minConfidence!) {
@@ -79,7 +71,7 @@ export class EnsembleAI {
           threshold: this.config.minConfidence,
           actual_confidence: response.confidence,
           prompt_length: (call.prompt ?? call.context?.join('\n') ?? '').length,
-          response_length: routerResponse.response.content.length,
+          response_length: response.narrative.length,
           timestamp: new Date().toISOString(),
           engine: call.engine
         });
@@ -98,20 +90,15 @@ export class EnsembleAI {
       // Transform to router format
       const routerCall = {
         prompt: call.prompt || call.context?.join('\n') || '',
+        engine: call.engine,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
         requireJson: false
       };
-      const routerResponse = await invokeProvider(this.config.fallbackProvider! as AIProviderKey, routerCall);
+      const response = await invokeProvider(this.config.fallbackProvider! as AIProviderKey, routerCall);
 
-      // Transform back to types.ts format
-      return {
-        provider: routerResponse.provider,
-        engine: call.engine,
-        narrative: typeof routerResponse.response === 'string' ? routerResponse.response : JSON.stringify(routerResponse.response),
-        confidence: routerResponse.confidence,
-        usage: routerResponse.usage
-      };
+      // Response is already in canonical format, no transformation needed
+      return response;
     } catch (error) {
       // Last resort fallback
       return {
@@ -220,9 +207,22 @@ export class EnsembleAI {
 
   private extractKeyInsight(responses: ProviderResponse[]): string {
     // Extract the most confident single insight
+    // Contract: All ProviderResponse objects have non-empty narrative (validated at creation in router.ts)
     const bestResponse = responses.sort((a, b) => b.confidence - a.confidence)[0];
+
+    // Validate contract - fail fast if violated
+    if (!bestResponse || !bestResponse.narrative || bestResponse.narrative.trim().length === 0) {
+      throw new Error('Contract violation: ProviderResponse must have non-empty narrative');
+    }
+
     const sentences = bestResponse.narrative.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    return sentences[0]?.trim() + '.' || "Multiple perspectives converge on organizational health factors.";
+
+    // If no sentences found (shouldn't happen due to contract), throw error
+    if (sentences.length === 0) {
+      throw new Error('Contract violation: narrative must contain at least one sentence');
+    }
+
+    return sentences[0].trim() + '.';
   }
 
   private clusterResponses(responses: ProviderResponse[]): ProviderResponse[][] {

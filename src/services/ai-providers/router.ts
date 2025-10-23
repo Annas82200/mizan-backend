@@ -4,44 +4,20 @@ import { OpenAI } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
+import { ProviderResponse, AIProviderKey, EngineType } from './types';
 
-export type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral';
+// ✅ PRODUCTION: Use canonical types from types.ts
+// Removed duplicate ProviderResponse interface (was lines 18-37)
 
-export interface ProviderCall {
+// Router-specific ProviderCall (simpler than types.ts version)
+export interface RouterProviderCall {
   prompt: string;
+  engine: EngineType;  // Required for canonical ProviderResponse
   model?: string;
   temperature?: number;
   maxTokens?: number;
   requireJson?: boolean;
 }
-
-export interface ProviderResponse {
-  provider: AIProviderKey;
-  response: {
-    content: string;
-    usage?: {
-      promptTokens?: number;
-      completionTokens?: number;
-      totalTokens?: number;
-    };
-    model?: string;
-    finishReason?: string;
-    [key: string]: unknown;
-  };
-  confidence: number;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
-
-// Moved to bottom of file to avoid duplicate
-// export interface TriadPayload extends ProviderCall {
-//   knowledgeQuery?: string;
-//   dataTask?: string;
-//   analysisGoal?: string;
-// }
 
 class AIProviderRouter {
   private openai: OpenAI;
@@ -66,7 +42,7 @@ class AIProviderRouter {
     this.mistral = new MistralClient(process.env.MISTRAL_API_KEY!);
   }
 
-  async invokeProvider(provider: AIProviderKey | "ensemble", call: ProviderCall): Promise<ProviderResponse> {
+  async invokeProvider(provider: AIProviderKey | "ensemble", call: RouterProviderCall): Promise<ProviderResponse> {
     if (provider === "ensemble") {
       return this.invokeEnsemble(call);
     }
@@ -85,15 +61,15 @@ class AIProviderRouter {
     }
   }
 
-  private async invokeEnsemble(call: ProviderCall): Promise<ProviderResponse> {
+  private async invokeEnsemble(call: RouterProviderCall): Promise<ProviderResponse> {
     const providers: AIProviderKey[] = ['openai', 'anthropic', 'gemini', 'mistral'];
-    
+
     const results = await Promise.allSettled(
       providers.map(provider => this.invokeProvider(provider, call))
     );
 
     const successfulResults = results
-      .filter((result): result is PromiseFulfilledResult<ProviderResponse> => 
+      .filter((result): result is PromiseFulfilledResult<ProviderResponse> =>
         result.status === 'fulfilled'
       )
       .map(result => result.value);
@@ -103,7 +79,7 @@ class AIProviderRouter {
     }
 
     // Return the result with highest confidence
-    const bestResult = successfulResults.reduce((best, current) => 
+    const bestResult = successfulResults.reduce((best, current) =>
       current.confidence > best.confidence ? current : best
     );
 
@@ -114,7 +90,7 @@ class AIProviderRouter {
     };
   }
 
-  private async invokeOpenAI(call: ProviderCall): Promise<ProviderResponse> {
+  private async invokeOpenAI(call: RouterProviderCall): Promise<ProviderResponse> {
     try {
       const response = await this.openai.chat.completions.create({
         model: call.model || "gpt-4o",  // gpt-4o supports 16k output tokens vs 4k for gpt-4-turbo
@@ -130,17 +106,24 @@ class AIProviderRouter {
         response_format: call.requireJson ? { type: "json_object" } : undefined
       });
 
-      const content = response.choices[0].message.content!;
+      const content = response.choices[0].message.content;
+
+      // ✅ Validate content exists before creating response (fail-fast, not defensive)
+      if (!content || content.trim().length === 0) {
+        throw new Error('OpenAI returned empty content');
+      }
+
       const usage = response.usage;
 
       return {
         provider: 'openai',
-        response: call.requireJson ? JSON.parse(content) : content,
+        engine: call.engine,
+        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
         confidence: this.extractConfidence(content),
         usage: usage ? {
           promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens,
-          totalTokens: usage.total_tokens
+          totalCost: 0  // Cost calculation handled by billing service if needed
         } : undefined
       };
     } catch (error) {
@@ -149,7 +132,7 @@ class AIProviderRouter {
     }
   }
 
-  private async invokeAnthropic(call: ProviderCall): Promise<ProviderResponse> {
+  private async invokeAnthropic(call: RouterProviderCall): Promise<ProviderResponse> {
     try {
       const response = await this.anthropic.messages.create({
         model: call.model || "claude-sonnet-4-5",
@@ -163,13 +146,19 @@ class AIProviderRouter {
         temperature: call.temperature || 0.1
       });
 
-      const content = response.content[0].type === 'text' 
-        ? response.content[0].text 
+      const content = response.content[0].type === 'text'
+        ? response.content[0].text
         : '';
+
+      // ✅ Validate content exists before creating response (fail-fast, not defensive)
+      if (!content || content.trim().length === 0) {
+        throw new Error('Anthropic returned empty content');
+      }
 
       return {
         provider: 'anthropic',
-        response: call.requireJson ? JSON.parse(content) : content,
+        engine: call.engine,
+        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -178,7 +167,7 @@ class AIProviderRouter {
     }
   }
 
-  private async invokeGemini(call: ProviderCall): Promise<ProviderResponse> {
+  private async invokeGemini(call: RouterProviderCall): Promise<ProviderResponse> {
     // Gemini doesn't support timeout in SDK, so we use AbortController
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
@@ -209,9 +198,15 @@ class AIProviderRouter {
       clearTimeout(timeoutId);
       const content = result.response.text();
 
+      // ✅ Validate content exists before creating response (fail-fast, not defensive)
+      if (!content || content.trim().length === 0) {
+        throw new Error('Gemini returned empty content');
+      }
+
       return {
         provider: 'gemini',
-        response: call.requireJson ? JSON.parse(content) : content,
+        engine: call.engine,
+        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -221,7 +216,7 @@ class AIProviderRouter {
     }
   }
 
-  private async invokeMistral(call: ProviderCall): Promise<ProviderResponse> {
+  private async invokeMistral(call: RouterProviderCall): Promise<ProviderResponse> {
     // Mistral doesn't support timeout in SDK, so we use AbortController
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.AI_REQUEST_TIMEOUT);
@@ -246,9 +241,15 @@ class AIProviderRouter {
       clearTimeout(timeoutId);
       const content = response.choices[0].message.content;
 
+      // ✅ Validate content exists before creating response (fail-fast, not defensive)
+      if (!content || content.trim().length === 0) {
+        throw new Error('Mistral returned empty content');
+      }
+
       return {
         provider: 'mistral',
-        response: call.requireJson ? JSON.parse(content) : content,
+        engine: call.engine,
+        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -283,11 +284,11 @@ class AIProviderRouter {
 export const aiRouter = new AIProviderRouter();
 
 // Export convenience functions
-export async function invokeProvider(provider: AIProviderKey | "ensemble", call: ProviderCall): Promise<ProviderResponse> {
+export async function invokeProvider(provider: AIProviderKey | "ensemble", call: RouterProviderCall): Promise<ProviderResponse> {
   return aiRouter.invokeProvider(provider, call);
 }
 
-export type TriadPayload = ProviderCall & {
+export type TriadPayload = RouterProviderCall & {
   knowledgeQuery?: string;
   dataTask?: string;
   analysisGoal?: string;

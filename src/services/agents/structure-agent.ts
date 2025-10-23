@@ -3,6 +3,7 @@ import { db } from '../../../db/index';
 import { organizationStructure, companyStrategies } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { invokeProvider } from '../ai-providers/router';
+import type { ProviderResponse } from '../ai-providers/types';
 import type {
   StructureData,
   StrategyData,
@@ -223,16 +224,16 @@ Return ONLY a valid JSON object with NO markdown formatting:
 }`;
 
     // Call AI - use fast mode (single Gemini call) or full consensus mode
-    let response;
+    let response: ProviderResponse;
     if (input.useFastMode) {
       // Fast mode: Single Gemini call (~3-5 seconds) for public page
-      const geminiResponse = await invokeProvider('gemini', {
+      response = await invokeProvider('gemini', {
         prompt,
+        engine: 'reasoning',
         model: 'gemini-2.5-flash',
         temperature: 0.7,
         maxTokens: 8000
       });
-      response = { narrative: geminiResponse.response };
     } else {
       // Full mode: 4-provider consensus (~30+ seconds) for authenticated users
       response = await this.reasoningAI.call({

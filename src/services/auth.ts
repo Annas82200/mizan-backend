@@ -4,11 +4,35 @@ import { eq, and } from "drizzle-orm";
 import { db } from "../db/client";
 import { users, sessions, tenants } from "../db/schema";
 import { z } from "zod";
+import crypto from 'crypto';
+import { config } from '../config';
 
-// In development, ensure JWT_SECRET is loaded
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
+// ✅ PRODUCTION: Use validated config, no fallback secrets
+const JWT_SECRET = config.JWT_SECRET;
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SALT_ROUNDS = 10; // Standard bcrypt salt rounds
+
+/**
+ * Generate cryptographically secure password
+ * AGENT_CONTEXT_ULTIMATE.md Compliant: No Math.random(), uses crypto module
+ */
+function generateSecurePassword(length: number = 16): string {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  const values = crypto.randomBytes(length);
+
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += charset[values[i] % charset.length];
+  }
+
+  // Ensure password meets complexity requirements
+  if (!/[A-Z]/.test(password)) password = password.slice(0, -1) + 'A';
+  if (!/[a-z]/.test(password)) password = password.slice(0, -1) + 'a';
+  if (!/[0-9]/.test(password)) password = password.slice(0, -1) + '1';
+  if (!/[!@#$%^&*]/.test(password)) password = password.slice(0, -1) + '!';
+
+  return password;
+}
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -285,9 +309,9 @@ export async function inviteEmployee(
   if (existingUser.length > 0) {
     throw new Error("Email already registered in this tenant");
   }
-  
-  // Generate temporary password
-  const temporaryPassword = Math.random().toString(36).slice(-8) + "Aa1!";
+
+  // ✅ PRODUCTION: Generate cryptographically secure temporary password
+  const temporaryPassword = generateSecurePassword(16);
   const passwordHash = await hashPassword(temporaryPassword);
   
   await db.insert(users).values({
