@@ -27,12 +27,18 @@ declare global {
 
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
     try {
+        // DEBUG: Log cookie presence
+        console.log('[AUTH] Cookies received:', req.cookies ? Object.keys(req.cookies) : 'NO COOKIES');
+        console.log('[AUTH] mizan_auth_token cookie:', req.cookies?.mizan_auth_token ? 'PRESENT' : 'MISSING');
+        console.log('[AUTH] Authorization header:', req.headers.authorization ? 'PRESENT' : 'MISSING');
+
         // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
         let token: string | undefined;
 
         // Priority 1: Check httpOnly cookie (secure, preferred method)
         if (req.cookies && req.cookies.mizan_auth_token) {
             token = req.cookies.mizan_auth_token;
+            console.log('[AUTH] Token source: httpOnly cookie');
         }
         // Priority 2: Check Authorization header (backward compatibility)
         else if (req.headers.authorization) {
@@ -50,9 +56,11 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
             }
 
             token = headerToken;
+            console.log('[AUTH] Token source: Authorization header');
         }
 
         if (!token) {
+            console.error('[AUTH] NO TOKEN FOUND - Rejecting request');
             return res.status(401).json({ error: 'No token provided' });
         }
 
