@@ -8,7 +8,7 @@ import { db } from '../../db/index';
 import { users, tenants } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Request, Response, NextFunction } from 'express';
-import { AuthenticatedUser } from '../middleware/auth';
+import { AuthenticatedUser, authenticate } from '../middleware/auth';
 import { generateFullToken } from '../services/auth';
 
 const router = Router();
@@ -52,88 +52,8 @@ interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
 
-// Middleware: Tenant Access Validation
-const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        code: 'MISSING_TOKEN' 
-      });
-    }
-    
-    const token = authHeader.substring(7);
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
-      
-      // Validate user exists and is active with tenant isolation
-      const user = await db.select()
-        .from(users)
-        .where(
-          and(
-            eq(users.id, decoded.id),
-            eq(users.tenantId, decoded.tenantId),
-            eq(users.isActive, true)
-          )
-        )
-        .limit(1);
-      
-      if (user.length === 0) {
-        return res.status(401).json({ 
-          error: 'User not found or inactive',
-          code: 'USER_NOT_FOUND' 
-        });
-      }
-      
-      // Validate tenant exists and is active
-      const tenant = await db.select()
-        .from(tenants)
-        .where(
-          and(
-            eq(tenants.id, decoded.tenantId),
-            eq(tenants.status, 'active')
-          )
-        )
-        .limit(1);
-      
-      if (tenant.length === 0) {
-        return res.status(403).json({ 
-          error: 'Tenant not found or inactive',
-          code: 'TENANT_INACTIVE' 
-        });
-      }
-      
-      req.user = {
-        id: decoded.id,
-        email: decoded.email,
-        tenantId: decoded.tenantId,
-        role: decoded.role,
-        name: user[0].name || '' // Include name from database
-      };
-      
-      next();
-      
-    } catch (jwtError) {
-      console.error('JWT validation error:', jwtError);
-      return res.status(401).json({ 
-        error: 'Invalid or expired token',
-        code: 'INVALID_TOKEN' 
-      });
-    }
-    
-  } catch (error) {
-    console.error('Tenant access validation error:', error);
-    return res.status(500).json({ 
-      error: 'Authentication validation failed',
-      code: 'AUTH_VALIDATION_ERROR' 
-    });
-  }
-};
-
-// Use generateFullToken from auth service for consistency
+// ✅ PRODUCTION: Use authenticate middleware from ../middleware/auth.ts
+// This middleware properly reads httpOnly cookies (Phase 1 Security)
 
 // Signup endpoint (No tenant isolation needed for signup)
 router.post('/signup', async (req, res) => {
@@ -333,8 +253,9 @@ router.post('/logout', (req, res) => {
   }
 });
 
-// Get current user (Protected with tenant isolation)
-router.get('/me', validateTenantAccess, async (req: AuthenticatedRequest, res: Response) => {
+// Get current user
+// ✅ PRODUCTION: Uses authenticate middleware which reads httpOnly cookies (Phase 1 Security)
+router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ 
