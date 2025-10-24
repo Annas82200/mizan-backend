@@ -100,9 +100,45 @@ export class StructureAgent extends ThreeEngineAgent {
     super('structure', config);
   }
 
+  /**
+   * Transform snake_case AI response to camelCase for frontend compatibility
+   * Backend AI engines return snake_case but frontend expects camelCase
+   */
+  private transformToCamelCase(snakeObj: Record<string, unknown>): StructureAnalysisOutput {
+    return {
+      overallScore: (snakeObj.overall_score as number) || 0,
+      overallHealthInterpretation: snakeObj.overall_health_interpretation as string,
+      humanImpact: snakeObj.human_impact as StructureAnalysisOutput['humanImpact'],
+      spanAnalysis: {
+        average: ((snakeObj.span_analysis as Record<string, unknown>)?.average as number) || 0,
+        distribution: ((snakeObj.span_analysis as Record<string, unknown>)?.distribution as Record<string, number>) || {},
+        interpretation: (snakeObj.span_analysis as Record<string, unknown>)?.interpretation as string,
+        outliers: ((snakeObj.span_analysis as Record<string, unknown>)?.outliers as StructureAnalysisOutput['spanAnalysis']['outliers']) || []
+      },
+      layerAnalysis: {
+        totalLayers: ((snakeObj.layer_analysis as Record<string, unknown>)?.totalLayers as number) || ((snakeObj.layer_analysis as Record<string, unknown>)?.total_layers as number) || 0,
+        averageLayersToBottom: ((snakeObj.layer_analysis as Record<string, unknown>)?.averageLayersToBottom as number) || ((snakeObj.layer_analysis as Record<string, unknown>)?.average_layers_to_bottom as number) || 0,
+        interpretation: (snakeObj.layer_analysis as Record<string, unknown>)?.interpretation as string,
+        bottlenecks: ((snakeObj.layer_analysis as Record<string, unknown>)?.bottlenecks as StructureAnalysisOutput['layerAnalysis']['bottlenecks']) || []
+      },
+      strategyAlignment: {
+        score: ((snakeObj.strategy_alignment as Record<string, unknown>)?.score as number) || 0,
+        interpretation: (snakeObj.strategy_alignment as Record<string, unknown>)?.interpretation as string,
+        misalignments: ((snakeObj.strategy_alignment as Record<string, unknown>)?.misalignments as StructureAnalysisOutput['strategyAlignment']['misalignments']) || []
+      },
+      recommendations: (snakeObj.recommendations as StructureAnalysisOutput['recommendations']) || [],
+      keyInsights: snakeObj.key_insights as string[],
+      nextSteps: snakeObj.next_steps as string[],
+      overallConfidence: (snakeObj.overall_confidence as number) || 0,
+      confidenceFactors: snakeObj.confidence_factors as StructureAnalysisOutput['confidenceFactors'],
+      scoreReasoning: snakeObj.score_reasoning as string
+    };
+  }
+
   async analyzeOrganizationStructure(input: StructureAnalysisInput): Promise<StructureAnalysisOutput> {
     const result = await this.analyze(input);
-    return result.finalOutput as unknown as StructureAnalysisOutput;
+    // Transform snake_case response from AI to camelCase for frontend
+    return this.transformToCamelCase(result.finalOutput as Record<string, unknown>);
   }
 
   /**
