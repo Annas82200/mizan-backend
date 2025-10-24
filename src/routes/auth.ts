@@ -52,77 +52,6 @@ interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
 
-// Token refresh endpoint
-router.post('/refresh', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        error: 'No token provided',
-        code: 'MISSING_TOKEN' 
-      });
-    }
-    
-    const token = authHeader.substring(7);
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
-      
-      // Verify user still exists and is active
-      const userResult = await db.select()
-        .from(users)
-        .where(
-          and(
-            eq(users.id, decoded.id),
-            eq(users.isActive, true)
-          )
-        )
-        .limit(1);
-      
-      if (userResult.length === 0) {
-        return res.status(401).json({ 
-          error: 'User not found or inactive',
-          code: 'USER_NOT_FOUND' 
-        });
-      }
-      
-      const user = userResult[0];
-
-      // Generate new token
-      const newToken = generateFullToken(user);
-
-      // ✅ PRODUCTION: Set httpOnly cookie (primary authentication)
-      res.cookie('mizan_auth_token', newToken, COOKIE_OPTIONS);
-
-      return res.json({
-        success: true,
-        token: newToken, // Still return token for backward compatibility
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          tenantId: user.tenantId
-        }
-      });
-      
-    } catch (jwtError) {
-      return res.status(401).json({ 
-        error: 'Invalid or expired token',
-        code: 'TOKEN_INVALID' 
-      });
-    }
-    
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR' 
-    });
-  }
-});
-
 // Middleware: Tenant Access Validation
 const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -457,24 +386,33 @@ router.get('/me', validateTenantAccess, async (req: AuthenticatedRequest, res: R
   }
 });
 
-// Token verification endpoint (Production-ready as per AGENT_CONTEXT_ULTIMATE.md)
+// Token verification endpoint
+// ✅ PRODUCTION: Reads token from httpOnly cookie (Phase 1 Security)
 router.get('/verify', async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
+    // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
+    let token: string | undefined;
+
+    // Priority 1: Check httpOnly cookie (secure, preferred method)
+    if (req.cookies && req.cookies.mizan_auth_token) {
+      token = req.cookies.mizan_auth_token;
+    }
+    // Priority 2: Check Authorization header (backward compatibility)
+    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.substring(7);
+    }
+
+    if (!token) {
+      return res.status(401).json({
         valid: false,
         error: 'No token provided',
-        code: 'MISSING_TOKEN' 
+        code: 'MISSING_TOKEN'
       });
     }
-    
-    const token = authHeader.substring(7);
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
-      
+
       // Validate user exists and is active with tenant isolation
       const user = await db.select()
         .from(users)
@@ -486,15 +424,15 @@ router.get('/verify', async (req: Request, res: Response) => {
           )
         )
         .limit(1);
-      
+
       if (user.length === 0) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           valid: false,
           error: 'User not found or inactive',
-          code: 'USER_NOT_FOUND' 
+          code: 'USER_NOT_FOUND'
         });
       }
-      
+
       // Validate tenant is active
       const tenant = await db.select()
         .from(tenants)
@@ -505,16 +443,16 @@ router.get('/verify', async (req: Request, res: Response) => {
           )
         )
         .limit(1);
-      
+
       if (tenant.length === 0) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           valid: false,
           error: 'Tenant inactive',
-          code: 'TENANT_INACTIVE' 
+          code: 'TENANT_INACTIVE'
         });
       }
-      
-      return res.json({ 
+
+      return res.json({
         valid: true,
         user: {
           id: decoded.id,
@@ -523,43 +461,52 @@ router.get('/verify', async (req: Request, res: Response) => {
           role: decoded.role
         }
       });
-      
+
     } catch (jwtError) {
       console.error('JWT verification error:', jwtError);
-      return res.status(401).json({ 
+      return res.status(401).json({
         valid: false,
         error: 'Invalid or expired token',
-        code: 'INVALID_TOKEN' 
+        code: 'INVALID_TOKEN'
       });
     }
-    
+
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       valid: false,
       error: 'Verification failed',
-      code: 'VERIFICATION_ERROR' 
+      code: 'VERIFICATION_ERROR'
     });
   }
 });
 
-// Token refresh endpoint (Production-ready implementation)
+// Token refresh endpoint
+// ✅ PRODUCTION: Reads token from httpOnly cookie (Phase 1 Security)
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
+    // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
+    let token: string | undefined;
+
+    // Priority 1: Check httpOnly cookie (secure, preferred method)
+    if (req.cookies && req.cookies.mizan_auth_token) {
+      token = req.cookies.mizan_auth_token;
+    }
+    // Priority 2: Check Authorization header (backward compatibility)
+    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.substring(7);
+    }
+
+    if (!token) {
+      return res.status(401).json({
         error: 'No token provided',
-        code: 'MISSING_TOKEN' 
+        code: 'MISSING_TOKEN'
       });
     }
-    
-    const token = authHeader.substring(7);
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
-      
+
       // Validate user still exists and is active with tenant isolation
       const userResult = await db.select({
         user: users,
@@ -575,23 +522,23 @@ router.post('/refresh', async (req: Request, res: Response) => {
           )
         )
         .limit(1);
-      
+
       if (userResult.length === 0) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           error: 'User not found or inactive',
-          code: 'USER_NOT_FOUND' 
+          code: 'USER_NOT_FOUND'
         });
       }
-      
+
       const { user, tenant } = userResult[0];
-      
+
       if (tenant && tenant.status !== 'active') {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'Tenant inactive',
-          code: 'TENANT_INACTIVE' 
+          code: 'TENANT_INACTIVE'
         });
       }
-      
+
       // Generate new token with updated expiry
       const newToken = generateFullToken(user);
 
@@ -609,20 +556,20 @@ router.post('/refresh', async (req: Request, res: Response) => {
           tenantId: user.tenantId
         }
       });
-      
+
     } catch (jwtError) {
       console.error('JWT refresh error:', jwtError);
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Invalid or expired token',
-        code: 'INVALID_TOKEN' 
+        code: 'INVALID_TOKEN'
       });
     }
-    
+
   } catch (error) {
     console.error('Token refresh error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Refresh failed',
-      code: 'REFRESH_ERROR' 
+      code: 'REFRESH_ERROR'
     });
   }
 });
