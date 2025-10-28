@@ -503,13 +503,31 @@ Key frameworks to apply:
 6. **Span & Layer Guidelines** - Tactical optimization for speed/coaching
 7. **Decision Rights** - Who decides what? Push decisions down.
 
-Your output should be structured JSON containing:
-- applicable_frameworks: Which frameworks are most relevant for this strategy type?
-- strategy_structure_fit: Does current structure match what this strategy needs?
-- misalignment_risks: Where will structure prevent strategy execution?
-- optimal_patterns: What structural pattern would enable this strategy?
+IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no additional text):
 
-Focus on: "Will this structure help them achieve their goals, or slow them down?"`;
+{
+  "applicable_frameworks": ["Framework 1", "Framework 2", "etc"],
+
+  "strategy_structure_fit": {
+    "assessment": "NARRATIVE EXPLANATION: Based on their stated strategy and current structure, explain whether the structure enables or fights against the strategy. Be specific about why.",
+    "alignment_level": "strong OR moderate OR weak OR misaligned",
+    "key_factors": ["Factor 1 affecting alignment", "Factor 2", "etc"]
+  },
+
+  "misalignment_risks": {
+    "risks": ["Risk 1: Specific risk based on their data", "Risk 2: Another specific risk"],
+    "narrative": "NARRATIVE EXPLANATION: How these structural issues will prevent them from achieving their strategy. Reference their specific context."
+  },
+
+  "optimal_patterns": {
+    "recommended_structure": "NARRATIVE: Describe the structural pattern that would best enable their specific strategy",
+    "rationale": "NARRATIVE: Explain why this structure fits their strategy and context better than their current structure",
+    "key_changes": ["Specific change 1", "Specific change 2"]
+  }
+}
+
+Base ALL analysis on their actual data (strategy, employees, departments, reporting lines).
+Answer: "Does their structure enable their strategy?" with specific evidence.`;
   }
 
   protected getDataSystemPrompt(): string {
@@ -521,14 +539,57 @@ You will receive:
 - Layer analysis
 - Strategy information (if available)
 
-Your output should be structured JSON containing:
-- structure_metrics: Key structural measurements
-- span_analysis: Span of control patterns and outliers
-- layer_analysis: Hierarchical layer insights
-- bottleneck_identification: Structural bottlenecks
-- efficiency_metrics: Structural efficiency indicators
+IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no additional text):
 
-Focus on quantitative analysis and pattern identification.`;
+{
+  "structure_metrics": {
+    "total_employees": 12,
+    "departments": 5,
+    "layers": 3,
+    "span_of_control_avg": 2.5,
+    "interpretation": "NARRATIVE: What these metrics mean for their operations and strategy execution"
+  },
+
+  "span_analysis": {
+    "findings": "NARRATIVE: Key patterns in span of control and what they indicate about organizational efficiency",
+    "average": 2.5,
+    "distribution": {"1": 3, "2": 2, "3": 1, "4+": 1},
+    "outliers": [
+      {
+        "role": "Role name",
+        "span": 8,
+        "issue": "NARRATIVE: Why this specific span is problematic for their strategy"
+      }
+    ]
+  },
+
+  "layer_analysis": {
+    "total_layers": 3,
+    "average_layers_to_bottom": 1.8,
+    "interpretation": "NARRATIVE: How the layer depth affects decision speed and strategic agility",
+    "bottlenecks": [
+      {
+        "layer": 2,
+        "roles": ["Role 1", "Role 2"],
+        "issue": "NARRATIVE: How this creates a bottleneck"
+      }
+    ]
+  },
+
+  "bottleneck_identification": {
+    "bottlenecks": ["Bottleneck 1: Too many direct reports to CEO", "Bottleneck 2: Single point of failure in Product"],
+    "narrative": "NARRATIVE: How these specific bottlenecks will impede their strategy execution"
+  },
+
+  "efficiency_metrics": {
+    "decision_layers": 3,
+    "coordination_complexity": "high",
+    "structural_efficiency_score": 65,
+    "interpretation": "NARRATIVE: Overall assessment of structural efficiency for their size and strategy"
+  }
+}
+
+Focus on data-driven insights. Every narrative should reference specific numbers and explain their impact on strategy execution.`;
   }
 
   protected getReasoningSystemPrompt(): string {
@@ -539,14 +600,63 @@ You will receive:
 - Structural data analysis
 - Strategy context (if available)
 
-Your output should be structured JSON containing:
-- overall_score: Overall structural health score (0-100)
-- span_analysis: Detailed span of control assessment
-- layer_analysis: Hierarchical structure assessment
-- strategy_alignment: How well structure supports strategy
-- recommendations: Prioritized structural improvements
+IMPORTANT: Return ONLY a valid JSON object with this EXACT structure (no additional text):
 
-Connect theory with data to provide clear, actionable insights.`;
+{
+  "overall_score": 75,
+  "overall_health_interpretation": "NARRATIVE: Clear answer - does their structure enable their strategy? Explain why or why not with specific evidence from their data.",
+
+  "human_impact": {
+    "interpretation": "NARRATIVE: How this structure affects the human experience at work",
+    "employee_experience": "NARRATIVE: What it's like to work in this structure day-to-day",
+    "cultural_impact": "NARRATIVE: How this structure shapes company culture and behaviors"
+  },
+
+  "span_analysis": {
+    "average": 2.5,
+    "distribution": {"1": 3, "2": 2, "3": 1, "4+": 1},
+    "interpretation": "NARRATIVE: What the span of control patterns mean for management effectiveness",
+    "outliers": [
+      {
+        "role": "Specific role",
+        "span": 8,
+        "recommendation": "NARRATIVE: Specific recommendation for this role"
+      }
+    ]
+  },
+
+  "layer_analysis": {
+    "total_layers": 3,
+    "average_layers_to_bottom": 1.8,
+    "interpretation": "NARRATIVE: How layer structure affects organizational agility",
+    "bottlenecks": [
+      {
+        "layer": 2,
+        "roles": ["Role 1", "Role 2"],
+        "issue": "NARRATIVE: Specific bottleneck and its impact"
+      }
+    ]
+  },
+
+  "strategy_alignment": {
+    "score": 65,
+    "interpretation": "NARRATIVE: Detailed explanation of how well the structure aligns with their stated strategy",
+    "risks": ["Risk 1: Specific risk with explanation", "Risk 2: Another risk with context"],
+    "opportunities": ["Opportunity 1: Specific opportunity", "Opportunity 2: Another opportunity"]
+  },
+
+  "recommendations": [
+    {
+      "title": "Specific actionable recommendation",
+      "description": "NARRATIVE: Detailed explanation of what to change, why it matters for their strategy, and expected benefits",
+      "actionItems": ["Concrete step 1", "Concrete step 2", "Concrete step 3"],
+      "expectedImpact": "NARRATIVE: How this change will enable their strategy - be specific",
+      "priority": "high OR medium OR low"
+    }
+  ]
+}
+
+CRITICAL: Answer "Does their structure enable their strategy?" directly. Base ALL recommendations on their specific data and strategy, not generic advice.`;
   }
 
   protected buildKnowledgePrompt(inputData: Record<string, unknown>, frameworks: Record<string, unknown>): string {
