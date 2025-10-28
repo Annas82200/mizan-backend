@@ -9,10 +9,10 @@ export class EnsembleAI {
   constructor(config: EnsembleConfig) {
     this.config = {
       strategy: config.strategy || "weighted",
-      providers: config.providers || ["openai", "claude", "gemini"],
+      providers: config.providers || ["openai", "anthropic", "gemini"],
       weights: config.weights || {
         openai: 0.35,
-        claude: 0.35,
+        anthropic: 0.35,
         gemini: 0.20,
         mistral: 0.10,
         cohere: 0.10
@@ -62,7 +62,7 @@ export class EnsembleAI {
         engine: call.engine,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
-        requireJson: false
+        requireJson: call.requireJson ?? false
       };
       const response = await invokeProvider(provider, routerCall);
 
@@ -99,7 +99,7 @@ export class EnsembleAI {
         engine: call.engine,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
-        requireJson: false
+        requireJson: call.requireJson ?? false
       };
       const response = await invokeProvider(this.config.fallbackProvider! as AIProviderKey, routerCall);
 
@@ -301,7 +301,7 @@ export class EnsembleAI {
 // ✅ PRODUCTION: Structure-aware confidence thresholds for different agent types
 export const ensembleAI = new EnsembleAI({
   strategy: "weighted",
-  providers: ["openai", "claude", "gemini", "mistral", "cohere"],
+  providers: ["openai", "anthropic", "gemini", "mistral", "cohere"],
   minConfidence: 0.7,  // Default threshold restored (was 0.6, too low)
 
   // Agent-specific thresholds based on complexity and accuracy requirements

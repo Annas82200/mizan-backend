@@ -13,6 +13,7 @@ export type ProviderCall = {
   context?: string[];
   temperature?: number; // 0..1, for fine-tuning creativity
   maxTokens?: number;
+  requireJson?: boolean; // Whether to request JSON formatted response
 };
 
 export type ProviderResponse = {

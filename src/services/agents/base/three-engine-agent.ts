@@ -107,7 +107,8 @@ export abstract class ThreeEngineAgent {
       engine: 'knowledge',
       prompt: `${this.getKnowledgeSystemPrompt()}\n\n${prompt}`,
       temperature: this.config.knowledge.temperature,
-      maxTokens: this.config.knowledge.maxTokens
+      maxTokens: this.config.knowledge.maxTokens,
+      requireJson: true
     };
 
     const response = await this.knowledgeAI.call(providerCall);
@@ -131,7 +132,8 @@ export abstract class ThreeEngineAgent {
       engine: 'data',
       prompt: `${this.getDataSystemPrompt()}\n\n${prompt}`,
       temperature: this.config.data.temperature,
-      maxTokens: this.config.data.maxTokens
+      maxTokens: this.config.data.maxTokens,
+      requireJson: true
     };
 
     const response = await this.dataAI.call(providerCall);
@@ -158,7 +160,8 @@ export abstract class ThreeEngineAgent {
       engine: 'reasoning',
       prompt: `${this.getReasoningSystemPrompt()}\n\n${prompt}`,
       temperature: this.config.reasoning.temperature,
-      maxTokens: this.config.reasoning.maxTokens
+      maxTokens: this.config.reasoning.maxTokens,
+      requireJson: true
     };
 
     const response = await this.reasoningAI.call(providerCall);
