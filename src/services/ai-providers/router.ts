@@ -143,7 +143,7 @@ class AIProviderRouter {
       return {
         provider: 'openai',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
+        narrative: call.requireJson ? this.extractJsonFromResponse(content) : content.trim(),
         confidence: this.extractConfidence(content),
         usage: usage ? {
           promptTokens: usage.prompt_tokens,
@@ -184,7 +184,7 @@ class AIProviderRouter {
       return {
         provider: 'anthropic',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
+        narrative: call.requireJson ? this.extractJsonFromResponse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -232,7 +232,7 @@ class AIProviderRouter {
       return {
         provider: 'gemini',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
+        narrative: call.requireJson ? this.extractJsonFromResponse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -279,7 +279,7 @@ class AIProviderRouter {
       return {
         provider: 'mistral',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
+        narrative: call.requireJson ? this.extractJsonFromResponse(content) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
