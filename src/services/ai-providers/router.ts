@@ -143,7 +143,7 @@ class AIProviderRouter {
       return {
         provider: 'openai',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
+        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
         confidence: this.extractConfidence(content),
         usage: usage ? {
           promptTokens: usage.prompt_tokens,
@@ -184,7 +184,7 @@ class AIProviderRouter {
       return {
         provider: 'anthropic',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
+        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -232,7 +232,7 @@ class AIProviderRouter {
       return {
         provider: 'gemini',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
+        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -279,7 +279,7 @@ class AIProviderRouter {
       return {
         provider: 'mistral',
         engine: call.engine,
-        narrative: call.requireJson ? JSON.parse(content) : content.trim(),
+        narrative: call.requireJson ? JSON.parse(this.extractJsonFromResponse(content)) : content.trim(),
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
@@ -288,11 +288,48 @@ class AIProviderRouter {
     }
   }
 
+  /**
+   * Extracts JSON from markdown-wrapped or raw responses
+   * Handles responses like ```json{...}``` or raw JSON
+   *
+   * @param content The raw response content from AI provider
+   * @returns Clean JSON string ready for parsing
+   */
+  private extractJsonFromResponse(content: string): string {
+    // First, try to extract from markdown code blocks
+    const markdownJsonMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (markdownJsonMatch && markdownJsonMatch[1]) {
+      return markdownJsonMatch[1].trim();
+    }
+
+    // Try to find JSON object or array directly in the content
+    // This regex looks for content starting with { and ending with } or [ and ]
+    const jsonObjectMatch = content.match(/(\{[\s\S]*\})/);
+    if (jsonObjectMatch && jsonObjectMatch[1]) {
+      // Validate it's likely JSON by checking for quotes and colons
+      const candidate = jsonObjectMatch[1];
+      if (candidate.includes('"') && candidate.includes(':')) {
+        return candidate.trim();
+      }
+    }
+
+    const jsonArrayMatch = content.match(/(\[[\s\S]*\])/);
+    if (jsonArrayMatch && jsonArrayMatch[1]) {
+      return jsonArrayMatch[1].trim();
+    }
+
+    // If no patterns match, return the original content trimmed
+    // Let JSON.parse handle the validation
+    return content.trim();
+  }
+
   private extractConfidence(response: string): number {
     // ✅ PRODUCTION: JSON-first confidence extraction
     // Try 1: Parse as JSON and extract confidence field
     try {
-      const json = JSON.parse(response);
+      // First extract JSON if it's wrapped in markdown
+      const cleanJson = this.extractJsonFromResponse(response);
+      const json = JSON.parse(cleanJson);
 
       // Check for confidence field (supports both 0-1 and 0-100 formats)
       if (typeof json.confidence === 'number') {

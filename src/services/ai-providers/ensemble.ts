@@ -269,23 +269,46 @@ export class EnsembleAI {
   }
 
   private synthesizeNarratives(narratives: string[], call: ProviderCall): string {
-    // Check if this is a JSON response - if so, return the best one unwrapped
-    const primaryInsight = narratives[0];
+    // Handle case where narratives might contain objects (parsed JSON) or strings
+    const primaryNarrative = narratives[0];
+
+    // If the narrative is already an object (from JSON parsing), handle it differently
+    if (typeof primaryNarrative === 'object' && primaryNarrative !== null) {
+      // For JSON objects, we want to preserve the structure
+      // Pick the most complete/best response based on object properties
+      const bestObject = narratives.reduce((best, current) => {
+        if (typeof current === 'object' && current !== null) {
+          // Compare by number of properties or specific important fields
+          const bestKeys = Object.keys(best).length;
+          const currentKeys = Object.keys(current).length;
+          return currentKeys > bestKeys ? current : best;
+        }
+        return best;
+      }, primaryNarrative);
+
+      // Return the object (it will be used as the narrative)
+      return bestObject as any;
+    }
+
+    // Original string handling logic
+    const primaryInsight = String(primaryNarrative); // Ensure it's a string
 
     // Detect JSON responses (starts with { or [ after trimming, or contains ```json)
     const trimmed = primaryInsight.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('```json')) {
       // Return JSON unwrapped - pick the longest/most complete response
-      const bestJson = narratives.reduce((best, current) =>
-        current.length > best.length ? current : best
-      , primaryInsight);
+      const bestJson = narratives.reduce((best, current) => {
+        const currentStr = String(current);
+        const bestStr = String(best);
+        return currentStr.length > bestStr.length ? currentStr : bestStr;
+      }, primaryInsight);
       return bestJson;
     }
 
     // For non-JSON responses, combine insights intelligently
     const engine = call.engine;
     const agent = call.agent;
-    const secondaryInsight = narratives[1] || "";
+    const secondaryInsight = String(narratives[1] || "");
 
     // Extract key points from both
     const primaryPoint = primaryInsight.split(/[.!?]/)[0].trim();
