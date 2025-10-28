@@ -126,12 +126,7 @@ export class StructureAgent extends ThreeEngineAgent {
         interpretation: (snakeObj.strategy_alignment as Record<string, unknown>)?.interpretation as string,
         misalignments: ((snakeObj.strategy_alignment as Record<string, unknown>)?.misalignments as StructureAnalysisOutput['strategyAlignment']['misalignments']) || []
       },
-      recommendations: (snakeObj.recommendations as StructureAnalysisOutput['recommendations']) || [],
-      keyInsights: snakeObj.key_insights as string[],
-      nextSteps: snakeObj.next_steps as string[],
-      overallConfidence: (snakeObj.overall_confidence as number) || 0,
-      confidenceFactors: snakeObj.confidence_factors as StructureAnalysisOutput['confidenceFactors'],
-      scoreReasoning: snakeObj.score_reasoning as string
+      recommendations: (snakeObj.recommendations as StructureAnalysisOutput['recommendations']) || []
     };
   }
 
