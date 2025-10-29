@@ -61,7 +61,7 @@ import employeeRoutes from './src/routes/employee';
 import superadminRoutes from './src/routes/superadmin';
 import cultureRoutes from './src/routes/culture-assessment';
 import uploadRoutes from './src/routes/upload';
-// import analysesRoutes from './src/routes/analyses';
+// import analysesRoutes from './src/routes/analyses'; // Has TypeScript errors - using upload route instead
 import billingRoutes from './src/routes/billing';
 import modulesRoutes from './src/routes/modules';
 // import frameworkRoutes from './src/routes/framework';
@@ -471,7 +471,7 @@ app.use('/api/employee', employeeRoutes);
 app.use('/api/superadmin', superadminRoutes); // Superadmin endpoints
 app.use('/api/culture-assessment', cultureRoutes); // Culture assessment endpoints
 app.use('/api/upload', uploadRoutes); // File upload and org structure analysis
-// app.use('/api/analyses', analysesRoutes); // Analysis endpoints (structure, culture)
+// app.use('/api/analyses', analysesRoutes); // Has TypeScript errors - structure analysis works via /api/upload/org-chart
 app.use('/api/billing', billingRoutes); // Billing and payment endpoints (legacy)
 app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only)
 app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin management)
