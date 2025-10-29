@@ -1,7 +1,7 @@
 import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent';
 import { db } from '../../../db/index';
 import { organizationStructure, companyStrategies } from '../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { invokeProvider } from '../ai-providers/router';
 import type { ProviderResponse } from '../ai-providers/types';
 import type {
@@ -89,12 +89,12 @@ export class StructureAgent extends ThreeEngineAgent {
         temperature: 0.4,
         maxTokens: 4000
       },
-      // Consensus threshold set to 0.7 to accommodate genuinely flat org structures
+      // Consensus threshold set to 0.6 to accommodate genuinely flat org structures
       // Some orgs have 5 depts for 12 people (42% dept heads) which is unusual but valid
       // AI providers struggle with flat structures, returning 0.6-0.7 confidence
       // TODO: Revert to 0.8 once org structure normalizes or add structure-specific thresholds
       // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready configuration
-      consensusThreshold: 0.7
+      consensusThreshold: 0.6
     };
 
     super('structure', config);
@@ -277,6 +277,15 @@ Return ONLY a valid JSON object with NO markdown formatting:
     }
 
     // Parse JSON with fallback handling
+    // Enhanced logging for debugging
+    console.log('[Structure Analysis] Response received:', {
+      provider: response.provider,
+      confidence: response.confidence,
+      narrativeType: typeof response.narrative,
+      narrativeLength: typeof response.narrative === 'string' ? response.narrative.length : 'N/A',
+      narrativePreview: typeof response.narrative === 'string' ? response.narrative.substring(0, 100) : JSON.stringify(response.narrative).substring(0, 100)
+    });
+
     try {
       let jsonText = response.narrative;
       // Remove markdown code blocks if present
@@ -284,10 +293,23 @@ Return ONLY a valid JSON object with NO markdown formatting:
         jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       }
       const analysis = JSON.parse(typeof jsonText === 'string' ? jsonText : JSON.stringify(jsonText));
+
+      // Validate required fields
+      const requiredFields = ['overallScore', 'spanAnalysis', 'layerAnalysis'];
+      const missingFields = requiredFields.filter(field => !(field in analysis));
+
+      if (missingFields.length > 0) {
+        console.error('[Structure Analysis] Missing required fields:', missingFields);
+        console.error('[Structure Analysis] Received fields:', Object.keys(analysis));
+        throw new Error(`Analysis missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      console.log('[Structure Analysis] Successfully parsed with fields:', Object.keys(analysis));
       return analysis;
     } catch (error) {
-      console.error('Failed to parse structure analysis:', error);
-      console.error('Raw response:', typeof response.narrative === 'string' ? response.narrative.substring(0, 500) : 'Not a string');
+      console.error('[Structure Analysis] Failed to parse:', error);
+      console.error('[Structure Analysis] Raw response type:', typeof response.narrative);
+      console.error('[Structure Analysis] Raw response preview:', typeof response.narrative === 'string' ? response.narrative.substring(0, 500) : JSON.stringify(response.narrative).substring(0, 500));
       // Return structured fallback
       return {
         overallScore: 50,
@@ -405,15 +427,39 @@ Return ONLY a valid JSON object with NO markdown formatting:
     const typedInput = inputData as StructureAnalysisInput;
     const tenantId = typedInput.tenantId;
 
+    // If structure data is provided directly, use it instead of fetching from DB
+    if (inputData.structureData) {
+      console.log('📊 Using provided structure data for analysis');
+      const structureData = inputData.structureData as StructureData;
+
+      // Get strategy if available
+      const strategy = inputData.strategyData ? [inputData.strategyData] : [];
+      const strategyData = strategy.length > 0 ? strategy[0] : null;
+
+      return {
+        structure: this.analyzeStructureData(structureData),
+        strategy: strategyData ? {
+          objectives: (strategyData as Record<string, unknown>).objectives,
+          requiredSkills: (strategyData as Record<string, unknown>).requiredSkills,
+          targetValues: (strategyData as Record<string, unknown>).targetValues,
+          timeframe: (strategyData as Record<string, unknown>).timeframe
+        } : null,
+        metadata: {
+          dataSource: 'provided',
+          tenantId: typedInput.tenantId
+        }
+      };
+    }
+
     console.log('✅ Database connection established');
     console.log(`📊 Fetching organization structure for tenant: ${tenantId}`);
 
-    // Get organization structure
+    // Get organization structure (get the most recent one)
     const structure = await db
       .select()
       .from(organizationStructure)
       .where(eq(organizationStructure.tenantId, tenantId))
-      .orderBy(organizationStructure.createdAt)
+      .orderBy(desc(organizationStructure.createdAt))
       .limit(1);
 
     // Get company strategy
@@ -487,7 +533,13 @@ Return ONLY a valid JSON object with NO markdown formatting:
   }
 
   protected getKnowledgeSystemPrompt(): string {
-    return `You are the Knowledge Engine for Mizan's Structure Agent. Your role is to apply organizational design frameworks to understand if a company's structure will help them achieve their strategy.
+    return `CRITICAL INSTRUCTIONS:
+1. Return ONLY the JSON object specified below
+2. Do NOT wrap in markdown code blocks (no \`\`\`json)
+3. Do NOT include any text before or after the JSON
+4. Start your response with { and end with }
+
+You are the Knowledge Engine for Mizan's Structure Agent. Your role is to apply organizational design frameworks to understand if a company's structure will help them achieve their strategy.
 
 CORE QUESTION: "Does this structure enable the strategy, or fight against it?"
 
@@ -531,7 +583,13 @@ Answer: "Does their structure enable their strategy?" with specific evidence.`;
   }
 
   protected getDataSystemPrompt(): string {
-    return `You are the Data Engine for Mizan's Structure Agent. Your role is to analyze organizational structure data and identify patterns.
+    return `CRITICAL INSTRUCTIONS:
+1. Return ONLY the JSON object specified below
+2. Do NOT wrap in markdown code blocks (no \`\`\`json)
+3. Do NOT include any text before or after the JSON
+4. Start your response with { and end with }
+
+You are the Data Engine for Mizan's Structure Agent. Your role is to analyze organizational structure data and identify patterns.
 
 You will receive:
 - Organizational chart data (roles, reporting relationships, levels)
@@ -593,7 +651,13 @@ Focus on data-driven insights. Every narrative should reference specific numbers
   }
 
   protected getReasoningSystemPrompt(): string {
-    return `You are the Reasoning Engine for Mizan's Structure Agent. Your role is to synthesize organizational design theory with structural data to provide actionable recommendations.
+    return `CRITICAL INSTRUCTIONS:
+1. Return ONLY the JSON object specified below
+2. Do NOT wrap in markdown code blocks (no \`\`\`json)
+3. Do NOT include any text before or after the JSON
+4. Start your response with { and end with }
+
+You are the Reasoning Engine for Mizan's Structure Agent. Your role is to synthesize organizational design theory with structural data to provide actionable recommendations.
 
 You will receive:
 - Organizational design framework insights

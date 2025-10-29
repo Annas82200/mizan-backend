@@ -10,6 +10,7 @@ import { organizationStructure } from "../../db/schema/strategy";
 import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared";
 import bcrypt from "bcryptjs";
+import { Department, ReportingLine, StructureData, Role } from "../types/structure-types";
 
 const router = Router();
 
@@ -33,8 +34,6 @@ const validateTenantAccess = async (req: Request, res: Response, next: Function)
     if (tenantResult.length === 0) {
       return res.status(404).json({ error: "Tenant not found" });
     }
-
-    const tenant = tenantResult[0];
 
     next();
   } catch (error) {
@@ -413,17 +412,23 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     console.log(`📊 Data quality: ${parsedData.totalEmployees} employees, ${parsedData.organizationLevels} levels, ${parsedData.departments.length} departments`);
 
     // STEP 3: NOW run analysis (data already saved, so failure won't block persistence)
-    // Use actual StructureAgent with Three-Engine Architecture
+    // Use generateRichStructureAnalysis which works correctly with provided data
     let analysisResult = null;
     try {
       const { StructureAgent } = await import('../services/agents/structure-agent.js');
       const structureAgent = new StructureAgent();
-      
-      analysisResult = await structureAgent.analyzeOrganizationStructure({
+
+      // Get tenant name for analysis
+      const tenantInfo = await db.select().from(tenants).where(eq(tenants.id, targetTenantId)).limit(1);
+      const tenantName = tenantInfo.length > 0 ? tenantInfo[0].name : 'Unknown Company';
+
+      analysisResult = await structureAgent.generateRichStructureAnalysis({
         tenantId: targetTenantId,
-        structureId: randomUUID()
+        companyName: tenantName,
+        structureData: parsedData,  // Pass the actual parsed structure data
+        strategyData: undefined  // Strategy can be added later if available
       });
-      
+
       console.log('✅ Structure analysis completed successfully');
     } catch (analysisError) {
       // Log but don't fail the entire upload - data already saved
@@ -492,40 +497,8 @@ interface ParsedRole {
   children?: ParsedRole[];
 }
 
-// NEW: Enhanced interfaces matching Structure Agent expectations
-interface Department {
-  id: string;
-  name: string;
-  headId: string;
-  employeeCount: number;
-  subDepartments: string[];
-}
-
-interface ReportingLine {
-  id: string;
-  fromRoleId: string;
-  toRoleId: string;
-  reportingType: 'direct' | 'dotted' | 'matrix';
-  strength: number;
-}
-
-interface Role {
-  id: string;
-  title: string;
-  level: number;
-  department: string;
-  reportsTo: string | null;
-  directReports: number;
-  employeeCount: number;
-}
-
-interface StructureData {
-  departments: Department[];
-  reportingLines: ReportingLine[];
-  roles: Role[];
-  totalEmployees: number;
-  organizationLevels: number;
-}
+// Import types from structure-types instead of redefining them
+// Using the proper Department, ReportingLine, Role, and StructureData types from structure-types.ts
 
 // ENHANCED: Parse org text into structured data with proper format for AI analysis
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready data transformation
@@ -560,9 +533,11 @@ function parseOrgTextToStructure(orgText: string): StructureData {
     title: pr.name,
     level: pr.level,
     department: findDepartmentForRole(pr, parsedRoles, departments),
-    reportsTo: pr.reports,
-    directReports: parsedRoles.filter(r => r.reports === pr.name).length,
-    employeeCount: 1 // Each role = 1 employee (can enhance with CSV data)
+    reportsTo: pr.reports || undefined,
+    // directReports should be an array of IDs of roles that report to this role
+    directReports: parsedRoles
+      .filter(r => r.reports === pr.name)
+      .map(r => r.id)
   }));
 
   return {
@@ -579,7 +554,7 @@ function parseOrgTextToStructure(orgText: string): StructureData {
 // Level 2+ are managers/employees WITHIN departments
 function extractDepartments(roles: ParsedRole[]): Department[] {
   const deptMap = new Map<string, Department>();
-  
+
   // Identify ONLY level 1 roles as departments
   roles.filter(r => r.level === 1).forEach(role => {
     const deptName = role.name;
@@ -587,15 +562,15 @@ function extractDepartments(roles: ParsedRole[]): Department[] {
       deptMap.set(deptName, {
         id: `dept-${deptMap.size}`,
         name: deptName,
-        headId: role.id,
-        employeeCount: roles.filter(r => 
+        parentId: undefined, // Top-level departments have no parent
+        headCount: roles.filter(r =>
           r.name === deptName || r.reports === deptName
         ).length,
-        subDepartments: []
+        manager: role.name // The department head is the manager
       });
     }
   });
-  
+
   return Array.from(deptMap.values());
 }
 
@@ -608,11 +583,9 @@ function buildReportingLines(roles: ParsedRole[]): ReportingLine[] {
       const manager = roles.find(r => r.name === role.reports);
       if (manager) {
         lines.push({
-          id: `line-${lines.length}`,
-          fromRoleId: role.id,
-          toRoleId: manager.id,
-          reportingType: 'direct' as const,
-          strength: 1.0
+          from: role.name,  // Using role name as the from identifier
+          to: role.reports, // Using the manager's name as the to identifier
+          type: 'direct'    // Default to 'direct' reporting type
         });
       }
     }
