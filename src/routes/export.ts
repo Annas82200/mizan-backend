@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 // import { validateTenantAccess } from '../middleware/tenant';
 import { db } from '../../db/index';
-// import { structureTable } from '../db/schema/structure';
+import { orgStructures } from '../db/schema/core';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();
@@ -70,16 +70,16 @@ interface AnalysisExport {
 
 // Validate that analysis data belongs to the authenticated tenant
 async function validateAnalysisOwnership(
-  analysisId: string, 
+  analysisId: string,
   tenantId: string
 ): Promise<boolean> {
   try {
     const analysis = await db.select()
-      .from(structureTable)
+      .from(orgStructures)
       .where(
         and(
-          eq(structureTable.id, analysisId),
-          eq(structureTable.tenantId, tenantId)
+          eq(orgStructures.id, analysisId),
+          eq(orgStructures.tenantId, tenantId)
         )
       )
       .limit(1);
@@ -861,7 +861,7 @@ router.post('/structure', async (req: Request, res: Response) => {
     }
 
     // Generate the HTML export with the validated data
-    const html = generateStructureHTML(analysisData, tenantName || 'Organization');
+    const html = generateHTMLExport(analysisData, tenantName || 'Organization');
 
     // Set appropriate headers for HTML download
     res.setHeader('Content-Type', 'text/html');
@@ -876,24 +876,5 @@ router.post('/structure', async (req: Request, res: Response) => {
     });
   }
 });
-
-// Helper function to validate analysis ownership
-async function validateAnalysisOwnership(analysisId: string, tenantId: string): Promise<boolean> {
-  try {
-    const analysis = await db
-      .select()
-      .from(structureTable)
-      .where(and(
-        eq(structureTable.id, analysisId),
-        eq(structureTable.tenantId, tenantId)
-      ))
-      .limit(1);
-
-    return analysis.length > 0;
-  } catch (error) {
-    console.error('Error validating analysis ownership:', error);
-    return false;
-  }
-}
 
 export default router;
