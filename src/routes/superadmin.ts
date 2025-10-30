@@ -7,7 +7,8 @@ import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { parse } from 'csv-parse/sync';
-import { uuidToNumber, getTenantNumericId } from '../utils/idConverter';
+// UUID conversion removed - using actual UUIDs for consistent tenant identification
+// import { uuidToNumber, getTenantNumericId } from '../utils/idConverter';
 
 const router = Router();
 
@@ -385,26 +386,11 @@ router.get('/tenants', async (req: Request, res: Response) => {
           monthlyRevenue = empCount * 15; // $15 per employee for enterprise
         }
 
-        // Convert tenant UUID to numeric ID with comprehensive logging
-        const fallbackId = Math.floor(Math.random() * 100000) + 1;
-        let numericId: number;
-
-        try {
-          numericId = getTenantNumericId(tenant.id, fallbackId);
-          console.log(`✅ Converted tenant ID: "${tenant.id}" -> ${numericId} (type: ${typeof numericId})`);
-
-          // Validate the result is actually a number
-          if (typeof numericId !== 'number' || isNaN(numericId) || numericId === null || numericId === undefined) {
-            console.error(`❌ Invalid numeric ID generated: ${numericId}, using fallback: ${fallbackId}`);
-            numericId = fallbackId;
-          }
-        } catch (error) {
-          console.error(`❌ Error converting tenant ID "${tenant.id}":`, error);
-          numericId = fallbackId;
-        }
-
+        // ✅ PRODUCTION FIX: Use actual UUID for consistent tenant identification
+        // Previously converted to numeric ID, causing "tenant not found" errors in culture-assessment endpoints
+        // Now using UUID directly for consistency across all endpoints
         return {
-          id: numericId, // Use converted numeric ID (guaranteed to be a valid number)
+          id: tenant.id, // Use actual UUID (e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
           name: tenant.name,
           domain: tenant.domain || tenant.name.toLowerCase().replace(/\s+/g, '-') + '.mizan.ai', // Use tenant name as fallback domain
           plan: tenant.plan === 'pro' ? 'professional' : tenant.plan as 'starter' | 'professional' | 'enterprise', // Map 'pro' to 'professional'
@@ -919,26 +905,24 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     // Combine and format activities with correct field names and enum values
     const activities = [
       ...recentTenants.map((tenant, idx) => {
-        const tenantNumId = getTenantNumericId(tenant.id, idx + 1);
-        console.log(`Activity: Tenant ${tenant.name} ID: ${tenant.id} -> ${tenantNumId}`);
+        console.log(`Activity: Tenant ${tenant.name} ID: ${tenant.id}`);
         return {
           id: idx + 1,
           type: 'tenant_created' as const,
           description: `New tenant registered: ${tenant.name}`,
           timestamp: tenant.createdAt?.toISOString() || new Date().toISOString(),
-          tenantId: tenantNumId, // Guaranteed numeric ID
+          tenantId: tenant.id, // Use actual UUID
           tenantName: tenant.name
         };
       }),
       ...recentUsers.map((user, idx) => {
-        const userTenantNumId = getTenantNumericId(user.tenantId, recentTenants.length + idx + 1);
-        console.log(`Activity: User ${user.email} TenantID: ${user.tenantId} -> ${userTenantNumId}`);
+        console.log(`Activity: User ${user.email} TenantID: ${user.tenantId}`);
         return {
           id: recentTenants.length + idx + 1,
           type: 'user_registered' as const,
           description: `New user joined: ${user.email}`,
           timestamp: user.createdAt?.toISOString() || new Date().toISOString(),
-          tenantId: userTenantNumId, // Guaranteed numeric ID
+          tenantId: user.tenantId, // Use actual UUID
           metadata: { email: user.email }
         };
       })

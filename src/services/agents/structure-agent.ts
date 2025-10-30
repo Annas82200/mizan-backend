@@ -1,6 +1,6 @@
 import { ThreeEngineAgent, ThreeEngineConfig } from './base/three-engine-agent';
 import { db } from '../../../db/index';
-import { organizationStructure, companyStrategies } from '../../../db/schema';
+import { organizationStructure, companyStrategies, tenants } from '../../../db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { invokeProvider } from '../ai-providers/router';
 import type { ProviderResponse } from '../ai-providers/types';
@@ -475,13 +475,20 @@ Return ONLY a valid JSON object with NO markdown formatting:
       .orderBy(desc(organizationStructure.createdAt))
       .limit(1);
 
-    // Get company strategy
-    const strategy = await db
-      .select()
-      .from(companyStrategies)
-      .where(eq(companyStrategies.tenantId, tenantId))
-      // .where(eq(companyStrategies.status, 'active'))
+    // Get company strategy from tenant record (vision, mission, strategy fields)
+    const tenantRecord = await db
+      .select({
+        vision: tenants.vision,
+        mission: tenants.mission,
+        strategy: tenants.strategy,
+        values: tenants.values
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
       .limit(1);
+
+    // Format strategy data to match expected structure
+    const strategy = tenantRecord.length > 0 ? [tenantRecord[0]] : [];
 
     // Enhanced error handling with detailed logging
     // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
@@ -532,15 +539,20 @@ Return ONLY a valid JSON object with NO markdown formatting:
     return {
       structure: this.analyzeStructureData(structureData),
       strategy: strategyData ? {
-        objectives: strategyData.objectives,
-        requiredSkills: (strategyData as Record<string, unknown>).requiredSkills,
-        targetValues: (strategyData as Record<string, unknown>).targetValues,
-        timeframe: (strategyData as Record<string, unknown>).timeframe
+        vision: strategyData.vision,
+        mission: strategyData.mission,
+        strategy: strategyData.strategy,
+        values: strategyData.values,
+        // Map tenant strategy fields to expected format for AI agents
+        objectives: strategyData.strategy ? [strategyData.strategy] : undefined,
+        requiredSkills: undefined,
+        targetValues: strategyData.values,
+        timeframe: undefined
       } : null,
       metadata: {
         structureId: structure[0].id,
         lastUpdated: structure[0].createdAt,
-        strategyId: strategyData?.id
+        strategyId: tenantId // Use tenant ID as strategy ID since strategy is part of tenant record
       }
     };
   }
