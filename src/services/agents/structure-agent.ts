@@ -178,13 +178,13 @@ Provide a comprehensive analysis following this structure. IMPORTANT: Keep each 
 Paint a picture of this organization's structure. What does it feel like to work here based on the structure? How does information flow? How empowered are employees? Don't just say "7 layers" - explain what that MEANS for decision-making speed, employee autonomy, and organizational agility.
 
 2. SPAN OF CONTROL REALITY (4-6 sentences)
-Describe what the span of control patterns reveal about management capacity and employee support. If managers have 15 direct reports, what does that MEAN for their daily reality? Can they actually coach and develop people? If spans are too narrow (2-3 reports), what does that mean for organizational efficiency and employee empowerment?
+First, explain what span of control IS in plain language (1-2 sentences: "Span of control is how many people report directly to each manager"). Then describe what YOUR span patterns reveal about management capacity and employee support. If managers have 15 direct reports, what does that MEAN for their daily reality? Can they actually coach and develop people? If spans are too narrow (2-3 reports), what does that mean for organizational efficiency and employee empowerment? Finally, explain how YOUR span pattern impacts YOUR ability to execute YOUR strategy.
 
 3. HIERARCHICAL LAYERS IMPACT (4-6 sentences)
 Explain what the layer structure means for the business. How does this affect decision-making? Employee engagement? Speed of execution? Does the structure enable or hinder the strategy? If there are bottlenecks, describe the ACTUAL BUSINESS IMPACT (not just "bottleneck detected").
 
 4. STRATEGY-STRUCTURE ALIGNMENT (4-6 sentences, if strategy provided)
-Tell the story of whether the structure supports or undermines the strategic goals. Be specific about WHERE the misalignment exists and WHY it matters. What will happen if this isn't fixed?
+CRITICAL: Answer this question DIRECTLY first: "Bottom line: Does this structure enable you to achieve your strategy? YES or NO?" Then tell the story of WHY - be specific about WHERE the misalignment exists and WHY it matters. What will happen if this isn't fixed? Make it clear whether the current structure is adequate for the strategy or needs to change.
 
 5. HUMAN IMPACT (4-6 sentences)
 What does this structure mean for the people working here? Are employees set up for success? Are managers overwhelmed? Are there career growth paths? Is innovation encouraged or stifled by the structure?
@@ -205,15 +205,28 @@ LANGUAGE RULES FOR RECOMMENDATIONS:
   ❌ "Establish cross-functional coordination mechanisms"
   ✅ "Have your product and sales teams report to the same person so they stop working in silos"
 
-CRITICAL: Base recommendations ONLY on:
+CRITICAL GUARDRAILS - Base recommendations ONLY on:
 - The actual organizational structure provided (reporting relationships, layers, spans)
 - The stated strategy/vision/mission provided
 - Observable structural patterns (bottlenecks, spans, layers)
-Do NOT assume or recommend based on:
+
+STRICT PROHIBITION - Do NOT assume or recommend based on:
 - Cross-functional collaboration (unless visible in structure data)
 - Team dynamics or culture (not part of structure data)
 - Skills or capabilities (not provided in structure data)
+- Meeting rhythms, ceremonies, or processes (not structural)
+- Leadership behaviors or management practices (not structural)
+- Communication tools or platforms (not structural)
 - Any other factors not explicitly present in the data
+
+DATA CITATION REQUIREMENT:
+For every recommendation, you MUST cite the specific data point from the structure that proves the issue exists. If you cannot see it in the structure data (reporting lines, layers, spans), DO NOT mention it.
+
+Example GOOD recommendation:
+"Your CEO has 8 direct reports (visible in structure data), which is above the optimal executive span of 5. This means less time for strategic thinking. Consolidate to 5 reports by combining similar functions."
+
+Example BAD recommendation (DO NOT DO THIS):
+"Establish weekly leadership team rhythm to prevent functional silos" ← This assumes collaboration issues not visible in structure data
 
 Return ONLY a valid JSON object with NO markdown formatting:
 {
@@ -223,7 +236,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
     "average": number,
     "distribution": {},
     "outliers": [],
-    "interpretation": "4-6 sentence story about what span patterns mean for managers and employees"
+    "interpretation": "4-6 sentence story - MUST start with 1-2 sentences explaining what span of control IS, then describe what YOUR span patterns mean for managers and employees, then explain how YOUR span impacts YOUR strategy execution"
   },
   "layerAnalysis": {
     "totalLayers": number,
@@ -234,7 +247,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
   "strategyAlignment": {
     "score": number (0-100),
     "misalignments": [],
-    "interpretation": "4-6 sentence story about how structure helps or hinders strategy"
+    "interpretation": "4-6 sentence story - MUST start with clear verdict: 'Bottom line: [YES/NO], this structure [does/does not] enable you to achieve your strategy.' Then explain WHY, be specific about WHERE misalignment exists, and what will happen if not fixed"
   },
   "humanImpact": {
     "interpretation": "4-6 sentence story about what this means for people",
@@ -246,8 +259,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
       "category": "span|layers|alignment|efficiency",
       "priority": "high|medium|low",
       "title": "string",
-      "description": "4-6 sentence explanation focused on: What does the organization need to do to achieve the strategy? Base this ONLY on the actual structure and strategy data provided - do NOT assume information about cross-functional collaboration, culture, or other factors not present in the data.",
-      "actionItems": ["string"],
+      "description": "4-6 sentence explanation - MUST cite specific structure data point that proves the issue (e.g., 'Your CEO has 8 direct reports...'). Answer: What does the organization need to do to achieve the strategy? Base ONLY on actual structure (reporting lines, layers, spans) and strategy data. DO NOT recommend meetings, culture initiatives, or collaboration improvements - ONLY structural changes (who reports to whom, layer removal, span adjustments).",
+      "actionItems": ["string - concrete structural changes only"],
       "expectedImpact": "How this structural change will help achieve the stated strategy",
       "timeframe": "string"
     }

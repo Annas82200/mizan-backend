@@ -65,7 +65,7 @@ import uploadRoutes from './src/routes/upload';
 import billingRoutes from './src/routes/billing';
 import modulesRoutes from './src/routes/modules';
 // import frameworkRoutes from './src/routes/framework';
-// import exportRoutes from './src/routes/export';
+// import exportRoutes from './src/routes/export'; // Has TypeScript errors - duplicate functions and missing imports
 import testAiRoutes from './src/routes/test-ai';
 import publicStructureRoutes from './src/routes/public-structure';
 import paymentRoutes from './src/routes/payment';
@@ -477,7 +477,7 @@ app.use('/api/payment', paymentRoutes); // Stripe payment links (superadmin only
 app.use('/api/demo', demoRoutes); // Demo requests (public submit + superadmin management)
 app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 // app.use('/api/framework', frameworkRoutes); // 7-Cylinder Framework configuration
-// app.use('/api/export', exportRoutes); // Export formatted reports
+// app.use('/api/export', exportRoutes); // Has TypeScript errors - export functionality temporarily disabled
 app.use('/api/skills', skillsRoutes); // Skills Analysis endpoints (AGENT_CONTEXT_ULTIMATE.md Lines 56-226)
 app.use('/api/social-media', socialMediaRoutes); // Social Media Content Generation endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
