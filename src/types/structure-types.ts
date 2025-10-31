@@ -38,6 +38,8 @@ export interface StrategyData {
   id: string;
   vision?: string;
   mission?: string;
+  strategy?: string;              // Strategy statement from tenant
+  values?: string[];              // Company values array from tenant
   goals?: string[];
   priorities?: string[];
   targetMarket?: string;

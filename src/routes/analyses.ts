@@ -144,8 +144,8 @@ router.post("/structure", async (req: AuthenticatedRequest, res: Response) => {
         vision: tenantData?.vision || undefined,
         mission: tenantData?.mission || undefined,
         strategy: tenantData?.strategy || undefined,
-        values: (tenantData?.values as string[]) || undefined
-      } as StrategyData,
+        values: tenantData?.values || undefined
+      },
     });
 
     const expertAnalysis = await analyzeStructure({
@@ -156,8 +156,8 @@ router.post("/structure", async (req: AuthenticatedRequest, res: Response) => {
         vision: tenantData?.vision || undefined,
         mission: tenantData?.mission || undefined,
         strategy: tenantData?.strategy || undefined,
-        values: (tenantData?.values as string[]) || undefined
-      } as StrategyData
+        values: tenantData?.values || undefined
+      }
     });
 
     // Combine results with tenant context
