@@ -19,7 +19,7 @@ export const industryBenchmarks = pgTable('industry_benchmarks', {
 
 export const tenantMetrics = pgTable('tenant_metrics', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   metricType: text('metric_type').notNull(), // Same types as industry benchmarks
   value: jsonb('value'),
   period: text('period'), // monthly, quarterly, annually

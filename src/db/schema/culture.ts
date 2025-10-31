@@ -8,9 +8,9 @@ import { tenants, users } from './core';
 
 export const cultureAssessments = pgTable('culture_assessments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id'), // Reference to company/tenant
-  userId: text('user_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id'), // Reference to company/tenant
+  userId: uuid('user_id').notNull(),
   personalValues: jsonb('personal_values'), // Selected personal values
   currentExperience: jsonb('current_experience'), // Current company experience values
   desiredExperience: jsonb('desired_experience'), // Desired future experience values
@@ -23,10 +23,10 @@ export const cultureAssessments = pgTable('culture_assessments', {
 // Survey invitations tracking
 export const cultureSurveyInvitations = pgTable('culture_survey_invitations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  campaignId: text('campaign_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  campaignId: uuid('campaign_id').notNull(),
   campaignName: text('campaign_name'),
-  employeeId: text('employee_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
   employeeEmail: text('employee_email').notNull(),
   surveyToken: text('survey_token').notNull().unique(),
   surveyLink: text('survey_link').notNull(),
@@ -42,8 +42,8 @@ export const cultureSurveyInvitations = pgTable('culture_survey_invitations', {
 
 export const cultureReports = pgTable('culture_reports', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  analysisId: text('analysis_id'),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  analysisId: uuid('analysis_id'),
   reportType: text('report_type').notNull(), // employee, admin, department
   reportData: jsonb('report_data').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -52,10 +52,10 @@ export const cultureReports = pgTable('culture_reports', {
 // 7 Cylinders Assessment Scores
 export const cylinderScores = pgTable('cylinder_scores', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   targetType: text('target_type').notNull(), // 'individual', 'department', 'company'
-  targetId: text('target_id').notNull(), // userId, departmentId, or companyId
-  assessmentId: text('assessment_id'), // Reference to culture assessment
+  targetId: uuid('target_id').notNull(), // userId, departmentId, or companyId
+  assessmentId: uuid('assessment_id'), // Reference to culture assessment
 
   // Individual Cylinder Scores (0-100)
   cylinder1Safety: integer('cylinder1_safety'),

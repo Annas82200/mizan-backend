@@ -1,10 +1,10 @@
 // db/schema/social-media.ts
-import { pgTable, text, timestamp, integer, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, jsonb, uuid } from 'drizzle-orm/pg-core';
 
 export const socialMediaPosts = pgTable('social_media_posts', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
 
   // Post content
   platform: text('platform').notNull(), // linkedin, twitter, facebook, instagram
@@ -45,8 +45,8 @@ export const socialMediaPosts = pgTable('social_media_posts', {
 
 export const socialMediaCampaigns = pgTable('social_media_campaigns', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
 
   // Campaign details
   name: text('name').notNull(),
@@ -75,8 +75,8 @@ export const socialMediaCampaigns = pgTable('social_media_campaigns', {
 
 export const socialMediaAccounts = pgTable('social_media_accounts', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
 
   // Account details
   platform: text('platform').notNull(),

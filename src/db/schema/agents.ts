@@ -4,7 +4,7 @@ import { tenants } from './core';
 
 export const agentAnalyses = pgTable('agent_analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   agentType: text('agent_type').notNull(),
   results: jsonb('results'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

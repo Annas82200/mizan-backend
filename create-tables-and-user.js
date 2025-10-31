@@ -51,7 +51,7 @@ async function setup() {
     console.log('🏢 Creating superadmin tenant...');
     await client.query(`
       INSERT INTO tenants (id, name, plan, status)
-      VALUES ('superadmin-tenant', 'Mizan Superadmin', 'enterprise', 'active')
+      VALUES ('3fb789ff-63de-4e94-aee9-3c8bae9806e8', 'Mizan Superadmin', 'enterprise', 'active')
       ON CONFLICT (id) DO NOTHING;
     `);
     console.log('✅ Tenant created');
@@ -62,7 +62,7 @@ async function setup() {
 
     const result = await client.query(`
       INSERT INTO users (tenant_id, email, password_hash, name, role, is_active)
-      VALUES ('superadmin-tenant', 'anna@mizan.com', $1, 'Anna Dahrouj', 'superadmin', true)
+      VALUES ('3fb789ff-63de-4e94-aee9-3c8bae9806e8', 'anna@mizan.com', $1, 'Anna Dahrouj', 'superadmin', true)
       ON CONFLICT (email) DO UPDATE SET
         role = 'superadmin',
         is_active = true,

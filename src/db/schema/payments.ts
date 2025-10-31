@@ -1,11 +1,11 @@
 // db/schema/payments.ts
-import { pgTable, text, timestamp, integer, boolean, jsonb, serial } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, jsonb, serial, uuid } from 'drizzle-orm/pg-core';
 
 export const payments = pgTable('payments', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id'),
-  userId: text('user_id'),
+  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id'),
+  userId: uuid('user_id'),
 
   // Stripe related
   stripeCustomerId: text('stripe_customer_id'),
@@ -30,8 +30,8 @@ export const payments = pgTable('payments', {
 
 export const subscriptions = pgTable('subscriptions', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
-  companyId: text('company_id'),
+  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id'),
 
   // Stripe
   stripeSubscriptionId: text('stripe_subscription_id').unique(),
@@ -73,7 +73,7 @@ export const subscriptions = pgTable('subscriptions', {
 
 export const invoices = pgTable('invoices', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
   subscriptionId: text('subscription_id'),
 
   // Stripe

@@ -3,7 +3,7 @@ import { pgTable, text, timestamp, integer, boolean, jsonb, uuid } from 'drizzle
 
 export const triggers = pgTable('triggers', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
 
   // Trigger definition
   name: text('name').notNull(),
@@ -41,8 +41,8 @@ export const triggers = pgTable('triggers', {
 
 export const triggerExecutions = pgTable('trigger_executions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  triggerId: text('trigger_id').notNull(),
-  tenantId: text('tenant_id').notNull(),
+  triggerId: uuid('trigger_id').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
 
   // Execution details
   status: text('status').notNull(), // pending, running, completed, failed

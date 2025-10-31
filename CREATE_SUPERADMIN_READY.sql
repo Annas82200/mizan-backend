@@ -23,7 +23,7 @@ INSERT INTO tenants (
   updated_at
 )
 VALUES (
-  'superadmin-tenant',
+  '3fb789ff-63de-4e94-aee9-3c8bae9806e8',
   'Mizan Superadmin',
   'enterprise',
   'active',
@@ -44,7 +44,7 @@ INSERT INTO users (
   updated_at
 )
 VALUES (
-  'superadmin-tenant',
+  '3fb789ff-63de-4e94-aee9-3c8bae9806e8',
   'anna@mizan.com',
   '$2a$10$kO2oUDRzDSd0idWHNgyg8OUz96HviixDqSORbFA/ZdfPN7nwFykXS',
   'Anna Dahrouj',

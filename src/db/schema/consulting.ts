@@ -8,11 +8,11 @@ import { tenants } from './core';
 
 export const consultingRequests = pgTable('consulting_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   requestType: text('request_type').notNull(), // demo, implementation, training, strategy
   status: text('status').notNull().default('pending'), // pending, in_progress, completed, rejected
   description: text('description'),
-  assignedTo: text('assigned_to'), // Consultant ID
+  assignedTo: uuid('assigned_to'), // Consultant ID
   notes: text('notes'), // Admin/consultant notes
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -20,7 +20,7 @@ export const consultingRequests = pgTable('consulting_requests', {
 
 export const consultants = pgTable('consultants', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   email: text('email').notNull(),
   expertise: jsonb('expertise').$type<string[]>(), // Areas of expertise

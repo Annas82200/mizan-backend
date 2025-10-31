@@ -5,8 +5,8 @@ import { tenants, users } from './core';
 // Employee Skills Profiles - stores resume uploads and manual profiles
 export const employeeSkillsProfiles = pgTable('employee_skills_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  employeeId: text('employee_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull(),
 
   // Profile source
   profileType: text('profile_type').notNull(), // 'resume_upload' | 'manual_entry' | 'hybrid'
@@ -42,8 +42,8 @@ export const employeeSkillsProfiles = pgTable('employee_skills_profiles', {
 // Strategy Skill Requirements - what skills are needed for strategy
 export const strategySkillRequirements = pgTable('strategy_skill_requirements', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  strategyId: text('strategy_id'), // Link to strategy if exists
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  strategyId: uuid('strategy_id'), // Link to strategy if exists
 
   // Skill requirements by level
   organizationalSkills: jsonb('organizational_skills'), // Skills needed org-wide
@@ -66,9 +66,9 @@ export const strategySkillRequirements = pgTable('strategy_skill_requirements', 
 // Skills Gap Analysis Results
 export const skillsGapAnalysis = pgTable('skills_gap_analysis', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  employeeId: text('employee_id').notNull(),
-  profileId: text('profile_id').notNull(), // Links to employeeSkillsProfiles
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull(),
+  profileId: uuid('profile_id').notNull(), // Links to employeeSkillsProfiles
 
   // Analysis results
   analysisType: text('analysis_type').notNull(), // 'individual' | 'department' | 'organization'
@@ -98,10 +98,10 @@ export const skillsGapAnalysis = pgTable('skills_gap_analysis', {
 // Skills Reports
 export const skillsReports = pgTable('skills_reports', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
 
   reportType: text('report_type').notNull(), // 'individual' | 'department' | 'organization'
-  targetId: text('target_id'), // employeeId, departmentId, or tenantId
+  targetId: uuid('target_id'), // employeeId, departmentId, or tenantId
 
   reportData: jsonb('report_data').notNull(), // Full report content
 
@@ -111,8 +111,8 @@ export const skillsReports = pgTable('skills_reports', {
 // Legacy table - keeping for backward compatibility
 export const skillsAssessments = pgTable('skills_assessments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  userId: text('user_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
   currentSkills: jsonb('current_skills'),
   requiredSkills: jsonb('required_skills'),
   analysisData: jsonb('analysis_data'), // Full analysis results

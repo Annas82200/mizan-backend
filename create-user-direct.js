@@ -22,7 +22,7 @@ async function createSuperadmin() {
     console.log('📦 Creating superadmin tenant...');
     const tenantResult = await client.query(`
       INSERT INTO tenants (id, name, plan, status, created_at, updated_at)
-      VALUES ('superadmin-tenant', 'Mizan Superadmin', 'enterprise', 'active', NOW(), NOW())
+      VALUES ('3fb789ff-63de-4e94-aee9-3c8bae9806e8', 'Mizan Superadmin', 'enterprise', 'active', NOW(), NOW())
       ON CONFLICT (id) DO NOTHING
       RETURNING id;
     `);
@@ -34,7 +34,7 @@ async function createSuperadmin() {
 
     const userResult = await client.query(`
       INSERT INTO users (tenant_id, email, password_hash, name, role, is_active, created_at, updated_at)
-      VALUES ('superadmin-tenant', 'anna@mizan.com', $1, 'Anna Dahrouj', 'superadmin', true, NOW(), NOW())
+      VALUES ('3fb789ff-63de-4e94-aee9-3c8bae9806e8', 'anna@mizan.com', $1, 'Anna Dahrouj', 'superadmin', true, NOW(), NOW())
       ON CONFLICT (email) DO UPDATE SET
         role = 'superadmin',
         is_active = true,

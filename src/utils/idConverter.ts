@@ -15,11 +15,6 @@
 export function uuidToNumber(uuid: string | null | undefined): number {
   if (!uuid) return 1; // Return 1 for null/undefined (default ID)
 
-  // Special case for superadmin-tenant
-  if (uuid === 'superadmin-tenant') {
-    return 1; // Always return 1 for superadmin tenant
-  }
-
   // Check if it's a valid UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(uuid)) {

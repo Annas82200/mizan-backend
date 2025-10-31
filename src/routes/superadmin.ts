@@ -904,10 +904,10 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     
     // Combine and format activities with correct field names and enum values
     const activities = [
-      ...recentTenants.map((tenant, idx) => {
+      ...recentTenants.map((tenant) => {
         console.log(`Activity: Tenant ${tenant.name} ID: ${tenant.id}`);
         return {
-          id: idx + 1,
+          id: crypto.randomUUID(), // ✅ Generate UUID for activity items
           type: 'tenant_created' as const,
           description: `New tenant registered: ${tenant.name}`,
           timestamp: tenant.createdAt?.toISOString() || new Date().toISOString(),
@@ -915,10 +915,10 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
           tenantName: tenant.name
         };
       }),
-      ...recentUsers.map((user, idx) => {
+      ...recentUsers.map((user) => {
         console.log(`Activity: User ${user.email} TenantID: ${user.tenantId}`);
         return {
-          id: recentTenants.length + idx + 1,
+          id: crypto.randomUUID(), // ✅ Generate UUID for activity items
           type: 'user_registered' as const,
           description: `New user joined: ${user.email}`,
           timestamp: user.createdAt?.toISOString() || new Date().toISOString(),

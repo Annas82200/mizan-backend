@@ -31,14 +31,14 @@ export const tenants = pgTable('tenants', {
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   passwordHash: text('password_hash').notNull(),
   name: text('name').notNull(),
   role: text('role').notNull().default('employee'), // employee, manager, admin, superadmin
   title: text('title'),
-  departmentId: text('department_id'),
-  managerId: text('manager_id'),
+  departmentId: uuid('department_id'),
+  managerId: uuid('manager_id'),
   isActive: boolean('is_active').default(true),
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -51,11 +51,11 @@ export const users = pgTable('users', {
 
 export const departments = pgTable('departments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description'),
-  managerId: text('manager_id'),
-  parentDepartmentId: text('parent_department_id'),
+  managerId: uuid('manager_id'),
+  parentDepartmentId: uuid('parent_department_id'),
   budget: decimal('budget'),
   headCount: integer('head_count'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -68,8 +68,8 @@ export const companies = tenants;
 // Employee profiles
 export const employeeProfiles = pgTable('employee_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull(),
-  tenantId: text('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   bio: text('bio'),
   skills: jsonb('skills').$type<string[]>(),
   interests: jsonb('interests').$type<string[]>(),
@@ -85,7 +85,7 @@ export const employeeProfiles = pgTable('employee_profiles', {
 // Core analysis tables
 export const analyses = pgTable('analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   type: text('type').notNull(), // structure, culture, skills, performance, comprehensive
   status: text('status').notNull().default('pending'), // pending, processing, completed, failed
   results: jsonb('results'),
@@ -96,23 +96,23 @@ export const analyses = pgTable('analyses', {
 
 export const orgInputs = pgTable('org_inputs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   data: jsonb('data').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const structureAnalysisResults = pgTable('structure_analysis_results', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
-  analysisId: text('analysis_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  analysisId: uuid('analysis_id').notNull(),
   results: jsonb('results').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const orgStructures = pgTable('org_structures', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id'),
-  submittedBy: text('submitted_by'),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
+  submittedBy: uuid('submitted_by'),
   rawText: text('raw_text').notNull(),
   parsedData: jsonb('parsed_data'),
   analysisResult: jsonb('analysis_result'),
@@ -135,8 +135,8 @@ export const frameworkConfig = pgTable('framework_config', {
 // Sessions table for authentication
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull(),
-  tenantId: text('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   token: text('token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

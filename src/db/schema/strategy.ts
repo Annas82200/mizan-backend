@@ -8,15 +8,15 @@ import { tenants, users } from './core';
 
 export const organizationStructure = pgTable('organization_structure', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   structureData: jsonb('structure_data').notNull(), // CSV parsed data
-  uploadedBy: text('uploaded_by'),
+  uploadedBy: uuid('uploaded_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const companyStrategies = pgTable('company_strategies', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: text('tenant_id').notNull(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   vision: text('vision'),
   mission: text('mission'),
   values: jsonb('values'), // Array of company values
