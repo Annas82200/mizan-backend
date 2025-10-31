@@ -418,15 +418,22 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       const { StructureAgent } = await import('../services/agents/structure-agent.js');
       const structureAgent = new StructureAgent();
 
-      // Get tenant name for analysis
+      // Get tenant data for analysis (including strategy)
       const tenantInfo = await db.select().from(tenants).where(eq(tenants.id, targetTenantId)).limit(1);
-      const tenantName = tenantInfo.length > 0 ? tenantInfo[0].name : 'Unknown Company';
+      const tenantData = tenantInfo.length > 0 ? tenantInfo[0] : undefined;
+      const tenantName = tenantData?.name || 'Unknown Company';
 
       analysisResult = await structureAgent.generateRichStructureAnalysis({
         tenantId: targetTenantId,
         companyName: tenantName,
         structureData: parsedData,  // Pass the actual parsed structure data
-        strategyData: undefined  // Strategy can be added later if available
+        strategyData: {
+          id: tenantData?.id || '',
+          vision: tenantData?.vision || undefined,
+          mission: tenantData?.mission || undefined,
+          strategy: tenantData?.strategy || undefined,
+          values: (tenantData?.values as string[]) || undefined
+        }
       });
 
       console.log('✅ Structure analysis completed successfully');

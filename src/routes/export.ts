@@ -61,7 +61,6 @@ interface Recommendation {
 
 interface AnalysisExport {
   overallScore: number;
-  operationalScore: number;
   spanAnalysis: SpanAnalysis;
   layerAnalysis: LayerAnalysis;
   strategyAlignment: StrategyAlignment;
@@ -103,7 +102,7 @@ function formatRichText(text: string): string {
 }
 
 function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
-  const { overallScore, operationalScore, spanAnalysis, layerAnalysis, strategyAlignment, recommendations } = data;
+  const { overallScore, spanAnalysis, layerAnalysis, strategyAlignment, recommendations } = data;
 
   // Determine score color and label
   let scoreColor = '#22c55e'; // green
@@ -661,13 +660,6 @@ function generateHTMLExport(data: AnalysisExport, tenantName: string): string {
           <div class="score-value" style="color: ${scoreColor};">${overallScore}</div>
           <div style="font-family: 'Playfair Display', serif; font-size: 20px; color: #545454;">/100</div>
           <div class="score-caption" style="color: ${scoreColor};">${scoreLabel}</div>
-        </div>
-
-        <div class="score-card" style="border-top: 4px solid #CCA404;">
-          <div class="score-icon">${ICONS.metric}</div>
-          <div class="score-label">Operational Efficiency</div>
-          <div class="score-value" style="color: #CCA404;">${operationalScore}</div>
-          <div style="font-family: 'Playfair Display', serif; font-size: 20px; color: #545454;">/100</div>
         </div>
 
         <div class="score-card" style="border-top: 4px solid ${achieveColor};">
