@@ -81,7 +81,7 @@ export async function generateEmployeeReport(
       id: randomUUID(),
       tenantId,
       analysisId: assessmentId,
-      reportType: 'individual',
+      reportType: 'employee',
       reportData: reportData,
       createdAt: new Date()
     });

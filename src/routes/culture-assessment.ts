@@ -1011,4 +1011,145 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
   }
 });
 
+/**
+ * GET /api/culture-assessment/report/employee/:userId
+ * Get employee culture report (AUTHENTICATED)
+ */
+router.get('/report/employee/:userId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const requestingUser = (req as any).user;
+
+    // Validate user can access this employee's data
+    // Either they're the employee themselves or they're admin/superadmin
+    if (requestingUser.id !== userId && requestingUser.role !== 'admin' && requestingUser.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to view this employee\'s report'
+      });
+    }
+
+    // Get latest completed assessment for this user
+    const assessment = await db.query.cultureAssessments.findFirst({
+      where: and(
+        eq(cultureAssessments.userId, userId),
+        eq(cultureAssessments.tenantId, requestingUser.tenantId)
+      ),
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
+    });
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: 'No assessment found for this employee'
+      });
+    }
+
+    if (!assessment.completedAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Assessment not yet completed'
+      });
+    }
+
+    // Check if report already exists
+    const existingReport = await db.query.cultureReports.findFirst({
+      where: and(
+        eq(cultureReports.analysisId, assessment.id),
+        eq(cultureReports.reportType, 'employee')
+      )
+    });
+
+    if (existingReport) {
+      return res.json({
+        success: true,
+        report: existingReport.reportData
+      });
+    }
+
+    // Report doesn't exist, trigger generation and inform user
+    generateEmployeeReport(assessment.id, userId, requestingUser.tenantId);
+
+    return res.status(202).json({
+      success: true,
+      message: 'Report generation in progress. Please try again in a few seconds.',
+      status: 'generating'
+    });
+
+  } catch (error) {
+    console.error('Error fetching employee report:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch report'
+    });
+  }
+});
+
+/**
+ * POST /api/culture-assessment/report/employee/:userId/regenerate
+ * Regenerate employee culture report (AUTHENTICATED)
+ */
+router.post('/report/employee/:userId/regenerate', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const requestingUser = (req as any).user;
+
+    // Validate user can regenerate this employee's report
+    // Either they're the employee themselves or they're admin/superadmin
+    if (requestingUser.id !== userId && requestingUser.role !== 'admin' && requestingUser.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to regenerate this employee\'s report'
+      });
+    }
+
+    // Get latest completed assessment
+    const assessment = await db.query.cultureAssessments.findFirst({
+      where: and(
+        eq(cultureAssessments.userId, userId),
+        eq(cultureAssessments.tenantId, requestingUser.tenantId)
+      ),
+      orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
+    });
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: 'No assessment found for this employee'
+      });
+    }
+
+    if (!assessment.completedAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Assessment not yet completed'
+      });
+    }
+
+    console.log('🔄 Regenerating employee report for:', userId);
+
+    // Delete old report if exists
+    await db.delete(cultureReports)
+      .where(and(
+        eq(cultureReports.analysisId, assessment.id),
+        eq(cultureReports.reportType, 'employee')
+      ));
+
+    // Trigger regeneration
+    generateEmployeeReport(assessment.id, userId, requestingUser.tenantId);
+
+    return res.json({
+      success: true,
+      message: 'Employee report regeneration triggered. Report will be ready in 10-15 seconds.'
+    });
+
+  } catch (error) {
+    console.error('Error regenerating employee report:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to regenerate report'
+    });
+  }
+});
+
 export default router;
