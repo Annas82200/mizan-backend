@@ -573,6 +573,89 @@ router.post('/employee/:employeeId', authenticate, validateTenantAccess, async (
 });
 
 /**
+ * GET /api/skills/dashboard/stats
+ * Get skills dashboard statistics for tenant
+ */
+router.get('/dashboard/stats', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+
+    // Get total skills count
+    const totalSkills = await db.select()
+      .from(skills)
+      .where(eq(skills.tenantId, userTenantId));
+
+    // Get total employees with skills
+    const employeesWithSkills = await db.selectDistinct({ userId: skills.userId })
+      .from(skills)
+      .where(eq(skills.tenantId, userTenantId));
+
+    // Get skills gaps count
+    const skillsGapsList = await db.select()
+      .from(skillsGaps)
+      .where(eq(skillsGaps.tenantId, userTenantId));
+
+    // Get latest assessments
+    const latestAssessments = await db.select()
+      .from(skillsAssessments)
+      .where(eq(skillsAssessments.tenantId, userTenantId))
+      .limit(10);
+
+    // Calculate skills by category
+    const skillsByCategory = totalSkills.reduce((acc, skill) => {
+      acc[skill.category] = (acc[skill.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate skills by level
+    const skillsByLevel = totalSkills.reduce((acc, skill) => {
+      acc[skill.level] = (acc[skill.level] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Get frameworks
+    const frameworks = await db.select()
+      .from(skillsFramework)
+      .where(eq(skillsFramework.tenantId, userTenantId));
+
+    const stats = {
+      overview: {
+        totalSkills: totalSkills.length,
+        totalEmployees: employeesWithSkills.length,
+        totalGaps: skillsGapsList.length,
+        totalFrameworks: frameworks.length,
+        totalAssessments: latestAssessments.length
+      },
+      distribution: {
+        byCategory: skillsByCategory,
+        byLevel: skillsByLevel
+      },
+      gaps: {
+        critical: skillsGapsList.filter(g => g.gapSeverity === 'critical').length,
+        high: skillsGapsList.filter(g => g.gapSeverity === 'high').length,
+        medium: skillsGapsList.filter(g => g.gapSeverity === 'medium').length,
+        low: skillsGapsList.filter(g => g.gapSeverity === 'low').length
+      },
+      recentAssessments: latestAssessments.slice(0, 5).map(a => ({
+        id: a.id,
+        userId: a.userId,
+        createdAt: a.createdAt,
+        overallScore: a.overallScore
+      }))
+    };
+
+    res.json({ success: true, stats });
+
+  } catch (error: unknown) {
+    console.error('Error fetching dashboard stats:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' });
+  }
+});
+
+/**
  * GET /api/skills/frameworks
  * Get all skills frameworks for the user's tenant
  */
