@@ -1088,13 +1088,25 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
     }
 
     // Report doesn't exist, trigger generation and inform user
-    generateEmployeeReport(assessment.id, userId, employeeUser.tenantId);
+    try {
+      // Call AI-powered report generation (async but don't wait - fire and forget)
+      generateEmployeeReport(assessment.id, userId, employeeUser.tenantId).catch(genError => {
+        console.error(`❌ [ROUTE] Report generation failed for ${userId}:`, genError);
+      });
 
-    return res.status(202).json({
-      success: true,
-      message: 'Report generation in progress. Please try again in a few seconds.',
-      status: 'generating'
-    });
+      return res.status(202).json({
+        success: true,
+        message: 'AI-powered report generation in progress. Please try again in a few seconds.',
+        status: 'generating'
+      });
+    } catch (genError) {
+      console.error(`❌ [ROUTE] Error triggering report generation for ${userId}:`, genError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to trigger report generation',
+        details: genError instanceof Error ? genError.message : 'Unknown error'
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching employee report:', error);
@@ -1175,13 +1187,24 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
         eq(cultureReports.reportType, 'employee')
       ));
 
-    // Trigger regeneration using EMPLOYEE's tenantId
-    generateEmployeeReport(assessment.id, userId, employeeUser.tenantId);
+    // Trigger AI-powered regeneration using EMPLOYEE's tenantId
+    try {
+      generateEmployeeReport(assessment.id, userId, employeeUser.tenantId).catch(genError => {
+        console.error(`❌ [ROUTE] Report regeneration failed for ${userId}:`, genError);
+      });
 
-    return res.json({
-      success: true,
-      message: 'Employee report regeneration triggered. Report will be ready in 10-15 seconds.'
-    });
+      return res.json({
+        success: true,
+        message: 'AI-powered employee report regeneration triggered. Report will be ready in 10-15 seconds.'
+      });
+    } catch (genError) {
+      console.error(`❌ [ROUTE] Error triggering report regeneration for ${userId}:`, genError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to trigger report regeneration',
+        details: genError instanceof Error ? genError.message : 'Unknown error'
+      });
+    }
 
   } catch (error) {
     console.error('Error regenerating employee report:', error);

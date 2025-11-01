@@ -4,9 +4,10 @@
  */
 
 import { db } from '../../db/index';
-import { cultureReports, cultureAssessments } from '../../db/schema';
+import { cultureReports, cultureAssessments, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { CultureAgentV2 } from '../services/agents/culture/culture-agent';
 
 /**
  * Calculate days between a date and now
@@ -25,8 +26,8 @@ export function daysSince(date: Date | string | null): number {
 }
 
 /**
- * Generate an individual employee culture report
- * This is a production-ready implementation that creates actual report data
+ * Generate an individual employee culture report using AI-powered Three-Engine Analysis
+ * Production-ready implementation with CultureAgentV2
  * @param assessmentId - The culture assessment ID
  * @param employeeId - The employee ID
  * @param tenantId - The tenant ID
@@ -37,59 +38,164 @@ export async function generateEmployeeReport(
   tenantId: string
 ): Promise<void> {
   try {
-    // Fetch the assessment data
+    console.log(`📊 [REPORT GENERATION] Starting for employee ${employeeId}`);
+
+    // 1. Fetch the assessment data
     const assessment = await db.select()
       .from(cultureAssessments)
       .where(eq(cultureAssessments.id, assessmentId))
       .limit(1);
 
     if (assessment.length === 0) {
-      console.error(`Assessment ${assessmentId} not found`);
-      return;
+      throw new Error(`Assessment ${assessmentId} not found`);
     }
 
     const assessmentData = assessment[0];
 
-    // Generate comprehensive employee culture report
+    // 2. Fetch user data for employee name
+    const user = await db.select()
+      .from(users)
+      .where(eq(users.id, employeeId))
+      .limit(1);
+
+    if (user.length === 0) {
+      throw new Error(`User ${employeeId} not found`);
+    }
+
+    const userData = user[0];
+
+    // 3. Initialize AI Agent with Three-Engine configuration
+    const agentConfig = {
+      knowledge: {
+        providers: ['anthropic'] as string[],
+        model: 'claude-3-opus-20240229',
+        temperature: 0.7,
+        maxTokens: 4000
+      },
+      data: {
+        providers: ['anthropic'] as string[],
+        model: 'claude-3-opus-20240229',
+        temperature: 0.3,
+        maxTokens: 4000
+      },
+      reasoning: {
+        providers: ['anthropic'] as string[],
+        model: 'claude-3-opus-20240229',
+        temperature: 0.5,
+        maxTokens: 4000
+      },
+      consensusThreshold: 0.7
+    };
+
+    console.log(`🎨 [CULTURE AGENT] Analyzing employee ${employeeId}...`);
+    const cultureAgent = new CultureAgentV2('culture', agentConfig);
+
+    // 4. Call AI Agent for deep culture analysis
+    const cultureAnalysis = await cultureAgent.analyzeIndividualEmployee(
+      employeeId,
+      assessmentData.personalValues as string[] || [],
+      assessmentData.currentExperience as string[] || [],
+      assessmentData.desiredExperience as string[] || [],
+      assessmentData.engagement || 0,
+      assessmentData.recognition || 0
+    );
+
+    console.log(`✅ [CULTURE AGENT] Analysis complete - Alignment: ${cultureAnalysis.alignment}%, Strengths: ${cultureAnalysis.strengths.length}, Gaps: ${cultureAnalysis.gaps.length}`);
+
+    // 5. Build comprehensive report with correct structure matching frontend expectations
     const reportData = {
       employeeId,
-      assessmentId,
-      personalValues: assessmentData.personalValues || [],
-      currentExperience: assessmentData.currentExperience || [],
-      desiredExperience: assessmentData.desiredExperience || [],
-      engagement: assessmentData.engagement || 0,
-      recognition: assessmentData.recognition || 0,
+      employeeName: userData.name,
+      assessmentDate: assessmentData.completedAt,
 
-      // Calculate culture alignment scores
-      alignment: {
-        valuesAlignment: calculateValuesAlignment(assessmentData),
-        experienceGap: calculateExperienceGap(assessmentData),
-        overallScore: calculateOverallCultureScore(assessmentData)
+      // Personal Values Section with AI interpretation
+      personalValues: {
+        selected: assessmentData.personalValues as string[] || [],
+        cylinderScores: cultureAnalysis.cylinderScores || {},
+        interpretation: `Your core values show ${cultureAnalysis.strengths.length} key strengths and ${cultureAnalysis.gaps.length} development areas. Overall alignment: ${cultureAnalysis.alignment}%.`,
+        strengths: cultureAnalysis.strengths,
+        gaps: cultureAnalysis.gaps
       },
 
-      // Generate insights
-      insights: generateCultureInsights(assessmentData),
+      // Vision for Growth Section
+      visionForGrowth: {
+        selected: assessmentData.desiredExperience as string[] || [],
+        meaning: `Your vision reflects aspiration toward ${cultureAnalysis.recommendations.length} key growth areas.`,
+        opportunities: cultureAnalysis.recommendations.filter(r =>
+          r.toLowerCase().includes('develop') || r.toLowerCase().includes('growth')
+        ).slice(0, 3)
+      },
 
-      // Generate recommendations
-      recommendations: generateRecommendations(assessmentData),
+      // Culture Alignment Analysis
+      cultureAlignment: {
+        score: cultureAnalysis.alignment,
+        interpretation: getAlignmentInterpretation(cultureAnalysis.alignment),
+        strengths: cultureAnalysis.strengths,
+        gaps: cultureAnalysis.gaps,
+        recommendations: cultureAnalysis.recommendations
+      },
+
+      // Engagement Analysis with interpretation
+      engagement: {
+        score: assessmentData.engagement || 0,
+        interpretation: getEngagementInterpretation(assessmentData.engagement || 0, cultureAnalysis),
+        factors: [
+          `Values alignment: ${cultureAnalysis.alignment}%`,
+          ...cultureAnalysis.strengths.slice(0, 2)
+        ],
+        recommendations: cultureAnalysis.recommendations
+          .filter(r => r.toLowerCase().includes('engagement') || r.toLowerCase().includes('involve'))
+          .slice(0, 3)
+      },
+
+      // Recognition Analysis with interpretation
+      recognition: {
+        score: assessmentData.recognition || 0,
+        interpretation: getRecognitionInterpretation(assessmentData.recognition || 0),
+        impact: `Recognition score of ${assessmentData.recognition}/5 indicates ${assessmentData.recognition >= 4 ? 'strong' : assessmentData.recognition >= 3 ? 'moderate' : 'developing'} satisfaction with acknowledgment practices`,
+        recommendations: cultureAnalysis.recommendations
+          .filter(r => r.toLowerCase().includes('recognition') || r.toLowerCase().includes('acknowledge'))
+          .slice(0, 3)
+      },
+
+      // Overall recommendations
+      recommendations: cultureAnalysis.recommendations,
+
+      // Overall Summary
+      overallSummary: {
+        keyStrengths: cultureAnalysis.strengths.slice(0, 3),
+        growthGaps: cultureAnalysis.gaps.slice(0, 3),
+        nextSteps: [
+          'Review your personalized recommendations',
+          'Identify one strength to leverage this week',
+          'Address one development area this month',
+          'Schedule follow-up conversation with manager'
+        ]
+      },
 
       generatedAt: new Date().toISOString()
     };
 
-    // Store the report in the database
+    // 6. Validate report structure before saving
+    validateReportStructure(reportData);
+
+    console.log(`💾 [REPORT GENERATION] Saving AI-powered report to database...`);
+
+    // 7. Store the report in the database
     await db.insert(cultureReports).values({
       id: randomUUID(),
       tenantId,
       analysisId: assessmentId,
       reportType: 'employee',
-      reportData: reportData,
+      reportData: reportData as any,
       createdAt: new Date()
     });
 
-    console.log(`Successfully generated individual culture report for employee ${employeeId}`);
+    console.log(`✅ [REPORT GENERATION] Successfully generated AI-powered culture report for employee ${employeeId}`);
+
   } catch (error) {
-    console.error('Error generating employee report:', error);
-    // Don't throw - this is a background operation
+    console.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
+    throw error; // Surface errors instead of silent failure
   }
 }
 
@@ -243,4 +349,54 @@ function generateRecommendations(assessment: any): string[] {
   }
 
   return recommendations;
+}
+
+/**
+ * Get human-readable interpretation of alignment score
+ */
+function getAlignmentInterpretation(score: number): string {
+  if (score >= 80) return 'Strong alignment - your values match company culture well';
+  if (score >= 60) return 'Moderate alignment - good cultural fit with room to grow';
+  if (score >= 40) return 'Some misalignment - opportunities to improve cultural fit';
+  return 'Significant misalignment - your values differ from current culture';
+}
+
+/**
+ * Get engagement interpretation with context
+ */
+function getEngagementInterpretation(score: number, analysis: any): string {
+  const level = score >= 4 ? 'high' : score >= 3 ? 'moderate' : 'low';
+  return `Your ${level} engagement level (${score}/5) combined with ${analysis.alignment}% values alignment suggests ${score >= 4 ? 'strong connection with your work' : score >= 3 ? 'room for increased connection' : 'opportunities to improve engagement'}`;
+}
+
+/**
+ * Get recognition interpretation
+ */
+function getRecognitionInterpretation(score: number): string {
+  if (score >= 4) return 'You feel well-recognized and appreciated for your contributions';
+  if (score >= 3) return 'You experience moderate recognition with room for improvement';
+  if (score >= 2) return 'You would benefit from more consistent recognition';
+  return 'Recognition is a significant gap - more acknowledgment would help';
+}
+
+/**
+ * Validate report structure before saving
+ */
+function validateReportStructure(report: any): void {
+  const required = ['employeeId', 'employeeName', 'personalValues', 'engagement', 'recognition'];
+
+  for (const field of required) {
+    if (!report[field]) {
+      throw new Error(`Invalid report structure: missing required field "${field}"`);
+    }
+  }
+
+  // Validate AI analysis is present
+  if (!report.personalValues.interpretation) {
+    throw new Error('Invalid report structure: missing AI interpretation in personalValues');
+  }
+
+  if (!report.personalValues.strengths || report.personalValues.strengths.length === 0) {
+    throw new Error('Invalid report structure: missing strengths analysis');
+  }
 }
