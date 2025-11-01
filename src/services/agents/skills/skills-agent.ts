@@ -2,7 +2,7 @@
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent';
 import { db } from '../../../../db/index';
-import { tenants, users, departments, skills, skillsAssessments, skillsGaps } from '../../../../db/schema';
+import { tenants, users, departments, skills, skillsAssessments, skillsGaps, skillsFramework } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -503,28 +503,129 @@ export class SkillsAgent extends ThreeEngineAgent {
     strategy: string,
     industry: string
   ): Promise<SkillsFramework> {
-    const knowledgeBase = this.getKnowledgeBase() as Record<string, unknown>;
-    const industryBenchmarks = (knowledgeBase.industryBenchmarks as Record<string, unknown>)[industry.toLowerCase()] || {};
+    try {
+      // Use Knowledge Engine to generate strategic skills framework
+      const prompt = `Based on the following company strategy and industry, generate a comprehensive strategic skills framework.
 
-    // Use three-engine to generate framework
-    const frameworkInput = {
-      tenantId,
-      strategy,
-      industry,
-      benchmarks: industryBenchmarks
-    } as unknown as Record<string, unknown>;
+Company Strategy:
+${strategy}
 
-    const result = await this.analyze(frameworkInput);
-    
-    // Parse result as SkillsFramework
-    return {
-      tenantId,
-      strategicSkills: [],
-      industryBenchmarks: [],
-      criticalSkills: [],
-      emergingSkills: [],
-      obsoleteSkills: []
-    };
+Industry: ${industry}
+
+Please analyze and provide a JSON response with the following structure:
+{
+  "strategicSkills": [
+    {
+      "name": "skill name",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "beginner|intermediate|advanced|expert",
+      "strategic_importance": "critical|high|medium|low",
+      "rationale": "why this skill is strategically important"
+    }
+  ],
+  "industryBenchmarks": [
+    {
+      "name": "industry-standard skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "expected proficiency level",
+      "prevalence": "percentage of companies requiring this skill"
+    }
+  ],
+  "criticalSkills": [
+    {
+      "name": "mission-critical skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "required minimum level",
+      "urgency": "immediate|short-term|medium-term"
+    }
+  ],
+  "emergingSkills": [
+    {
+      "name": "future-relevant skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "recommended level",
+      "timeline": "when this skill will become important"
+    }
+  ],
+  "obsoleteSkills": [
+    {
+      "name": "declining skill",
+      "reason": "why this skill is becoming less relevant"
+    }
+  ]
+}
+
+Consider:
+1. Current industry trends and technological shifts
+2. Strategic objectives and business goals
+3. Competitive landscape requirements
+4. Future-ready capabilities needed
+5. Regulatory and compliance needs (if applicable)`;
+
+      const response = await this.knowledgeAI.call({
+        agent: 'skills',
+        engine: 'knowledge',
+        prompt,
+        requireJson: true,
+        temperature: 0.4  // Slightly higher for creative strategic thinking
+      });
+
+      const parsedResponse = typeof response.narrative === 'string'
+        ? JSON.parse(response.narrative)
+        : response.narrative;
+
+      // Validate and normalize the framework
+      const framework: SkillsFramework = {
+        tenantId,
+        strategicSkills: this.normalizeSkillList(parsedResponse.strategicSkills || []),
+        industryBenchmarks: this.normalizeSkillList(parsedResponse.industryBenchmarks || []),
+        criticalSkills: this.normalizeSkillList(parsedResponse.criticalSkills || []),
+        emergingSkills: this.normalizeSkillList(parsedResponse.emergingSkills || []),
+        obsoleteSkills: parsedResponse.obsoleteSkills || []
+      };
+
+      // Store framework in database (map to schema fields)
+      // Separate skills by category for database storage
+      const technicalSkillsList = framework.strategicSkills.filter(s => s.category === 'technical');
+      const softSkillsList = framework.strategicSkills.filter(s => s.category === 'soft');
+
+      // For now, use a simple framework name based on industry
+      const frameworkName = `${industry} Strategic Skills Framework`;
+
+      await db.insert(skillsFramework).values({
+        tenantId,
+        frameworkName,
+        industry,
+        strategicSkills: framework.strategicSkills as unknown as Record<string, unknown>[],
+        technicalSkills: technicalSkillsList as unknown as Record<string, unknown>[],
+        softSkills: softSkillsList as unknown as Record<string, unknown>[],
+        prioritization: framework.criticalSkills as unknown as Record<string, unknown>[],
+        createdBy: tenantId, // Using tenantId as placeholder - should be actual user ID
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      return framework;
+
+    } catch (error) {
+      console.error('Error creating strategic skills framework:', error);
+      throw new Error('Failed to create strategic skills framework');
+    }
+  }
+
+  /**
+   * Normalize skill list to ensure proper structure
+   */
+  private normalizeSkillList(skills: any[]): Skill[] {
+    return skills
+      .filter((skill: any) => skill.name && skill.category && skill.level)
+      .map((skill: any) => ({
+        name: skill.name.trim(),
+        category: this.normalizeCategory(skill.category),
+        level: this.normalizeLevel(skill.level),
+        yearsOfExperience: skill.yearsOfExperience,
+        verified: true // Framework skills are considered verified
+      }));
   }
 
   /**
@@ -696,16 +797,209 @@ export class SkillsAgent extends ThreeEngineAgent {
     });
   }
 
+  /**
+   * Parse CSV data into employee skill data
+   * Expected CSV format:
+   * employee_id,employee_name,department,role,skill_name,skill_category,skill_level,years_of_experience,experience
+   *
+   * Alternative format (one employee per row with multiple skills):
+   * employee_id,employee_name,department,role,skills (JSON array),experience
+   */
   private async parseCSVData(csvData: unknown): Promise<EmployeeSkillData[]> {
-    // Parse CSV data into employee skill data
-    // Implementation depends on CSV format
-    return [];
+    try {
+      if (!Array.isArray(csvData)) {
+        console.error('CSV data is not an array');
+        return [];
+      }
+
+      // Group skills by employee
+      const employeeMap = new Map<string, EmployeeSkillData>();
+
+      for (const record of csvData as Array<Record<string, string>>) {
+        const employeeId = record.employee_id || record.employeeId || '';
+        const employeeName = record.employee_name || record.name || '';
+        const department = record.department || '';
+        const role = record.role || '';
+        const experience = parseInt(record.experience || '0', 10);
+
+        if (!employeeId || !employeeName) {
+          console.warn('Skipping CSV record with missing employee_id or employee_name:', record);
+          continue;
+        }
+
+        // Get or create employee entry
+        if (!employeeMap.has(employeeId)) {
+          employeeMap.set(employeeId, {
+            employeeId,
+            name: employeeName,
+            department,
+            role,
+            skills: [],
+            experience
+          });
+        }
+
+        const employee = employeeMap.get(employeeId)!;
+
+        // Check if skills are provided as JSON array in one column
+        if (record.skills) {
+          try {
+            const skillsArray = JSON.parse(record.skills);
+            if (Array.isArray(skillsArray)) {
+              for (const skill of skillsArray) {
+                employee.skills.push({
+                  name: skill.name || skill.skill_name,
+                  category: this.normalizeCategory(skill.category || skill.skill_category || 'technical'),
+                  level: this.normalizeLevel(skill.level || skill.skill_level || 'intermediate'),
+                  yearsOfExperience: skill.years_of_experience || skill.yearsOfExperience,
+                  verified: false
+                });
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to parse skills JSON:', error);
+          }
+        }
+        // Otherwise, expect one skill per row
+        else if (record.skill_name || record.skillName) {
+          const skillName = record.skill_name || record.skillName || '';
+          const skillCategory = record.skill_category || record.skillCategory || 'technical';
+          const skillLevel = record.skill_level || record.skillLevel || 'intermediate';
+          const yearsOfExp = record.years_of_experience || record.yearsOfExperience;
+
+          if (skillName) {
+            employee.skills.push({
+              name: skillName.trim(),
+              category: this.normalizeCategory(skillCategory),
+              level: this.normalizeLevel(skillLevel),
+              yearsOfExperience: yearsOfExp ? parseInt(yearsOfExp, 10) : undefined,
+              verified: false
+            });
+          }
+        }
+      }
+
+      return Array.from(employeeMap.values());
+
+    } catch (error) {
+      console.error('Error parsing CSV data:', error);
+      return [];
+    }
   }
 
+  /**
+   * Extract skills from resume text using AI analysis
+   * Uses Knowledge Engine for skill recognition and categorization
+   * Production-ready implementation with AI provider integration
+   */
   private async extractSkillsFromResume(resumeText: string): Promise<Skill[]> {
-    // Extract skills from resume text using NLP
-    // This would typically use AI to parse and extract skills
-    return [];
+    try {
+      const prompt = `Analyze the following resume and extract all professional skills. Categorize each skill and assess the proficiency level based on the context.
+
+Resume Text:
+${resumeText}
+
+Please extract skills in the following JSON format:
+{
+  "skills": [
+    {
+      "name": "skill name",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "beginner|intermediate|advanced|expert",
+      "yearsOfExperience": number (if mentioned),
+      "verified": false
+    }
+  ]
+}
+
+Guidelines:
+- Technical: Programming languages, software, tools, frameworks, technical methodologies
+- Soft: Interpersonal, teamwork, adaptability, time management
+- Leadership: Management, mentoring, strategic planning, decision-making
+- Analytical: Data analysis, problem-solving, research, critical thinking
+- Communication: Writing, presenting, negotiation, public speaking
+
+Assess level based on:
+- Job titles and responsibilities
+- Years of experience mentioned
+- Project complexity
+- Certifications and achievements`;
+
+      // Use Data Engine for extraction (requires precision)
+      const response = await this.dataAI.call({
+        agent: 'skills',
+        engine: 'data',
+        prompt,
+        requireJson: true,
+        temperature: 0.3  // Low temperature for consistent extraction
+      });
+
+      // Parse AI response
+      const parsedResponse = typeof response.narrative === 'string'
+        ? JSON.parse(response.narrative)
+        : response.narrative;
+
+      if (!parsedResponse.skills || !Array.isArray(parsedResponse.skills)) {
+        console.warn('AI returned invalid skills format, returning empty array');
+        return [];
+      }
+
+      // Validate and normalize skills
+      return parsedResponse.skills
+        .filter((skill: any) => skill.name && skill.category && skill.level)
+        .map((skill: any) => ({
+          name: skill.name.trim(),
+          category: this.normalizeCategory(skill.category),
+          level: this.normalizeLevel(skill.level),
+          yearsOfExperience: skill.yearsOfExperience || undefined,
+          verified: false
+        }));
+
+    } catch (error) {
+      console.error('Error extracting skills from resume:', error);
+      // Return empty array instead of throwing to allow graceful degradation
+      return [];
+    }
+  }
+
+  /**
+   * Normalize skill category to valid enum value
+   */
+  private normalizeCategory(category: string): Skill['category'] {
+    const cat = category.toLowerCase().trim();
+    const validCategories = ['technical', 'soft', 'leadership', 'analytical', 'communication'];
+
+    if (validCategories.includes(cat)) {
+      return cat as Skill['category'];
+    }
+
+    // Smart mapping for common variations
+    if (cat.includes('tech') || cat.includes('program') || cat.includes('software')) return 'technical';
+    if (cat.includes('lead') || cat.includes('manag')) return 'leadership';
+    if (cat.includes('commun') || cat.includes('present')) return 'communication';
+    if (cat.includes('analy') || cat.includes('data')) return 'analytical';
+
+    return 'technical'; // default fallback
+  }
+
+  /**
+   * Normalize skill level to valid enum value
+   */
+  private normalizeLevel(level: string): Skill['level'] {
+    const lvl = level.toLowerCase().trim();
+    const validLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
+
+    if (validLevels.includes(lvl)) {
+      return lvl as Skill['level'];
+    }
+
+    // Smart mapping for common variations
+    if (lvl.includes('begin') || lvl.includes('entry') || lvl.includes('junior')) return 'beginner';
+    if (lvl.includes('inter') || lvl.includes('mid')) return 'intermediate';
+    if (lvl.includes('advan') || lvl.includes('senior')) return 'advanced';
+    if (lvl.includes('expert') || lvl.includes('master') || lvl.includes('lead')) return 'expert';
+
+    return 'intermediate'; // default fallback
   }
 
   private async triggerLXPModule(

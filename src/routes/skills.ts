@@ -3,6 +3,10 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import { parse } from 'csv-parse/sync';
+import pdfParse from 'pdf-parse-fork';
+import mammoth from 'mammoth';
 import { authenticate, authorize } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
@@ -12,6 +16,72 @@ import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const router = Router();
+
+// Configure multer for resume uploads
+const resumeStorage = multer.memoryStorage();
+const resumeUpload = multer({
+  storage: resumeStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/msword', // .doc
+      'text/plain'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOCX, DOC, and TXT files are allowed.'));
+    }
+  },
+});
+
+// Configure multer for CSV uploads
+const csvStorage = multer.memoryStorage();
+const csvUpload = multer({
+  storage: csvStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only CSV files are allowed.'));
+    }
+  },
+});
+
+// Extract text from resume based on file type
+async function extractResumeText(buffer: Buffer, mimetype: string): Promise<string> {
+  try {
+    if (mimetype === 'application/pdf') {
+      const pdfData = await pdfParse(buffer);
+      return pdfData.text;
+    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+               mimetype === 'application/msword') {
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value;
+    } else if (mimetype === 'text/plain') {
+      return buffer.toString('utf-8');
+    } else {
+      throw new Error('Unsupported file type');
+    }
+  } catch (error) {
+    console.error('Error extracting resume text:', error);
+    throw new Error('Failed to extract text from resume');
+  }
+}
 
 // Zod Schemas for validation
 const SkillSchema = z.object({
@@ -40,6 +110,204 @@ const SkillsAnalysisInputSchema = z.object({
     employeeId: z.string(),
     resumeText: z.string()
   })).optional()
+});
+
+/**
+ * POST /api/skills/resume/upload
+ * Upload and analyze resume to extract skills
+ */
+router.post('/resume/upload', authenticate, validateTenantAccess, resumeUpload.single('resume'), async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { employeeId } = req.body;
+
+    if (!employeeId) {
+      return res.status(400).json({
+        success: false,
+        error: 'employeeId is required'
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Resume file is required'
+      });
+    }
+
+    // Verify employee belongs to user's tenant
+    const employee = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.id, employeeId),
+        eq(users.tenantId, userTenantId)
+      ))
+      .limit(1);
+
+    if (employee.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found or access denied'
+      });
+    }
+
+    // Extract text from resume
+    const resumeText = await extractResumeText(req.file.buffer, req.file.mimetype);
+
+    // Use skills agent to extract skills from resume text
+    const extractedSkills = await skillsAgent['extractSkillsFromResume'](resumeText);
+
+    if (extractedSkills.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No skills found in resume',
+        skills: []
+      });
+    }
+
+    // Store extracted skills in database
+    const newSkills = [];
+    for (const skill of extractedSkills) {
+      const [newSkill] = await db.insert(skills).values({
+        userId: employeeId,
+        tenantId: userTenantId,
+        name: skill.name,
+        category: skill.category,
+        level: skill.level,
+        yearsOfExperience: skill.yearsOfExperience,
+        verified: false // Resume-extracted skills are not verified by default
+      }).onConflictDoUpdate({
+        target: [skills.userId, skills.name],
+        set: {
+          level: skill.level,
+          category: skill.category,
+          yearsOfExperience: skill.yearsOfExperience,
+          updatedAt: new Date()
+        }
+      }).returning();
+      newSkills.push(newSkill);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully extracted ${newSkills.length} skills from resume`,
+      skills: newSkills
+    });
+
+  } catch (error: unknown) {
+    console.error('Resume upload error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to process resume' });
+  }
+});
+
+/**
+ * POST /api/skills/csv/import
+ * Import employee skills from CSV file
+ */
+router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, csvUpload.single('csv'), async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'CSV file is required'
+      });
+    }
+
+    // Parse CSV file
+    const records = parse(req.file.buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as Array<Record<string, string>>;
+
+    if (records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'CSV file is empty'
+      });
+    }
+
+    // Use skills agent to parse CSV data
+    const employeeData = await skillsAgent['parseCSVData'](records);
+
+    if (employeeData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid employee data found in CSV'
+      });
+    }
+
+    // Store skills for each employee
+    let totalSkillsImported = 0;
+    const importResults = [];
+
+    for (const employee of employeeData) {
+      // Verify/create employee in users table
+      const existingEmployee = await db.select()
+        .from(users)
+        .where(and(
+          eq(users.id, employee.employeeId),
+          eq(users.tenantId, userTenantId)
+        ))
+        .limit(1);
+
+      if (existingEmployee.length === 0) {
+        // Skip employees not in the system
+        console.warn(`Employee ${employee.employeeId} not found in tenant ${userTenantId}, skipping`);
+        continue;
+      }
+
+      // Import skills for this employee
+      const importedSkills = [];
+      for (const skill of employee.skills) {
+        const [newSkill] = await db.insert(skills).values({
+          userId: employee.employeeId,
+          tenantId: userTenantId,
+          name: skill.name,
+          category: skill.category,
+          level: skill.level,
+          yearsOfExperience: skill.yearsOfExperience,
+          verified: false // CSV-imported skills are not verified by default
+        }).onConflictDoUpdate({
+          target: [skills.userId, skills.name],
+          set: {
+            level: skill.level,
+            category: skill.category,
+            yearsOfExperience: skill.yearsOfExperience,
+            updatedAt: new Date()
+          }
+        }).returning();
+        importedSkills.push(newSkill);
+        totalSkillsImported++;
+      }
+
+      importResults.push({
+        employeeId: employee.employeeId,
+        employeeName: employee.name,
+        skillsImported: importedSkills.length
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully imported ${totalSkillsImported} skills for ${importResults.length} employees`,
+      totalSkills: totalSkillsImported,
+      employeesProcessed: importResults.length,
+      details: importResults
+    });
+
+  } catch (error: unknown) {
+    console.error('CSV import error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to import CSV' });
+  }
 });
 
 /**
