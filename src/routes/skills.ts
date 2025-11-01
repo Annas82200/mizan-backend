@@ -656,6 +656,193 @@ router.get('/dashboard/stats', authenticate, validateTenantAccess, async (req: R
 });
 
 /**
+ * POST /api/skills/workflow/start
+ * Start full skills analysis workflow
+ */
+router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { strategy, industry, organizationName } = req.body;
+
+    if (!strategy || !industry || !organizationName) {
+      return res.status(400).json({
+        success: false,
+        error: 'strategy, industry, and organizationName are required'
+      });
+    }
+
+    // Create workflow input
+    const workflowInput = {
+      tenantId: userTenantId,
+      companyId: userTenantId,
+      industry,
+      organizationName,
+      strategy
+    };
+
+    // Execute full skills analysis workflow
+    const analysis = await skillsAgent.analyzeSkills(workflowInput);
+
+    // Store analysis results in database
+    await db.insert(skillsAssessments).values({
+      tenantId: userTenantId,
+      userId: req.user!.id,
+      currentSkills: analysis.skillCategories as unknown as Record<string, unknown>,
+      requiredSkills: analysis.emergingSkills as unknown as Record<string, unknown>,
+      analysisData: analysis as unknown as Record<string, unknown>,
+      overallScore: analysis.overallScore,
+      strategicAlignment: analysis.strategicAlignment,
+      criticalGapsCount: analysis.criticalGaps.length,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    // Store critical gaps
+    for (const gap of analysis.criticalGaps) {
+      await db.insert(skillsGaps).values({
+        tenantId: userTenantId,
+        employeeId: null, // Organization-level gap
+        skill: gap.skill,
+        category: gap.category,
+        currentLevel: gap.currentLevel,
+        requiredLevel: gap.requiredLevel,
+        gapSeverity: gap.gap,
+        priority: gap.priority,
+        businessImpact: gap.businessImpact,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Skills analysis workflow completed successfully',
+      analysis: {
+        overallScore: analysis.overallScore,
+        strategicAlignment: analysis.strategicAlignment,
+        skillsCoverage: analysis.skillsCoverage,
+        criticalGapsCount: analysis.criticalGaps.length,
+        lxpTriggersCount: analysis.lxpTriggers?.length || 0,
+        talentTriggersCount: analysis.talentTriggers?.length || 0,
+        bonusTriggersCount: analysis.bonusTriggers?.length || 0
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Workflow start error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to start workflow' });
+  }
+});
+
+/**
+ * POST /api/skills/bot/query
+ * Interactive skills bot queries
+ */
+router.post('/bot/query', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { query, context } = req.body;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: 'query is required'
+      });
+    }
+
+    // Use skills bot to answer query
+    const response = await skillsAgent.handleBotQuery(query, userTenantId, context);
+
+    // Store bot interaction
+    await db.insert(skillsBotInteractions).values({
+      tenantId: userTenantId,
+      userId: req.user!.id,
+      interactionType: response.intent,
+      userQuery: query,
+      botResponse: response.answer,
+      context: {
+        ...context,
+        confidence: response.confidence,
+        suggestions: response.suggestions
+      } as unknown as Record<string, unknown>,
+      resolved: true,
+      createdAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      response: {
+        answer: response.answer,
+        intent: response.intent,
+        confidence: response.confidence,
+        suggestions: response.suggestions
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Bot query error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to process bot query' });
+  }
+});
+
+/**
+ * GET /api/skills/department/:departmentId/analysis
+ * Analyze skills at department level
+ */
+router.get('/department/:departmentId/analysis', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { departmentId } = req.params;
+
+    // Analyze department skills
+    const analysis = await skillsAgent.analyzeDepartmentSkills(departmentId, userTenantId);
+
+    res.json({
+      success: true,
+      analysis
+    });
+
+  } catch (error: unknown) {
+    console.error('Department analysis error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to analyze department skills' });
+  }
+});
+
+/**
+ * GET /api/skills/organization/analysis
+ * Analyze skills at organization level
+ */
+router.get('/organization/analysis', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+
+    // Analyze organization skills
+    const analysis = await skillsAgent.analyzeOrganizationSkills(userTenantId);
+
+    res.json({
+      success: true,
+      analysis
+    });
+
+  } catch (error: unknown) {
+    console.error('Organization analysis error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to analyze organization skills' });
+  }
+});
+
+/**
  * GET /api/skills/frameworks
  * Get all skills frameworks for the user's tenant
  */

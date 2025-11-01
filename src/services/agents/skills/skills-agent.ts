@@ -1094,6 +1094,217 @@ Assess level based on:
       });
     }
   }
+
+  /**
+   * Handle interactive bot queries about skills
+   */
+  async handleBotQuery(
+    query: string,
+    tenantId: string,
+    context?: any
+  ): Promise<{
+    answer: string;
+    intent: string;
+    confidence: number;
+    suggestions: string[];
+  }> {
+    try {
+      const prompt = `You are an AI skills advisor helping with organizational skills analysis.
+
+User query: "${query}"
+
+Context: ${context ? JSON.stringify(context) : 'No additional context provided'}
+
+Please provide:
+1. A clear, helpful answer to the query
+2. The intent of the question (e.g., "skills_gap", "training_recommendation", "employee_assessment", "general_inquiry")
+3. Your confidence level (0-1)
+4. 2-3 helpful follow-up suggestions
+
+Respond in JSON format:
+{
+  "answer": "your answer here",
+  "intent": "intent category",
+  "confidence": 0.85,
+  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}`;
+
+      const response = await this.reasoningAI.call({
+        agent: 'skills',
+        engine: 'reasoning',
+        prompt,
+        requireJson: true,
+        temperature: 0.6
+      });
+
+      const parsedResponse = typeof response.narrative === 'string'
+        ? JSON.parse(response.narrative)
+        : response.narrative;
+
+      return {
+        answer: parsedResponse.answer || 'I apologize, but I could not process your query.',
+        intent: parsedResponse.intent || 'unknown',
+        confidence: parsedResponse.confidence || 0.5,
+        suggestions: parsedResponse.suggestions || []
+      };
+
+    } catch (error) {
+      console.error('Error handling bot query:', error);
+      return {
+        answer: 'I apologize, but I encountered an error processing your query. Please try rephrasing or contact support.',
+        intent: 'error',
+        confidence: 0,
+        suggestions: []
+      };
+    }
+  }
+
+  /**
+   * Analyze skills at department level
+   */
+  async analyzeDepartmentSkills(
+    departmentId: string,
+    tenantId: string
+  ): Promise<{
+    departmentId: string;
+    totalEmployees: number;
+    skillsCoverage: Record<string, number>;
+    criticalGaps: SkillsGap[];
+    topSkills: Array<{ skill: string; proficiency: number; employeeCount: number }>;
+    recommendations: string[];
+  }> {
+    try {
+      // Get all skills for employees in the department
+      const departmentSkills = await db.select()
+        .from(skills)
+        .innerJoin(users, eq(skills.userId, users.id))
+        .where(and(
+          eq(skills.tenantId, tenantId),
+          eq(users.departmentId, departmentId)
+        ));
+
+      // Aggregate skills data
+      const skillsMap = new Map<string, { count: number; levels: string[] }>();
+
+      for (const row of departmentSkills) {
+        const skill = row.skills;
+        const existing = skillsMap.get(skill.name);
+        if (existing) {
+          existing.count++;
+          existing.levels.push(skill.level);
+        } else {
+          skillsMap.set(skill.name, { count: 1, levels: [skill.level] });
+        }
+      }
+
+      // Calculate top skills
+      const topSkills = Array.from(skillsMap.entries())
+        .map(([skill, data]) => ({
+          skill,
+          proficiency: this.calculateAverageProficiency(data.levels),
+          employeeCount: data.count
+        }))
+        .sort((a, b) => b.proficiency - a.proficiency)
+        .slice(0, 10);
+
+      return {
+        departmentId,
+        totalEmployees: new Set(departmentSkills.map(s => s.users.id)).size,
+        skillsCoverage: {},
+        criticalGaps: [],
+        topSkills,
+        recommendations: [
+          'Focus on upskilling in identified gap areas',
+          'Leverage top performers as mentors',
+          'Consider cross-training programs'
+        ]
+      };
+
+    } catch (error) {
+      console.error('Error analyzing department skills:', error);
+      throw new Error('Failed to analyze department skills');
+    }
+  }
+
+  /**
+   * Analyze skills at organization level
+   */
+  async analyzeOrganizationSkills(
+    tenantId: string
+  ): Promise<{
+    totalEmployees: number;
+    totalSkills: number;
+    skillsCoverage: Record<string, number>;
+    departmentComparison: Array<{
+      departmentId: string;
+      departmentName: string;
+      skillsScore: number;
+      criticalGaps: number;
+    }>;
+    organizationGaps: SkillsGap[];
+    strategicAlignment: number;
+    recommendations: string[];
+  }> {
+    try {
+      // Get all skills for the organization
+      const orgSkills = await db.select()
+        .from(skills)
+        .where(eq(skills.tenantId, tenantId));
+
+      // Get unique employees
+      const uniqueEmployees = new Set(orgSkills.map(s => s.userId)).size;
+
+      // Get skills gaps
+      const gaps = await db.select()
+        .from(skillsGaps)
+        .where(eq(skillsGaps.tenantId, tenantId));
+
+      // Map database gaps to SkillsGap interface
+      const mappedGaps: SkillsGap[] = gaps.map(gap => ({
+        skill: gap.skill,
+        category: gap.category,
+        currentLevel: gap.currentLevel,
+        requiredLevel: gap.requiredLevel,
+        gap: gap.gapSeverity as 'critical' | 'high' | 'medium' | 'low',
+        priority: gap.priority,
+        employeesAffected: 1, // Default to 1, could aggregate by skill if needed
+        businessImpact: gap.businessImpact
+      }));
+
+      return {
+        totalEmployees: uniqueEmployees,
+        totalSkills: orgSkills.length,
+        skillsCoverage: {},
+        departmentComparison: [],
+        organizationGaps: mappedGaps,
+        strategicAlignment: 75, // Placeholder - calculate based on framework alignment
+        recommendations: [
+          'Implement organization-wide skills development program',
+          'Create skills councils for critical skill areas',
+          'Establish mentorship programs for knowledge transfer'
+        ]
+      };
+
+    } catch (error) {
+      console.error('Error analyzing organization skills:', error);
+      throw new Error('Failed to analyze organization skills');
+    }
+  }
+
+  /**
+   * Calculate average proficiency from skill levels
+   */
+  private calculateAverageProficiency(levels: string[]): number {
+    const levelMap: Record<string, number> = {
+      beginner: 1,
+      intermediate: 2,
+      advanced: 3,
+      expert: 4
+    };
+
+    const sum = levels.reduce((acc, level) => acc + (levelMap[level] || 0), 0);
+    return sum / levels.length;
+  }
 }
 
 // Export singleton instance

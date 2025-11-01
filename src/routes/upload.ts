@@ -10,7 +10,7 @@ import { organizationStructure } from "../../db/schema/strategy";
 import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared";
 import bcrypt from "bcryptjs";
-import { Department, ReportingLine, StructureData, Role } from "../types/structure-types";
+import { Department, ReportingLine, StructureData, Role, StrategyData } from "../types/structure-types";
 
 const router = Router();
 
