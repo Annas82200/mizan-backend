@@ -12,7 +12,7 @@ import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
 import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants } from '../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
 
@@ -735,6 +735,49 @@ router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdm
       return res.status(500).json({ success: false, error: error.message });
     }
     res.status(500).json({ success: false, error: 'Failed to start workflow' });
+  }
+});
+
+/**
+ * GET /api/skills/workflow/sessions
+ * Get all workflow sessions for the tenant
+ */
+router.get('/workflow/sessions', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+
+    // Get all assessments (workflow sessions) for the tenant
+    const sessions = await db.select()
+      .from(skillsAssessments)
+      .where(eq(skillsAssessments.tenantId, userTenantId))
+      .orderBy(desc(skillsAssessments.createdAt));
+
+    // Format sessions with status and progress
+    const formattedSessions = sessions.map(session => ({
+      id: session.id,
+      userId: session.userId,
+      overallScore: session.overallScore,
+      strategicAlignment: session.strategicAlignment,
+      criticalGapsCount: session.criticalGapsCount,
+      status: session.overallScore ? 'completed' : 'in_progress',
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      currentSkills: session.currentSkills,
+      requiredSkills: session.requiredSkills
+    }));
+
+    res.json({
+      success: true,
+      sessions: formattedSessions,
+      totalCount: formattedSessions.length
+    });
+
+  } catch (error: unknown) {
+    console.error('Workflow sessions error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to retrieve workflow sessions' });
   }
 });
 
