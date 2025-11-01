@@ -528,6 +528,7 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
       invitations: invitations.map(inv => ({
         employeeId: inv.employeeId,
         email: inv.email,
+        name: inv.name,
         surveyLink: inv.surveyLink
       }))
     });
@@ -652,6 +653,79 @@ router.get('/campaign/:campaignId/status', authenticate, authorize(['clientAdmin
     console.error('Campaign status error:', error);
     return res.status(500).json({
       error: 'Failed to fetch campaign status'
+    });
+  }
+});
+
+/**
+ * GET /api/culture-assessment/survey/validate-token
+ * Validate survey token and return survey details (PUBLIC - no auth required)
+ */
+router.get('/survey/validate-token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey token is required'
+      });
+    }
+
+    // Find the survey invitation by token
+    const invitation = await db.select()
+      .from(cultureSurveyInvitations)
+      .where(eq(cultureSurveyInvitations.surveyToken, token))
+      .limit(1);
+
+    if (invitation.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid survey token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+
+    const invitationData = invitation[0];
+
+    // Check if already completed
+    if (invitationData.status === 'completed') {
+      return res.status(410).json({
+        success: false,
+        error: 'Survey already completed',
+        code: 'ALREADY_COMPLETED',
+        completedAt: invitationData.completedAt
+      });
+    }
+
+    // Check if expired
+    if (invitationData.expiresAt && new Date(invitationData.expiresAt) < new Date()) {
+      return res.status(410).json({
+        success: false,
+        error: 'Survey link has expired',
+        code: 'EXPIRED',
+        expiresAt: invitationData.expiresAt
+      });
+    }
+
+    // Return valid survey details
+    return res.json({
+      success: true,
+      valid: true,
+      survey: {
+        campaignId: invitationData.campaignId,
+        campaignName: invitationData.campaignName,
+        employeeEmail: invitationData.employeeEmail,
+        expiresAt: invitationData.expiresAt,
+        status: invitationData.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Survey token validation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to validate survey token'
     });
   }
 });
