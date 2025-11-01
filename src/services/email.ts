@@ -336,6 +336,138 @@ export class EmailService {
           </div>
         `,
         text: `Thank you for your consulting request for ${asString(data.requestType)}. We'll contact you within 48 hours.`
+      }),
+
+      // Skills Analysis Email Templates
+      skillsAnalysisComplete: (data) => ({
+        subject: `Skills Analysis Complete - ${asString(data.companyName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>🎯 Skills Analysis Complete!</h1>
+            <p>Hi ${asString(data.name)},</p>
+            <p>Your organization's skills analysis has been completed.</p>
+            <p><strong>Key Metrics:</strong></p>
+            <ul>
+              <li><strong>Overall Score:</strong> ${asNumber(data.score)}/100</li>
+              <li><strong>Strategic Alignment:</strong> ${asNumber(data.strategicAlignment)}%</li>
+              <li><strong>Skills Coverage:</strong> ${asNumber(data.skillsCoverage)}%</li>
+              <li><strong>Critical Gaps:</strong> ${asNumber(data.criticalGapsCount)}</li>
+            </ul>
+            <p><strong>Top Insights:</strong></p>
+            <ul>
+              ${asStringArray(data.insights).map((insight: string) => `<li>${insight}</li>`).join('')}
+            </ul>
+            <a href="${asString(data.dashboardLink)}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Full Report</a>
+            <p style="margin-top: 20px;">Best regards,<br>The Mizan Team</p>
+          </div>
+        `,
+        text: `Skills analysis complete for ${asString(data.companyName)}. Score: ${asNumber(data.score)}/100. View report: ${asString(data.dashboardLink)}`
+      }),
+
+      skillsGapDetected: (data) => ({
+        subject: `⚠️ Critical Skills Gap Detected - ${asString(data.skillName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>⚠️ Critical Skills Gap Alert</h1>
+            <p>Hi ${asString(data.name)},</p>
+            <p>We've detected a critical skills gap in your organization:</p>
+            <p><strong>Gap Details:</strong></p>
+            <ul>
+              <li><strong>Skill:</strong> ${asString(data.skillName)}</li>
+              <li><strong>Category:</strong> ${asString(data.category)}</li>
+              <li><strong>Current Level:</strong> ${asString(data.currentLevel)}</li>
+              <li><strong>Required Level:</strong> ${asString(data.requiredLevel)}</li>
+              <li><strong>Priority:</strong> ${asString(data.priority)}</li>
+              <li><strong>Employees Affected:</strong> ${asNumber(data.employeesAffected)}</li>
+            </ul>
+            <p><strong>Business Impact:</strong></p>
+            <p>${asString(data.businessImpact)}</p>
+            <p><strong>Recommended Actions:</strong></p>
+            <ul>
+              ${asStringArray(data.recommendations).map((rec: string) => `<li>${rec}</li>`).join('')}
+            </ul>
+            <a href="${asString(data.actionUrl)}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Take Action</a>
+          </div>
+        `,
+        text: `Critical skills gap detected: ${asString(data.skillName)}. ${asNumber(data.employeesAffected)} employees affected. Take action: ${asString(data.actionUrl)}`
+      }),
+
+      skillsFrameworkCreated: (data) => ({
+        subject: `Strategic Skills Framework Created - ${asString(data.companyName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>📊 Skills Framework Created!</h1>
+            <p>Hi ${asString(data.name)},</p>
+            <p>Your organization's strategic skills framework has been created and is ready for review.</p>
+            <p><strong>Framework Highlights:</strong></p>
+            <ul>
+              <li><strong>Strategic Skills:</strong> ${asNumber(data.strategicSkillsCount)} identified</li>
+              <li><strong>Industry Benchmarks:</strong> Aligned with ${asString(data.industry)} standards</li>
+              <li><strong>Critical Skills:</strong> ${asNumber(data.criticalSkillsCount)} mapped to business goals</li>
+            </ul>
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>Review the framework in your dashboard</li>
+              <li>Customize skills categories as needed</li>
+              <li>Begin employee skills assessments</li>
+              <li>Track progress against benchmarks</li>
+            </ol>
+            <a href="${asString(data.dashboardLink)}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Review Framework</a>
+          </div>
+        `,
+        text: `Strategic skills framework created for ${asString(data.companyName)}. ${asNumber(data.strategicSkillsCount)} strategic skills identified. Review: ${asString(data.dashboardLink)}`
+      }),
+
+      skillsAssessmentReminder: (data) => ({
+        subject: 'Please Update Your Skills Profile - Mizan',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>📝 Skills Assessment Reminder</h1>
+            <p>Hi ${asString(data.employeeName)},</p>
+            <p>It's time to update your skills profile on Mizan!</p>
+            <p>Keeping your skills up-to-date helps us:</p>
+            <ul>
+              <li>Provide personalized learning recommendations</li>
+              <li>Match you with relevant projects and opportunities</li>
+              <li>Support your career development goals</li>
+              <li>Build a stronger, more capable team</li>
+            </ul>
+            <p><strong>What to do:</strong></p>
+            <ol>
+              <li>Review your current skills list</li>
+              <li>Add any new skills you've acquired</li>
+              <li>Update proficiency levels where applicable</li>
+              <li>Save your updated profile</li>
+            </ol>
+            <p>This will only take 5-10 minutes.</p>
+            <a href="${asString(data.assessmentLink)}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Update Skills Profile</a>
+          </div>
+        `,
+        text: `Time to update your skills profile on Mizan! Update here: ${asString(data.assessmentLink)}`
+      }),
+
+      skillsLearningRecommendation: (data) => ({
+        subject: `🎓 Personalized Learning Recommendations - ${asString(data.skillName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>🎓 New Learning Recommendations</h1>
+            <p>Hi ${asString(data.employeeName)},</p>
+            <p>Based on your skills profile and career goals, we've identified learning opportunities for you:</p>
+            <p><strong>Focus Area:</strong> ${asString(data.skillName)}</p>
+            <p><strong>Why this matters:</strong></p>
+            <p>${asString(data.rationale)}</p>
+            <p><strong>Recommended Learning Paths:</strong></p>
+            <ul>
+              ${asStringArray(data.learningPaths).map((path: string) => `<li>${path}</li>`).join('')}
+            </ul>
+            <p><strong>Expected Benefits:</strong></p>
+            <ul>
+              ${asStringArray(data.benefits).map((benefit: string) => `<li>${benefit}</li>`).join('')}
+            </ul>
+            <a href="${asString(data.lxpLink)}" style="background-color: #CCA404; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Explore Learning Paths</a>
+          </div>
+        `,
+        text: `New learning recommendation for ${asString(data.skillName)}. Explore learning paths: ${asString(data.lxpLink)}`
       })
     };
 

@@ -11,9 +11,10 @@ import { authenticate, authorize } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
-import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users } from '../../db/schema';
+import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { emailService } from '../services/email';
 
 const router = Router();
 
@@ -957,6 +958,102 @@ router.delete('/employee/:employeeId/skill/:skillName', authenticate, validateTe
         }
         res.status(500).json({ success: false, error: 'Failed to delete skill' });
     }
+});
+
+/**
+ * POST /api/skills/notify
+ * Send skills-related email notifications
+ */
+router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { notificationType, recipients, data } = req.body;
+
+    // Validate required fields
+    if (!notificationType || !recipients || !data) {
+      return res.status(400).json({
+        success: false,
+        error: 'notificationType, recipients, and data are required'
+      });
+    }
+
+    // Ensure recipients is an array
+    const recipientList = Array.isArray(recipients) ? recipients : [recipients];
+
+    // Get tenant information for email context
+    const tenant = await db.select()
+      .from(tenants)
+      .where(eq(tenants.id, userTenantId))
+      .limit(1);
+
+    const companyName = tenant[0]?.name || 'Your Organization';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://www.mizan.work';
+
+    // Map notification type to email template
+    const templateMap: Record<string, string> = {
+      'analysis_complete': 'skillsAnalysisComplete',
+      'gap_detected': 'skillsGapDetected',
+      'framework_created': 'skillsFrameworkCreated',
+      'assessment_reminder': 'skillsAssessmentReminder',
+      'learning_recommendation': 'skillsLearningRecommendation'
+    };
+
+    const templateName = templateMap[notificationType];
+    if (!templateName) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid notification type: ${notificationType}`
+      });
+    }
+
+    // Prepare email data with context
+    const emailData = {
+      ...data,
+      companyName,
+      dashboardLink: `${frontendUrl}/dashboard/skills`,
+      actionUrl: data.actionUrl || `${frontendUrl}/dashboard/skills`,
+      assessmentLink: data.assessmentLink || `${frontendUrl}/dashboard/skills/assessment`,
+      lxpLink: data.lxpLink || `${frontendUrl}/dashboard/lxp`
+    };
+
+    // Send emails to all recipients
+    const emailPromises = recipientList.map(async (recipient: { email: string; name: string }) => {
+      try {
+        await emailService.sendEmail({
+          to: recipient.email,
+          template: templateName,
+          data: {
+            ...emailData,
+            name: recipient.name || recipient.email,
+            employeeName: recipient.name || recipient.email
+          }
+        });
+        return { success: true, email: recipient.email };
+      } catch (error) {
+        console.error(`Failed to send email to ${recipient.email}:`, error);
+        return { success: false, email: recipient.email, error: (error as Error).message };
+      }
+    });
+
+    const results = await Promise.allSettled(emailPromises);
+
+    // Count successes and failures
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.length - successful;
+
+    res.json({
+      success: true,
+      message: `Notifications sent: ${successful} successful, ${failed} failed`,
+      results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' })
+    });
+
+  } catch (error: unknown) {
+    console.error('Notification error:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to send notifications' });
+  }
 });
 
 export default router;
