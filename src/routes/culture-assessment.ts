@@ -1029,11 +1029,31 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
       });
     }
 
-    // Get latest completed assessment for this user
+    // Get the employee's user record to determine their actual tenant
+    const employeeUser = await db.query.users.findFirst({
+      where: eq(users.id, userId)
+    });
+
+    if (!employeeUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      });
+    }
+
+    // Validate cross-tenant access: superadmins can access any tenant, others only their own
+    if (requestingUser.role !== 'superadmin' && requestingUser.tenantId !== employeeUser.tenantId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied: Cannot access other tenant data'
+      });
+    }
+
+    // Get latest completed assessment for this user using EMPLOYEE's tenantId
     const assessment = await db.query.cultureAssessments.findFirst({
       where: and(
         eq(cultureAssessments.userId, userId),
-        eq(cultureAssessments.tenantId, requestingUser.tenantId)
+        eq(cultureAssessments.tenantId, employeeUser.tenantId)
       ),
       orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
     });
@@ -1068,7 +1088,7 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
     }
 
     // Report doesn't exist, trigger generation and inform user
-    generateEmployeeReport(assessment.id, userId, requestingUser.tenantId);
+    generateEmployeeReport(assessment.id, userId, employeeUser.tenantId);
 
     return res.status(202).json({
       success: true,
@@ -1103,11 +1123,31 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
       });
     }
 
-    // Get latest completed assessment
+    // Get the employee's user record to determine their actual tenant
+    const employeeUser = await db.query.users.findFirst({
+      where: eq(users.id, userId)
+    });
+
+    if (!employeeUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      });
+    }
+
+    // Validate cross-tenant access: superadmins can access any tenant, others only their own
+    if (requestingUser.role !== 'superadmin' && requestingUser.tenantId !== employeeUser.tenantId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied: Cannot access other tenant data'
+      });
+    }
+
+    // Get latest completed assessment using EMPLOYEE's tenantId
     const assessment = await db.query.cultureAssessments.findFirst({
       where: and(
         eq(cultureAssessments.userId, userId),
-        eq(cultureAssessments.tenantId, requestingUser.tenantId)
+        eq(cultureAssessments.tenantId, employeeUser.tenantId)
       ),
       orderBy: (assessments, { desc }) => [desc(assessments.completedAt)]
     });
@@ -1135,8 +1175,8 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
         eq(cultureReports.reportType, 'employee')
       ));
 
-    // Trigger regeneration
-    generateEmployeeReport(assessment.id, userId, requestingUser.tenantId);
+    // Trigger regeneration using EMPLOYEE's tenantId
+    generateEmployeeReport(assessment.id, userId, employeeUser.tenantId);
 
     return res.json({
       success: true,
