@@ -1256,4 +1256,276 @@ router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), v
   }
 });
 
+/**
+ * GET /api/skills/progress/:employeeId
+ * Get skill development progress for an employee
+ */
+router.get('/progress/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const userTenantId = req.user!.tenantId;
+
+    // Verify employee belongs to user's tenant
+    const employee = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.id, employeeId),
+        eq(users.tenantId, userTenantId)
+      ))
+      .limit(1);
+
+    if (employee.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found or access denied'
+      });
+    }
+
+    // Get all progress records for this employee
+    const progressRecords = await db.select()
+      .from(skillsProgress)
+      .where(and(
+        eq(skillsProgress.employeeId, employeeId),
+        eq(skillsProgress.tenantId, userTenantId)
+      ))
+      .orderBy(desc(skillsProgress.lastUpdated));
+
+    // Calculate aggregate metrics
+    const totalSkillsTracking = progressRecords.length;
+    const averageProgress = totalSkillsTracking > 0
+      ? Math.round(progressRecords.reduce((sum, record) => sum + (record.progressPercentage || 0), 0) / totalSkillsTracking)
+      : 0;
+
+    // Extract completed milestones
+    const completedMilestones = progressRecords
+      .flatMap(record => {
+        const milestones = record.milestones as any[] || [];
+        return milestones.map(m => ({
+          ...m,
+          skillName: record.skillName
+        }));
+      })
+      .filter((milestone: any) => milestone.achievedAt);
+
+    res.json({
+      success: true,
+      data: {
+        employeeId,
+        employeeName: employee[0].name || employee[0].email,
+        totalSkillsTracking,
+        averageProgress,
+        skillsProgress: progressRecords,
+        completedMilestones
+      }
+    });
+  } catch (error: unknown) {
+    console.error('Error fetching employee progress:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to fetch progress' });
+  }
+});
+
+/**
+ * POST /api/skills/progress/:employeeId
+ * Log/update skill improvement progress for an employee
+ */
+router.post('/progress/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const userTenantId = req.user!.tenantId;
+
+    // Validation schema
+    const ProgressSchema = z.object({
+      skillName: z.string().min(1),
+      currentLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
+      targetLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
+      progressPercentage: z.number().int().min(0).max(100),
+      learningPathId: z.string().optional(),
+      milestones: z.array(z.any()).optional()
+    });
+
+    const validatedData = ProgressSchema.parse(req.body);
+
+    // Verify employee belongs to user's tenant
+    const employee = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.id, employeeId),
+        eq(users.tenantId, userTenantId)
+      ))
+      .limit(1);
+
+    if (employee.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found or access denied'
+      });
+    }
+
+    // Check if progress record already exists for this skill
+    const existingProgress = await db.select()
+      .from(skillsProgress)
+      .where(and(
+        eq(skillsProgress.employeeId, employeeId),
+        eq(skillsProgress.tenantId, userTenantId),
+        eq(skillsProgress.skillName, validatedData.skillName)
+      ))
+      .limit(1);
+
+    let progressRecord;
+
+    if (existingProgress.length > 0) {
+      // Update existing record
+      const [updated] = await db.update(skillsProgress)
+        .set({
+          currentLevel: validatedData.currentLevel,
+          targetLevel: validatedData.targetLevel,
+          progressPercentage: validatedData.progressPercentage,
+          learningPathId: validatedData.learningPathId,
+          milestones: validatedData.milestones as any,
+          lastUpdated: new Date()
+        })
+        .where(eq(skillsProgress.id, existingProgress[0].id))
+        .returning();
+
+      progressRecord = updated;
+    } else {
+      // Create new progress record
+      const [created] = await db.insert(skillsProgress)
+        .values({
+          tenantId: userTenantId,
+          employeeId,
+          skillId: randomUUID(), // Generate unique skill ID
+          skillName: validatedData.skillName,
+          currentLevel: validatedData.currentLevel,
+          targetLevel: validatedData.targetLevel,
+          progressPercentage: validatedData.progressPercentage,
+          learningPathId: validatedData.learningPathId,
+          milestones: validatedData.milestones as any
+        })
+        .returning();
+
+      progressRecord = created;
+    }
+
+    res.json({
+      success: true,
+      data: progressRecord,
+      message: existingProgress.length > 0 ? 'Progress updated successfully' : 'Progress logged successfully'
+    });
+  } catch (error: unknown) {
+    console.error('Error logging progress:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: 'Invalid progress data', details: error.errors });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to log progress' });
+  }
+});
+
+/**
+ * GET /api/skills/progress/department/:departmentId
+ * Get aggregated skill progress for a department
+ */
+router.get('/progress/department/:departmentId', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const { departmentId } = req.params;
+    const userTenantId = req.user!.tenantId;
+
+    // Get all employees in this department
+    const departmentEmployees = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.tenantId, userTenantId),
+        eq(users.departmentId, departmentId)
+      ));
+
+    if (departmentEmployees.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Department not found or has no employees'
+      });
+    }
+
+    const employeeIds = departmentEmployees.map(emp => emp.id);
+
+    // Get all progress records for employees in this department
+    const progressRecords = await db.select()
+      .from(skillsProgress)
+      .where(and(
+        eq(skillsProgress.tenantId, userTenantId)
+      ));
+
+    // Filter by department employees
+    const departmentProgress = progressRecords.filter(record =>
+      employeeIds.includes(record.employeeId)
+    );
+
+    // Calculate department metrics
+    const totalEmployees = departmentEmployees.length;
+    const employeesWithProgress = new Set(departmentProgress.map(r => r.employeeId)).size;
+    const averageDepartmentProgress = departmentProgress.length > 0
+      ? Math.round(departmentProgress.reduce((sum, record) => sum + (record.progressPercentage || 0), 0) / departmentProgress.length)
+      : 0;
+
+    // Aggregate by skill
+    const skillMap: Record<string, {
+      skillName: string;
+      totalProgress: number;
+      employeeCount: number;
+      levelCounts: Record<string, number>;
+    }> = {};
+
+    departmentProgress.forEach(record => {
+      if (!skillMap[record.skillName]) {
+        skillMap[record.skillName] = {
+          skillName: record.skillName,
+          totalProgress: 0,
+          employeeCount: 0,
+          levelCounts: { beginner: 0, intermediate: 0, advanced: 0, expert: 0 }
+        };
+      }
+      skillMap[record.skillName].totalProgress += record.progressPercentage || 0;
+      skillMap[record.skillName].employeeCount += 1;
+      skillMap[record.skillName].levelCounts[record.currentLevel] =
+        (skillMap[record.skillName].levelCounts[record.currentLevel] || 0) + 1;
+    });
+
+    // Format skill progression data
+    const skillProgressionBySkill = Object.values(skillMap).map(skill => ({
+      skillName: skill.skillName,
+      averageProgressPercentage: Math.round(skill.totalProgress / skill.employeeCount),
+      employeeCount: skill.employeeCount,
+      levelDistribution: skill.levelCounts,
+      averageCurrentLevel: Object.entries(skill.levelCounts)
+        .reduce((max, [level, count]) => count > (skill.levelCounts[max] || 0) ? level : max, 'beginner')
+    }));
+
+    // Sort by employee count (most tracked skills first)
+    skillProgressionBySkill.sort((a, b) => b.employeeCount - a.employeeCount);
+
+    res.json({
+      success: true,
+      data: {
+        departmentId,
+        departmentName: departmentEmployees[0]?.department || 'Unknown Department',
+        totalEmployees,
+        employeesWithProgress,
+        averageDepartmentProgress,
+        skillProgressionBySkill
+      }
+    });
+  } catch (error: unknown) {
+    console.error('Error fetching department progress:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to fetch department progress' });
+  }
+});
+
 export default router;
