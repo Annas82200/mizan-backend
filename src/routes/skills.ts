@@ -408,6 +408,163 @@ router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin'])
 });
 
 /**
+ * PUT /api/skills/framework/:id
+ * Update an existing strategic skills framework
+ */
+router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { frameworkName, industry, strategicSkills, technicalSkills, softSkills, prioritization } = req.body;
+        const userTenantId = req.user!.tenantId;
+
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Framework ID is required' });
+        }
+
+        // Verify framework exists and belongs to user's tenant
+        const existingFramework = await db.select()
+            .from(skillsFramework)
+            .where(and(
+                eq(skillsFramework.id, id),
+                eq(skillsFramework.tenantId, userTenantId)
+            ))
+            .limit(1);
+
+        if (existingFramework.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Framework not found or access denied'
+            });
+        }
+
+        // Build update object with only provided fields
+        const updateData: any = {
+            updatedAt: new Date()
+        };
+
+        if (frameworkName !== undefined) updateData.frameworkName = frameworkName;
+        if (industry !== undefined) updateData.industry = industry;
+        if (strategicSkills !== undefined) updateData.strategicSkills = strategicSkills;
+        if (technicalSkills !== undefined) updateData.technicalSkills = technicalSkills;
+        if (softSkills !== undefined) updateData.softSkills = softSkills;
+        if (prioritization !== undefined) updateData.prioritization = prioritization;
+
+        // Update the framework
+        const updatedFramework = await db.update(skillsFramework)
+            .set(updateData)
+            .where(and(
+                eq(skillsFramework.id, id),
+                eq(skillsFramework.tenantId, userTenantId)
+            ))
+            .returning();
+
+        if (updatedFramework.length === 0) {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update framework'
+            });
+        }
+
+        res.json({
+            success: true,
+            framework: updatedFramework[0],
+            message: 'Framework updated successfully'
+        });
+
+    } catch (error: unknown) {
+        console.error('Framework update error:', error);
+        if (error instanceof Error) {
+            return res.status(500).json({ success: false, error: error.message });
+        }
+        res.status(500).json({ success: false, error: 'Failed to update skills framework' });
+    }
+});
+
+/**
+ * DELETE /api/skills/framework/:id
+ * Delete a strategic skills framework
+ * Note: This will fail if there are dependent assessment sessions
+ */
+router.delete('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userTenantId = req.user!.tenantId;
+
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Framework ID is required' });
+        }
+
+        // Use transaction to prevent race conditions between check and delete
+        const result = await db.transaction(async (tx) => {
+            // Verify framework exists and belongs to user's tenant
+            const existingFramework = await tx.select()
+                .from(skillsFramework)
+                .where(and(
+                    eq(skillsFramework.id, id),
+                    eq(skillsFramework.tenantId, userTenantId)
+                ))
+                .limit(1);
+
+            if (existingFramework.length === 0) {
+                throw new Error('Framework not found or access denied');
+            }
+
+            // Check for dependent assessment sessions
+            const dependentSessions = await tx.select()
+                .from(skillsAssessmentSessions)
+                .where(and(
+                    eq(skillsAssessmentSessions.frameworkId, id),
+                    eq(skillsAssessmentSessions.tenantId, userTenantId)
+                ))
+                .limit(1);
+
+            if (dependentSessions.length > 0) {
+                throw new Error('DEPENDENT_SESSIONS_EXIST');
+            }
+
+            // Delete the framework within transaction
+            const deletedFramework = await tx.delete(skillsFramework)
+                .where(and(
+                    eq(skillsFramework.id, id),
+                    eq(skillsFramework.tenantId, userTenantId)
+                ))
+                .returning();
+
+            if (deletedFramework.length === 0) {
+                throw new Error('Failed to delete framework');
+            }
+
+            return deletedFramework[0];
+        });
+
+        res.json({
+            success: true,
+            message: 'Framework deleted successfully',
+            deletedFramework: result
+        });
+
+    } catch (error: unknown) {
+        console.error('Framework deletion error:', error);
+
+        if (error instanceof Error) {
+            // Handle specific error cases
+            if (error.message === 'Framework not found or access denied') {
+                return res.status(404).json({ success: false, error: error.message });
+            }
+            if (error.message === 'DEPENDENT_SESSIONS_EXIST') {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Cannot delete framework: Active assessment sessions exist. Please complete or delete those sessions first.'
+                });
+            }
+            return res.status(500).json({ success: false, error: error.message });
+        }
+
+        res.status(500).json({ success: false, error: 'Failed to delete skills framework' });
+    }
+});
+
+/**
  * GET /api/skills/employee/:employeeId/gap
  * Analyze skills gap for a single employee
  */
