@@ -5,7 +5,7 @@ export type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'cla
 
 export interface EngineConfig {
   providers: AIProviderKey[];
-  model: string;
+  model?: string;  // Optional: Ignored in multi-provider mode, each provider uses its default
   temperature: number;
   maxTokens: number;
 }

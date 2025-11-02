@@ -15,7 +15,7 @@ import { AgentConfig, AgentExecutionResult } from './shared';
  */
 export interface EngineConfig {
   providers: ReadonlyArray<'openai' | 'anthropic' | 'google'>;
-  model: string;
+  model?: string;  // Optional: Ignored in multi-provider mode, each provider uses its default
   temperature: number;
   maxTokens: number;
 }
