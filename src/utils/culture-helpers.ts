@@ -113,74 +113,61 @@ export async function generateEmployeeReport(
       assessmentData.desiredExperience as string[] || []
     );
 
-    // 5. Build comprehensive report with correct structure matching frontend expectations
+    // 5. Build simplified report with 4-section structure
     const reportData = {
       employeeId,
       employeeName: userData.name,
       assessmentDate: assessmentData.completedAt,
 
-      // Personal Values Section with AI interpretation + Mizan deep narration
+      // SECTION 1: What Your Values Mean
+      // Analysis of selected values against the 7-Cylinder Framework
       personalValues: {
         selected: assessmentData.personalValues as string[] || [],
         cylinderScores: cultureAnalysis.cylinderScores || {},
         interpretation: generateMizanValueNarration(
           assessmentData.personalValues as string[] || [],
           cultureAnalysis.cylinderScores || {}
-        ),
-        strengths: cultureAnalysis.strengths,
-        gaps: cultureAnalysis.gaps
+        )
       },
 
-      // Vision for Growth Section with strengths-to-desired pathway
-      visionForGrowth: {
-        selected: assessmentData.desiredExperience as string[] || [],
-        meaning: generateStrengthsPathway(
+      // SECTION 2: How Your Strengths Build Healthy Culture
+      // Detailed explanation of strengths (not just cylinder names)
+      strengthsAnalysis: {
+        identifiedStrengths: generateStrengthExplanations(
           cultureAnalysis.strengths,
-          assessmentData.desiredExperience as string[] || [],
           cultureAnalysis.cylinderScores || {},
-          desiredCylinderScores
+          assessmentData.personalValues as string[] || []
         ),
-        opportunities: cultureAnalysis.recommendations.filter(r =>
-          r.toLowerCase().includes('develop') || r.toLowerCase().includes('growth')
-        ).slice(0, 3)
+        pathwayToHealth: generateHealthPathway(
+          cultureAnalysis.strengths,
+          cultureAnalysis.gaps,
+          cultureAnalysis.cylinderScores || {}
+        ),
+        keyInsights: [
+          `Your alignment score of ${cultureAnalysis.alignment}% shows ${cultureAnalysis.alignment >= 70 ? 'strong' : cultureAnalysis.alignment >= 50 ? 'moderate' : 'developing'} cultural resonance`,
+          ...cultureAnalysis.strengths.slice(0, 2).map(s => `Strength in ${s.toLowerCase()}`)
+        ]
       },
 
-      // Culture Alignment Analysis
-      cultureAlignment: {
-        score: cultureAnalysis.alignment,
-        interpretation: getAlignmentInterpretation(cultureAnalysis.alignment),
-        strengths: cultureAnalysis.strengths,
-        gaps: cultureAnalysis.gaps,
-        recommendations: cultureAnalysis.recommendations
+      // SECTION 3: Increase Engagement Using Your Strengths
+      // Connect strengths to engagement strategies
+      engagementStrategy: {
+        currentLevel: assessmentData.engagement || 0,
+        strengthsToLeverage: generateEngagementStrategies(
+          cultureAnalysis.strengths,
+          cultureAnalysis.cylinderScores || {},
+          assessmentData.engagement || 0
+        ),
+        actionableSteps: generateEngagementActions(
+          cultureAnalysis.strengths,
+          assessmentData.engagement || 0,
+          cultureAnalysis.recommendations
+        ),
+        expectedImpact: `By leveraging your ${cultureAnalysis.strengths.length} key strengths, you can increase engagement and contribute to a healthier organizational culture`
       },
 
-      // Engagement Analysis with interpretation
-      engagement: {
-        score: assessmentData.engagement || 0,
-        interpretation: getEngagementInterpretation(assessmentData.engagement || 0, cultureAnalysis),
-        factors: [
-          `Values alignment: ${cultureAnalysis.alignment}%`,
-          ...cultureAnalysis.strengths.slice(0, 2)
-        ],
-        recommendations: cultureAnalysis.recommendations
-          .filter(r => r.toLowerCase().includes('engagement') || r.toLowerCase().includes('involve'))
-          .slice(0, 3)
-      },
-
-      // Recognition Analysis with interpretation
-      recognition: {
-        score: assessmentData.recognition || 0,
-        interpretation: getRecognitionInterpretation(assessmentData.recognition || 0),
-        impact: `Recognition score of ${assessmentData.recognition}/5 indicates ${assessmentData.recognition >= 4 ? 'strong' : assessmentData.recognition >= 3 ? 'moderate' : 'developing'} satisfaction with acknowledgment practices`,
-        recommendations: cultureAnalysis.recommendations
-          .filter(r => r.toLowerCase().includes('recognition') || r.toLowerCase().includes('acknowledge'))
-          .slice(0, 3)
-      },
-
-      // Overall recommendations
-      recommendations: cultureAnalysis.recommendations,
-
-      // AI-generated reflection questions for deepening self-awareness
+      // SECTION 4: Customized Reflection Questions
+      // Thought-provoking questions tailored to individual profile
       reflectionQuestions: generateReflectionQuestions(
         cultureAnalysis.cylinderScores || {},
         cultureAnalysis.strengths,
@@ -188,18 +175,7 @@ export async function generateEmployeeReport(
         cultureAnalysis.alignment
       ),
 
-      // Overall Summary
-      overallSummary: {
-        keyStrengths: cultureAnalysis.strengths.slice(0, 3),
-        growthGaps: cultureAnalysis.gaps.slice(0, 3),
-        nextSteps: [
-          'Review your personalized recommendations',
-          'Identify one strength to leverage this week',
-          'Address one development area this month',
-          'Schedule follow-up conversation with manager'
-        ]
-      },
-
+      // Metadata
       generatedAt: new Date().toISOString()
     };
 
@@ -659,6 +635,243 @@ function generateStrengthsPathway(
   }
 
   return pathways.join(' ');
+}
+
+/**
+ * Generate detailed strength explanations (not just cylinder names)
+ * Explains what each strength means and behavioral indicators
+ */
+function generateStrengthExplanations(
+  strengths: string[],
+  cylinderScores: Record<number, number>,
+  personalValues: string[]
+): Array<{ name: string; explanation: string; behavioralIndicators: string[]; cylinderLevel: number }> {
+  const explanations: Array<{ name: string; explanation: string; behavioralIndicators: string[]; cylinderLevel: number }> = [];
+
+  // Cylinder framework explanations
+  const cylinderExplanations: Record<string, { explanation: string; indicators: string[]; level: number }> = {
+    'Cylinder 1': {
+      level: 1,
+      explanation: 'You demonstrate strong grounding in safety and security consciousness. This means you naturally create stable environments where people feel protected and can do their best work without fear. You understand that psychological safety is the foundation for innovation and risk-taking.',
+      indicators: ['Creates safe spaces for dialogue', 'Establishes clear boundaries', 'Protects team wellbeing', 'Provides stability during change']
+    },
+    'Cylinder 2': {
+      level: 2,
+      explanation: 'Your strength lies in fostering belonging and authentic relationships. You excel at creating connections where people feel valued as whole human beings, not just for their output. This relational intelligence is crucial for building cohesive, supportive teams.',
+      indicators: ['Builds genuine connections', 'Values team cohesion', 'Creates inclusive environment', 'Nurtures relationships']
+    },
+    'Cylinder 3': {
+      level: 3,
+      explanation: 'You bring powerful achievement orientation balanced with discipline. You understand that excellence comes from systematic effort and continuous improvement. This strength drives results while maintaining high standards and helping others grow in capability.',
+      indicators: ['Pursues excellence consistently', 'Sets high standards', 'Drives results', 'Mentors others toward growth']
+    },
+    'Cylinder 4': {
+      level: 4,
+      explanation: 'You demonstrate deep connection to meaning and contribution. Your work is purpose-driven - you seek to make a genuine difference beyond just completing tasks. This strength helps you and others stay motivated through challenges by connecting daily work to larger impact.',
+      indicators: ['Seeks meaningful work', 'Connects tasks to purpose', 'Values impact over activity', 'Inspires through vision']
+    },
+    'Cylinder 5': {
+      level: 5,
+      explanation: 'Your strength is in upholding integrity and fairness. You have a keen sense of justice and ethical responsibility. This strength ensures decisions are made transparently and fairly, building trust and credibility in the organization.',
+      indicators: ['Acts with integrity', 'Ensures fair treatment', 'Speaks truth to power', 'Upholds ethical standards']
+    },
+    'Cylinder 6': {
+      level: 6,
+      explanation: 'You bring wisdom and compassion to your work. You can hold complexity, see multiple perspectives, and respond with empathy. This strength enables you to navigate difficult situations with grace and help others through challenging times.',
+      indicators: ['Demonstrates empathy', 'Offers wise counsel', 'Holds complexity', 'Shows compassion under pressure']
+    },
+    'Cylinder 7': {
+      level: 7,
+      explanation: 'You embody unity and transcendence consciousness. You see beyond divisions to recognize our interconnectedness. This rare strength helps create cultures where differences are celebrated and collective flourishing is the goal.',
+      indicators: ['Bridges differences', 'Sees interconnection', 'Creates unity', 'Transcends ego-driven action']
+    }
+  };
+
+  // Match strengths to cylinder explanations
+  for (const strength of strengths.slice(0, 3)) { // Top 3 strengths
+    const cylinderKey = Object.keys(cylinderExplanations).find(key => strength.includes(key.split(' ')[1]));
+    if (cylinderKey) {
+      const info = cylinderExplanations[cylinderKey];
+      explanations.push({
+        name: strength,
+        explanation: info.explanation,
+        behavioralIndicators: info.indicators,
+        cylinderLevel: info.level
+      });
+    } else {
+      // Generic strength explanation
+      explanations.push({
+        name: strength,
+        explanation: `Your ${strength.toLowerCase()} represents a key area where you naturally excel and can make significant contributions to organizational culture.`,
+        behavioralIndicators: ['Demonstrates consistency', 'Influences others positively', 'Contributes to team success'],
+        cylinderLevel: 3
+      });
+    }
+  }
+
+  return explanations;
+}
+
+/**
+ * Generate pathway from current strengths to cultural health
+ * Shows how to use strengths to address gaps
+ */
+function generateHealthPathway(
+  strengths: string[],
+  gaps: string[],
+  cylinderScores: Record<number, number>
+): string {
+  if (strengths.length === 0) {
+    return 'Focus on developing your foundational values to build a strong cultural foundation.';
+  }
+
+  const pathways: string[] = [];
+
+  // Primary strength leverage
+  const primaryStrength = strengths[0];
+  pathways.push(
+    `Start by leveraging your strongest asset: ${primaryStrength.toLowerCase()}. This is your natural foundation for building cultural health.`
+  );
+
+  // Bridge to gaps
+  if (gaps.length > 0) {
+    const primaryGap = gaps[0];
+    pathways.push(
+      `Use this strength as a bridge to address ${primaryGap.toLowerCase()}. For example, if you excel at ${primaryStrength.toLowerCase()}, you can apply that same intentionality to developing ${primaryGap.toLowerCase()}.`
+    );
+  }
+
+  // Integration strategy
+  pathways.push(
+    `The pathway to cultural health isn't about being perfect in every dimension - it's about integrating your strengths in a way that creates balance. Your unique combination of ${strengths.slice(0, 2).join(' and ').toLowerCase()} can be leveraged to contribute meaningfully while continuing to grow.`
+  );
+
+  return pathways.join(' ');
+}
+
+/**
+ * Generate engagement strategies based on individual strengths
+ * Connects specific strengths to engagement drivers
+ */
+function generateEngagementStrategies(
+  strengths: string[],
+  cylinderScores: Record<number, number>,
+  currentEngagement: number
+): Array<{ strength: string; engagementAction: string; expectedImpact: string }> {
+  const strategies: Array<{ strength: string; engagementAction: string; expectedImpact: string }> = [];
+
+  // Map cylinders to engagement strategies
+  const engagementMap: Record<number, { action: string; impact: string }> = {
+    1: {
+      action: 'Create or contribute to safety initiatives that protect team wellbeing and establish clear boundaries for healthy work',
+      impact: 'Increased sense of security enables you and others to take creative risks and innovate'
+    },
+    2: {
+      action: 'Initiate meaningful connections with colleagues, organize team-building activities, or mentor new team members',
+      impact: 'Stronger relationships increase your sense of belonging and make work more fulfilling'
+    },
+    3: {
+      action: 'Set challenging but achievable goals, track your progress, and celebrate milestones with your team',
+      impact: 'Seeing tangible progress and achieving excellence fuels motivation and engagement'
+    },
+    4: {
+      action: 'Connect your daily tasks to the organization\'s larger mission, share impact stories, or volunteer for purpose-driven projects',
+      impact: 'Deepened sense of meaning transforms work from tasks to contribution'
+    },
+    5: {
+      action: 'Advocate for fair practices, participate in decision-making processes, or lead initiatives that ensure transparency',
+      impact: 'Living your values at work increases authenticity and commitment'
+    },
+    6: {
+      action: 'Offer mentorship, facilitate difficult conversations, or create spaces for reflection and learning',
+      impact: 'Using your wisdom to help others increases fulfillment and organizational impact'
+    },
+    7: {
+      action: 'Bridge siloed teams, facilitate cross-functional collaboration, or champion inclusive practices',
+      impact: 'Creating unity and reducing divisions makes work more harmonious and effective'
+    }
+  };
+
+  // Generate strategies for top strengths
+  for (const strength of strengths.slice(0, 2)) {
+    const cylinderMatch = strength.match(/Cylinder (\d)/);
+    if (cylinderMatch) {
+      const cylinderNum = parseInt(cylinderMatch[1]);
+      const strategy = engagementMap[cylinderNum];
+      if (strategy) {
+        strategies.push({
+          strength: strength,
+          engagementAction: strategy.action,
+          expectedImpact: strategy.impact
+        });
+      }
+    }
+  }
+
+  // Add engagement level specific strategy
+  if (currentEngagement < 3) {
+    strategies.push({
+      strength: 'Current Growth Opportunity',
+      engagementAction: 'Start small: identify one aspect of your work that aligns with your strengths and focus on deepening that connection this week',
+      expectedImpact: 'Small wins build momentum for greater engagement over time'
+    });
+  } else if (currentEngagement >= 4) {
+    strategies.push({
+      strength: 'Leadership Opportunity',
+      engagementAction: 'Share what makes your work engaging with colleagues, mentor others, or lead an engagement initiative',
+      expectedImpact: 'Your positive engagement can inspire and lift others, multiplying your impact'
+    });
+  }
+
+  return strategies;
+}
+
+/**
+ * Generate actionable engagement steps based on strengths
+ * Provides specific actions the employee can take
+ */
+function generateEngagementActions(
+  strengths: string[],
+  currentEngagement: number,
+  recommendations: string[]
+): string[] {
+  const actions: string[] = [];
+
+  // Weekly action based on primary strength
+  if (strengths.length > 0) {
+    const primaryStrength = strengths[0];
+    if (primaryStrength.includes('Cylinder 2')) {
+      actions.push('This week: Schedule a meaningful conversation with a colleague to deepen your connection');
+    } else if (primaryStrength.includes('Cylinder 4')) {
+      actions.push('This week: Identify one task and write down how it connects to your personal purpose or the organization\'s mission');
+    } else if (primaryStrength.includes('Cylinder 3')) {
+      actions.push('This week: Set one challenging goal aligned with your values and create a plan to achieve it');
+    } else {
+      actions.push(`This week: Find one way to apply your ${primaryStrength.toLowerCase()} in a new situation`);
+    }
+  }
+
+  // Monthly action for skill building
+  actions.push('This month: Choose one development area and take one concrete step toward growth (read an article, have a conversation, try a new approach)');
+
+  // Engagement-level specific action
+  if (currentEngagement < 3) {
+    actions.push('Daily: Notice and record one thing that gives you energy at work - build awareness of what engages you');
+  } else {
+    actions.push('Daily: Share one positive interaction or insight with your team - engagement is contagious');
+  }
+
+  // Strategic action from recommendations
+  const actionableRecs = recommendations.filter(r =>
+    r.toLowerCase().includes('consider') ||
+    r.toLowerCase().includes('develop') ||
+    r.toLowerCase().includes('focus')
+  );
+  if (actionableRecs.length > 0) {
+    actions.push(`Strategic focus: ${actionableRecs[0]}`);
+  }
+
+  return actions;
 }
 
 /**
