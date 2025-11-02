@@ -330,7 +330,7 @@ export const ensembleAI = new EnsembleAI({
   // Agent-specific thresholds based on complexity and accuracy requirements
   agentThresholds: {
     'structure-agent': 0.6,       // Lower threshold for flat/unusual org structures (5 depts/12 people)
-    'culture-agent': 0.70,        // Standard analysis
+    'culture-agent': 0.65,        // Lowered to accommodate provider responses (was 0.70)
     'skills-agent': 0.70,         // Standard analysis
     'engagement-agent': 0.65,     // Sentiment analysis - can be more flexible
     'recognition-agent': 0.65,    // Pattern recognition - can be more flexible

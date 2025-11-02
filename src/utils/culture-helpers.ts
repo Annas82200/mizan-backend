@@ -37,6 +37,10 @@ export async function generateEmployeeReport(
   employeeId: string,
   tenantId: string
 ): Promise<void> {
+  // Declare variables outside try block for access in catch block (error recovery)
+  let assessmentData: any = null;
+  let userData: any = null;
+
   try {
     console.log(`📊 [REPORT GENERATION] Starting for employee ${employeeId}`);
 
@@ -50,7 +54,7 @@ export async function generateEmployeeReport(
       throw new Error(`Assessment ${assessmentId} not found`);
     }
 
-    const assessmentData = assessment[0];
+    assessmentData = assessment[0];
 
     // 2. Fetch user data for employee name
     const user = await db.select()
@@ -62,25 +66,27 @@ export async function generateEmployeeReport(
       throw new Error(`User ${employeeId} not found`);
     }
 
-    const userData = user[0];
+    userData = user[0];
 
-    // 3. Initialize AI Agent with Three-Engine configuration
+    // 3. Initialize AI Agent with Three-Engine configuration (Multi-Provider Ensemble)
+    // Note: In multi-provider mode, each provider uses its own default model:
+    // - Anthropic: claude-sonnet-4-5
+    // - OpenAI: gpt-4o
+    // - Gemini: gemini-2.5-flash
+    // - Mistral: mistral-large-latest
     const agentConfig = {
       knowledge: {
-        providers: ['anthropic'] as string[],
-        model: 'claude-3-opus-20240229',
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'] as string[],
         temperature: 0.7,
         maxTokens: 4000
       },
       data: {
-        providers: ['anthropic'] as string[],
-        model: 'claude-3-opus-20240229',
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'] as string[],
         temperature: 0.3,
         maxTokens: 4000
       },
       reasoning: {
-        providers: ['anthropic'] as string[],
-        model: 'claude-3-opus-20240229',
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'] as string[],
         temperature: 0.5,
         maxTokens: 4000
       },
@@ -216,7 +222,79 @@ export async function generateEmployeeReport(
 
   } catch (error) {
     console.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
-    throw error; // Surface errors instead of silent failure
+
+    // Enhanced error recovery: Save partial report with error details
+    try {
+      console.log(`🔄 [REPORT GENERATION] Attempting to save partial report with error details...`);
+
+      const partialReportData = {
+        employeeId,
+        employeeName: userData?.name || 'Unknown',
+        assessmentDate: assessmentData?.completedAt || new Date(),
+        error: true,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+        personalValues: {
+          selected: (assessmentData?.personalValues as string[]) || [],
+          cylinderScores: {},
+          interpretation: 'Report generation failed. Please try regenerating the report.',
+          strengths: [],
+          gaps: []
+        },
+        visionForGrowth: {
+          selected: (assessmentData?.desiredExperience as string[]) || [],
+          meaning: 'Unable to generate due to error',
+          opportunities: []
+        },
+        cultureAlignment: {
+          score: 0,
+          interpretation: 'Analysis failed',
+          strengths: [],
+          gaps: [],
+          recommendations: ['Please regenerate this report']
+        },
+        engagement: {
+          score: assessmentData?.engagement || 0,
+          interpretation: 'Unable to analyze due to error',
+          factors: [],
+          drivers: [],
+          barriers: [],
+          recommendations: []
+        },
+        recognition: {
+          score: assessmentData?.recognition || 0,
+          interpretation: 'Unable to analyze due to error',
+          patterns: [],
+          needs: [],
+          recommendations: []
+        },
+        recommendations: ['Report generation encountered an error. Please try regenerating.'],
+        overallSummary: {
+          keyStrengths: [],
+          growthGaps: [],
+          nextSteps: ['Regenerate report', 'Contact support if issue persists']
+        },
+        generatedAt: new Date().toISOString(),
+        partialReport: true
+      };
+
+      // Save partial report so user can see something and retry
+      await db.insert(cultureReports).values({
+        id: randomUUID(),
+        tenantId,
+        analysisId: assessmentId,
+        reportType: 'employee',
+        reportData: partialReportData as any,
+        createdAt: new Date()
+      });
+
+      console.log(`⚠️ [REPORT GENERATION] Saved partial report with error details for employee ${employeeId}`);
+    } catch (saveError) {
+      console.error(`❌ [REPORT GENERATION] Failed to save even partial report:`, saveError);
+    }
+
+    // Re-throw original error for upstream handling
+    throw error;
   }
 }
 

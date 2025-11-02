@@ -338,11 +338,35 @@ Perform detailed analysis:
 5. Calculate cultural entropy (% of limiting values)
 6. Analyze employee experience vs espoused culture (if assessments provided)
 
-Return structured JSON with:
-- valueMapping: { mappings: [], cylinderDistribution: {}, dominantCylinders: [], missingCylinders: [] }
-- cylinderHealth: { 1-7: { status, score, enabling, limiting } }
-- entropyScore: number
-- employeeCultureGap: { alignmentScore, gaps, insights } (if assessments exist)`;
+CRITICAL: Return ONLY valid JSON matching this EXACT schema:
+{
+  "valueMapping": {
+    "mappings": [
+      {"value": "string", "cylinder": 1, "type": "enabling", "rationale": "string"},
+      {"value": "string", "cylinder": 2, "type": "limiting", "rationale": "string"}
+    ],
+    "cylinderDistribution": {"1": {"enabling": 0, "limiting": 0}, "2": {"enabling": 0, "limiting": 0}},
+    "dominantCylinders": [1, 2],
+    "missingCylinders": [6, 7]
+  },
+  "cylinderHealth": {
+    "1": {"status": "string", "score": 0, "enabling": 0, "limiting": 0},
+    "2": {"status": "string", "score": 0, "enabling": 0, "limiting": 0}
+  },
+  "entropyScore": 0,
+  "employeeCultureGap": {"alignmentScore": 0, "gaps": [], "insights": "string"},
+  "confidence": 0.8
+}
+
+VALIDATION RULES:
+- ALL JSON arrays MUST have commas between elements (no missing commas)
+- ALL property names MUST be in double quotes
+- ALL string values MUST be in double quotes
+- NO trailing commas after last array element or object property
+- Cylinder numbers must be 1-7 only
+- Type must be exactly "enabling" or "limiting"
+- Do NOT include any text before or after the JSON object
+- Do NOT wrap in markdown code blocks`;
   }
 
   protected buildReasoningPrompt(inputData: Record<string, unknown>, knowledgeOutput: Record<string, unknown>, dataOutput: Record<string, unknown>): string {
@@ -352,56 +376,118 @@ Data Analysis: ${JSON.stringify(dataOutput)}
 Theoretical Context: ${JSON.stringify(knowledgeOutput)}
 Strategy: ${inputData.strategy || 'Not provided'}
 
-Generate comprehensive output:
-1. strategyAlignmentScore: 0-100 score for culture-strategy fit
-2. strategyAlignment: { cultureFit, alignmentGaps[], accelerators[], blockers[], recommendations[] }
-3. recommendations: { immediate: [], shortTerm: [], longTerm: [] }
-4. triggers: Array of triggers for other modules (if cultural issues require interventions)
-
-Assess:
+Generate comprehensive output assessing:
 - Is this culture healthy to achieve the strategy?
 - What needs to change?
 - What can be leveraged?
 - What interventions are needed?
 
-Return ONLY valid JSON. Be specific and actionable.`;
+CRITICAL: Return ONLY valid JSON matching this EXACT schema:
+{
+  "strategyAlignmentScore": 75,
+  "strategyAlignment": {
+    "cultureFit": "string describing overall fit",
+    "alignmentGaps": ["gap 1", "gap 2"],
+    "accelerators": ["strength 1", "strength 2"],
+    "blockers": ["blocker 1", "blocker 2"],
+    "recommendations": ["recommendation 1", "recommendation 2"]
+  },
+  "recommendations": {
+    "immediate": ["action 1", "action 2"],
+    "shortTerm": ["action 1", "action 2"],
+    "longTerm": ["action 1", "action 2"]
+  },
+  "triggers": [
+    {"module": "recognition", "reason": "string", "priority": "high"},
+    {"module": "engagement", "reason": "string", "priority": "medium"}
+  ],
+  "confidence": 0.85
+}
+
+VALIDATION RULES:
+- ALL JSON arrays MUST have commas between elements (no missing commas)
+- ALL property names MUST be in double quotes
+- ALL string values MUST be in double quotes
+- NO trailing commas after last array element or object property
+- strategyAlignmentScore must be 0-100
+- priority must be "high", "medium", or "low"
+- Do NOT include any text before or after the JSON object
+- Do NOT wrap in markdown code blocks
+- Be specific and actionable in all recommendations`;
   }
 
   protected parseKnowledgeOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response) as Record<string, unknown>;
-    } catch {
+      // Extract JSON from markdown code blocks if wrapped
+      const cleanJson = this.extractJsonFromResponse(response);
+
+      // Validate JSON structure before parsing
+      this.validateJsonStructure(cleanJson, 'Knowledge Engine');
+
+      return JSON.parse(cleanJson) as Record<string, unknown>;
+    } catch (error) {
+      console.error('❌ [KNOWLEDGE ENGINE] Failed to parse output:', error);
+      console.error('📄 [KNOWLEDGE ENGINE] Response preview:', response.substring(0, 500));
+
+      // Fallback: treat response as text context
       return {
         context: response,
         frameworks: 'Culture theory applied',
-        source: 'knowledge_engine'
+        source: 'knowledge_engine',
+        parseError: true
       };
     }
   }
 
   protected parseDataOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response) as Record<string, unknown>;
+      // Extract JSON from markdown code blocks if wrapped
+      const cleanJson = this.extractJsonFromResponse(response);
+
+      // Validate JSON structure before parsing
+      this.validateJsonStructure(cleanJson, 'Data Engine');
+
+      return JSON.parse(cleanJson) as Record<string, unknown>;
     } catch (error) {
-      console.error('Failed to parse Data Engine output:', error);
+      console.error('❌ [DATA ENGINE] Failed to parse output:', error);
+      console.error('📄 [DATA ENGINE] Response preview:', response.substring(0, 500));
+      console.error('📄 [DATA ENGINE] Response length:', response.length);
+
+      // Return structured fallback that allows processing to continue
       return {
-        valueMapping: { mappings: [], cylinderDistribution: {}, dominantCylinders: [], missingCylinders: [] },
+        valueMapping: {
+          mappings: [],
+          cylinderDistribution: {},
+          dominantCylinders: [],
+          missingCylinders: []
+        },
         cylinderHealth: {},
         entropyScore: 0,
-        error: 'Failed to parse data output'
+        confidence: 0.3,
+        parseError: true,
+        errorDetails: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
 
   protected parseReasoningOutput(response: string): Record<string, unknown> {
     try {
-      return JSON.parse(response) as Record<string, unknown>;
+      // Extract JSON from markdown code blocks if wrapped
+      const cleanJson = this.extractJsonFromResponse(response);
+
+      // Validate JSON structure before parsing
+      this.validateJsonStructure(cleanJson, 'Reasoning Engine');
+
+      return JSON.parse(cleanJson) as Record<string, unknown>;
     } catch (error) {
-      console.error('Failed to parse Reasoning Engine output:', error);
+      console.error('❌ [REASONING ENGINE] Failed to parse output:', error);
+      console.error('📄 [REASONING ENGINE] Response preview:', response.substring(0, 500));
+
+      // Return structured fallback
       return {
         strategyAlignmentScore: 50,
         strategyAlignment: {
-          cultureFit: 50,
+          cultureFit: 'Unable to determine due to parsing error',
           alignmentGaps: [],
           accelerators: [],
           blockers: [],
@@ -421,6 +507,67 @@ Return ONLY valid JSON. Be specific and actionable.`;
   // ============================================================================
   // HELPER METHODS
   // ============================================================================
+
+  /**
+   * Extract JSON from response, handling markdown code blocks and other wrappers
+   */
+  private extractJsonFromResponse(response: string): string {
+    // Remove leading/trailing whitespace
+    let cleaned = response.trim();
+
+    // Check for markdown code blocks (```json ... ``` or ``` ... ```)
+    const markdownMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (markdownMatch) {
+      cleaned = markdownMatch[1].trim();
+    }
+
+    // Check for HTML pre tags
+    const preMatch = cleaned.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
+    if (preMatch) {
+      cleaned = preMatch[1].trim();
+    }
+
+    // Check for HTML code tags
+    const codeMatch = cleaned.match(/<code[^>]*>([\s\S]*?)<\/code>/);
+    if (codeMatch) {
+      cleaned = codeMatch[1].trim();
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Validate JSON structure before parsing to provide better error messages
+   */
+  private validateJsonStructure(jsonStr: string, engineName: string): void {
+    // Check if string is empty
+    if (!jsonStr || jsonStr.length === 0) {
+      throw new Error(`${engineName} returned empty response`);
+    }
+
+    // Check for JSON object wrapper
+    if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+      throw new Error(`${engineName} response doesn't start with { or [ - not valid JSON`);
+    }
+
+    if (!jsonStr.endsWith('}') && !jsonStr.endsWith(']')) {
+      throw new Error(`${engineName} response doesn't end with } or ] - not valid JSON`);
+    }
+
+    // Check for common JSON errors
+    if (jsonStr.includes(',,')) {
+      throw new Error(`${engineName} response contains double commas`);
+    }
+
+    if (jsonStr.match(/,\s*[}\]]/)) {
+      throw new Error(`${engineName} response contains trailing comma`);
+    }
+
+    // Check for reasonable length (prevent extremely large responses that might timeout)
+    if (jsonStr.length > 100000) {
+      console.warn(`⚠️ [${engineName}] Response is very large (${jsonStr.length} chars)`);
+    }
+  }
 
   private async getCompanyStrategy(companyId: string, tenantId: string): Promise<string> {
     // Using tenantId as the primary identifier for multi-tenant architecture
@@ -676,10 +823,30 @@ Return ONLY valid JSON. Be specific and actionable.`;
     recommendations: string[];
     cylinderScores: Record<number, number>;
   }> {
-    // Map values to cylinders
-    const personalMapping = await this.mapTenantValuesToCylinders(personalValues);
-    const currentMapping = await this.mapTenantValuesToCylinders(currentExperienceValues);
-    const desiredMapping = await this.mapTenantValuesToCylinders(desiredFutureValues);
+    // OPTIMIZATION: Combine all values into single analysis to reduce from 9 to 3 engine calls
+    // Tag values by source to separate them after analysis
+    const taggedValues = [
+      ...personalValues.map(v => ({ value: v, source: 'personal' as const })),
+      ...currentExperienceValues.map(v => ({ value: v, source: 'current' as const })),
+      ...desiredFutureValues.map(v => ({ value: v, source: 'desired' as const }))
+    ];
+
+    // Single combined analysis (3 engine calls: Knowledge → Data → Reasoning)
+    const allValues = taggedValues.map(tv => tv.value);
+    const allMappings = await this.mapTenantValuesToCylinders(allValues);
+
+    // Separate mappings by source after analysis
+    const personalMapping = allMappings.filter((m, idx) =>
+      taggedValues[idx]?.source === 'personal'
+    );
+    const currentMapping = allMappings.filter((m, idx) =>
+      taggedValues[idx]?.source === 'current'
+    );
+    const desiredMapping = allMappings.filter((m, idx) =>
+      taggedValues[idx]?.source === 'desired'
+    );
+
+    console.log(`✅ [OPTIMIZATION] Reduced from 9 to 3 engine calls for employee ${employeeId}`);
 
     // Calculate cylinder scores based on value distribution
     const cylinderScores: Record<number, number> = {};

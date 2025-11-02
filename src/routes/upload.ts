@@ -221,22 +221,20 @@ router.post("/analyze", upload.single("file"), async (req: Request, res: Respons
     }
     
     // Analyze the structure using StructureAgentV2
+    // Note: In multi-provider mode, each provider uses its own default model
     const agentConfig = {
       knowledge: {
-        providers: ['openai' as const, 'anthropic' as const],
-        model: 'gpt-4',
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
         temperature: 0.3,
         maxTokens: 4000
       },
       data: {
-        providers: ['openai' as const],
-        model: 'gpt-4',
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
         temperature: 0.1,
         maxTokens: 4000
       },
       reasoning: {
-        providers: ['anthropic' as const],
-        model: 'claude-3',
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
         temperature: 0.5,
         maxTokens: 4000
       },

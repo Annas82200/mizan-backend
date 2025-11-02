@@ -200,11 +200,24 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
       throw new Error('Company not found');
     }
     
-    // Initialize agents
+    // Initialize agents with multi-provider ensemble
+    // Note: In multi-provider mode, each provider uses its own default model
     const agentConfig = {
-      knowledge: { providers: ['anthropic' as const], model: 'claude-3-5-sonnet-20241022', temperature: 0.1, maxTokens: 4000 },
-      data: { providers: ['openai' as const], model: 'gpt-4', temperature: 0.1, maxTokens: 4000 },
-      reasoning: { providers: ['anthropic' as const], model: 'claude-3', temperature: 0.5, maxTokens: 4000 },
+      knowledge: {
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      data: {
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      reasoning: {
+        providers: ['anthropic' as const, 'openai' as const, 'gemini' as const, 'mistral' as const],
+        temperature: 0.5,
+        maxTokens: 4000
+      },
       consensusThreshold: 0.7
     };
     const structureAgent = new StructureAgentV2('structure', agentConfig);
