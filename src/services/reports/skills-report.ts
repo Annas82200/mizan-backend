@@ -362,7 +362,7 @@ export function generateSkillsReportExcel(data: SkillsReportData): Buffer {
         gap.currentLevel,
         gap.requiredLevel,
         gap.gapSeverity,
-        gap.affectedEmployees,
+        String(gap.affectedEmployees),
         gap.estimatedTrainingTime || 'N/A'
       ]);
     });
@@ -381,7 +381,7 @@ export function generateSkillsReportExcel(data: SkillsReportData): Buffer {
         gap.category,
         gap.currentLevel,
         gap.requiredLevel,
-        gap.affectedEmployees,
+        String(gap.affectedEmployees),
         gap.recommendations.join('; ')
       ]);
     });

@@ -11,7 +11,7 @@ import { authenticate, authorize } from '../middleware/auth';
 import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
-import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants } from '../../db/schema';
+import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants, departments } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
@@ -1452,6 +1452,15 @@ router.get('/progress/department/:departmentId', authenticate, authorize(['super
       });
     }
 
+    // Query department name
+    const department = await db.select()
+      .from(departments)
+      .where(and(
+        eq(departments.id, departmentId),
+        eq(departments.tenantId, userTenantId)
+      ))
+      .limit(1);
+
     const employeeIds = departmentEmployees.map(emp => emp.id);
 
     // Get all progress records for employees in this department
@@ -1513,7 +1522,7 @@ router.get('/progress/department/:departmentId', authenticate, authorize(['super
       success: true,
       data: {
         departmentId,
-        departmentName: departmentEmployees[0]?.department || 'Unknown Department',
+        departmentName: department[0]?.name || 'Unknown Department',
         totalEmployees,
         employeesWithProgress,
         averageDepartmentProgress,
