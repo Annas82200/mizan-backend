@@ -15,6 +15,7 @@ import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmen
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
+import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../services/reports/skills-report';
 
 const router = Router();
 
@@ -1525,6 +1526,154 @@ router.get('/progress/department/:departmentId', authenticate, authorize(['super
       return res.status(500).json({ success: false, error: error.message });
     }
     res.status(500).json({ success: false, error: 'Failed to fetch department progress' });
+  }
+});
+
+/**
+ * POST /api/skills/report/generate
+ * Generate skills gap analysis report in specified format
+ */
+router.post('/report/generate', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const userId = req.user!.id;
+
+    // Validation schema
+    const ReportConfigSchema = z.object({
+      reportType: z.enum(['organization', 'department']),
+      departmentId: z.string().optional(),
+      format: z.enum(['pdf', 'excel', 'csv'])
+    });
+
+    const config = ReportConfigSchema.parse(req.body);
+
+    // Fetch analysis data based on report type
+    let analysisData;
+    if (config.reportType === 'organization') {
+      analysisData = await skillsAgent.analyzeOrganizationSkills(userTenantId);
+    } else if (config.reportType === 'department' && config.departmentId) {
+      analysisData = await skillsAgent.analyzeDepartmentSkills(config.departmentId, userTenantId);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Department ID is required for department reports'
+      });
+    }
+
+    // Prepare report data
+    const reportData = {
+      reportType: config.reportType,
+      departmentName: config.reportType === 'department' ? 'Department' : undefined,
+      totalEmployees: analysisData.totalEmployees || 0,
+      assessedEmployees: analysisData.assessedEmployees || 0,
+      criticalGaps: analysisData.criticalGaps || [],
+      allGaps: analysisData.allGaps || [],
+      bySeverity: analysisData.bySeverity || { critical: 0, high: 0, medium: 0, low: 0 },
+      generatedAt: new Date(),
+      generatedBy: userId
+    };
+
+    // Generate report in requested format
+    let reportBuffer: Buffer | string;
+    let contentType: string;
+    let filename: string;
+
+    if (config.format === 'pdf') {
+      reportBuffer = await generateSkillsReportPDF(reportData);
+      contentType = 'application/pdf';
+      filename = `skills-gap-report-${Date.now()}.pdf`;
+    } else if (config.format === 'excel') {
+      reportBuffer = generateSkillsReportExcel(reportData);
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      filename = `skills-gap-report-${Date.now()}.xlsx`;
+    } else if (config.format === 'csv') {
+      reportBuffer = generateSkillsReportCSV(reportData);
+      contentType = 'text/csv';
+      filename = `skills-gap-report-${Date.now()}.csv`;
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid report format'
+      });
+    }
+
+    // Set response headers for file download
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Send the file
+    res.send(reportBuffer);
+
+  } catch (error: unknown) {
+    console.error('Error generating report:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: 'Invalid report configuration', details: error.errors });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to generate report' });
+  }
+});
+
+/**
+ * GET /api/skills/report/preview
+ * Get report data without generating file (for preview)
+ */
+router.get('/report/preview', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const userTenantId = req.user!.tenantId;
+    const { reportType, departmentId } = req.query;
+
+    if (!reportType || (reportType !== 'organization' && reportType !== 'department')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid report type. Must be "organization" or "department"'
+      });
+    }
+
+    // Fetch analysis data
+    let analysisData;
+    if (reportType === 'organization') {
+      analysisData = await skillsAgent.analyzeOrganizationSkills(userTenantId);
+    } else if (reportType === 'department') {
+      if (!departmentId || typeof departmentId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Department ID is required for department reports'
+        });
+      }
+      analysisData = await skillsAgent.analyzeDepartmentSkills(departmentId, userTenantId);
+    }
+
+    // Return formatted data for preview
+    res.json({
+      success: true,
+      data: {
+        reportType,
+        departmentId: reportType === 'department' ? departmentId : undefined,
+        totalEmployees: analysisData.totalEmployees || 0,
+        assessedEmployees: analysisData.assessedEmployees || 0,
+        criticalGapsCount: (analysisData.criticalGaps || []).length,
+        totalGapsCount: (analysisData.allGaps || []).length,
+        bySeverity: analysisData.bySeverity || { critical: 0, high: 0, medium: 0, low: 0 },
+        criticalGaps: (analysisData.criticalGaps || []).slice(0, 5), // Top 5 for preview
+        topRecommendations: (analysisData.allGaps || [])
+          .filter((gap: any) => gap.recommendations && gap.recommendations.length > 0)
+          .slice(0, 5)
+          .map((gap: any) => ({
+            skillName: gap.skillName,
+            recommendations: gap.recommendations
+          }))
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Error fetching report preview:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to fetch report preview' });
   }
 });
 
