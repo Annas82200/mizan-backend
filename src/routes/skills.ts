@@ -8,7 +8,6 @@ import { parse } from 'csv-parse/sync';
 import pdfParse from 'pdf-parse-fork';
 import mammoth from 'mammoth';
 import { authenticate, authorize } from '../middleware/auth';
-import { validateTenantAccess } from '../middleware/tenant';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
 import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants, departments } from '../../db/schema';
@@ -118,7 +117,7 @@ const SkillsAnalysisInputSchema = z.object({
  * POST /api/skills/resume/upload
  * Upload and analyze resume to extract skills
  */
-router.post('/resume/upload', authenticate, validateTenantAccess, resumeUpload.single('resume'), async (req: Request, res: Response) => {
+router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { employeeId } = req.body;
@@ -209,7 +208,7 @@ router.post('/resume/upload', authenticate, validateTenantAccess, resumeUpload.s
  * POST /api/skills/csv/import
  * Import employee skills from CSV file
  */
-router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, csvUpload.single('csv'), async (req: Request, res: Response) => {
+router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']), csvUpload.single('csv'), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
 
@@ -316,7 +315,7 @@ router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']
  * POST /api/skills/analyze
  * Run a full skills analysis for a tenant
  */
-router.post('/analyze', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/analyze', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
     const validatedInput = SkillsAnalysisInputSchema.parse(req.body);
     const userTenantId = req.user!.tenantId;
@@ -363,7 +362,7 @@ router.post('/analyze', authenticate, authorize(['superadmin', 'clientAdmin']), 
  * POST /api/skills/framework
  * Create a strategic skills framework
  */
-router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const { tenantId, strategy, industry } = req.body;
         const userTenantId = req.user!.tenantId;
@@ -412,7 +411,7 @@ router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin'])
  * PUT /api/skills/framework/:id
  * Update an existing strategic skills framework
  */
-router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { frameworkName, industry, strategicSkills, technicalSkills, softSkills, prioritization } = req.body;
@@ -486,7 +485,7 @@ router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin
  * Delete a strategic skills framework
  * Note: This will fail if there are dependent assessment sessions
  */
-router.delete('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.delete('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const userTenantId = req.user!.tenantId;
@@ -569,7 +568,7 @@ router.delete('/framework/:id', authenticate, authorize(['superadmin', 'clientAd
  * GET /api/skills/employee/:employeeId/gap
  * Analyze skills gap for a single employee
  */
-router.get('/employee/:employeeId/gap', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: Response) => {
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
@@ -630,7 +629,7 @@ router.get('/employee/:employeeId/gap', authenticate, validateTenantAccess, asyn
  * GET /api/skills/employee/:employeeId
  * Get skills for a specific employee
  */
-router.get('/employee/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/employee/:employeeId', authenticate, async (req: Request, res: Response) => {
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
@@ -673,7 +672,7 @@ router.get('/employee/:employeeId', authenticate, validateTenantAccess, async (r
  * POST /api/skills/employee/:employeeId
  * Add or update skills for an employee
  */
-router.post('/employee/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/employee/:employeeId', authenticate, async (req: Request, res: Response) => {
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
@@ -735,7 +734,7 @@ router.post('/employee/:employeeId', authenticate, validateTenantAccess, async (
  * GET /api/skills/dashboard/stats
  * Get skills dashboard statistics for tenant
  */
-router.get('/dashboard/stats', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/dashboard/stats', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
 
@@ -818,7 +817,7 @@ router.get('/dashboard/stats', authenticate, validateTenantAccess, async (req: R
  * POST /api/skills/workflow/start
  * Start full skills analysis workflow
  */
-router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { strategy, industry, organizationName } = req.body;
@@ -900,7 +899,7 @@ router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdm
  * GET /api/skills/workflow/sessions
  * Get all workflow sessions for the tenant
  */
-router.get('/workflow/sessions', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/workflow/sessions', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
 
@@ -943,7 +942,7 @@ router.get('/workflow/sessions', authenticate, validateTenantAccess, async (req:
  * POST /api/skills/bot/query
  * Interactive skills bot queries
  */
-router.post('/bot/query', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/bot/query', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { query, context } = req.body;
@@ -997,7 +996,7 @@ router.post('/bot/query', authenticate, validateTenantAccess, async (req: Reques
  * GET /api/skills/department/:departmentId/analysis
  * Analyze skills at department level
  */
-router.get('/department/:departmentId/analysis', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/department/:departmentId/analysis', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { departmentId } = req.params;
@@ -1023,7 +1022,7 @@ router.get('/department/:departmentId/analysis', authenticate, validateTenantAcc
  * GET /api/skills/organization/analysis
  * Analyze skills at organization level
  */
-router.get('/organization/analysis', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/organization/analysis', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
 
@@ -1048,7 +1047,7 @@ router.get('/organization/analysis', authenticate, authorize(['superadmin', 'cli
  * GET /api/skills/frameworks
  * Get all skills frameworks for the user's tenant
  */
-router.get('/frameworks', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/frameworks', authenticate, async (req: Request, res: Response) => {
     try {
         const userTenantId = req.user!.tenantId;
 
@@ -1070,7 +1069,7 @@ router.get('/frameworks', authenticate, validateTenantAccess, async (req: Reques
  * GET /api/skills/gaps
  * Get all skills gaps for the user's tenant
  */
-router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const userTenantId = req.user!.tenantId;
 
@@ -1092,7 +1091,7 @@ router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), vali
  * GET /api/skills/assessments
  * Get all skills assessments for the user's tenant
  */
-router.get('/assessments', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/assessments', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const userTenantId = req.user!.tenantId;
 
@@ -1114,7 +1113,7 @@ router.get('/assessments', authenticate, authorize(['superadmin', 'clientAdmin']
  * DELETE /api/skills/employee/:employeeId/skill/:skillName
  * Delete a specific skill for an employee
  */
-router.delete('/employee/:employeeId/skill/:skillName', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.delete('/employee/:employeeId/skill/:skillName', authenticate, async (req: Request, res: Response) => {
     try {
         const { employeeId, skillName } = req.params;
         const userTenantId = req.user!.tenantId;
@@ -1165,7 +1164,7 @@ router.delete('/employee/:employeeId/skill/:skillName', authenticate, validateTe
  * POST /api/skills/notify
  * Send skills-related email notifications
  */
-router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { notificationType, recipients, data } = req.body;
@@ -1261,7 +1260,7 @@ router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), v
  * GET /api/skills/progress/:employeeId
  * Get skill development progress for an employee
  */
-router.get('/progress/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/progress/:employeeId', authenticate, async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params;
     const userTenantId = req.user!.tenantId;
@@ -1332,7 +1331,7 @@ router.get('/progress/:employeeId', authenticate, validateTenantAccess, async (r
  * POST /api/skills/progress/:employeeId
  * Log/update skill improvement progress for an employee
  */
-router.post('/progress/:employeeId', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/progress/:employeeId', authenticate, async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params;
     const userTenantId = req.user!.tenantId;
@@ -1432,7 +1431,7 @@ router.post('/progress/:employeeId', authenticate, validateTenantAccess, async (
  * GET /api/skills/progress/department/:departmentId
  * Get aggregated skill progress for a department
  */
-router.get('/progress/department/:departmentId', authenticate, authorize(['superadmin', 'clientAdmin']), validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/progress/department/:departmentId', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
   try {
     const { departmentId } = req.params;
     const userTenantId = req.user!.tenantId;
@@ -1542,7 +1541,7 @@ router.get('/progress/department/:departmentId', authenticate, authorize(['super
  * POST /api/skills/report/generate
  * Generate skills gap analysis report in specified format
  */
-router.post('/report/generate', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.post('/report/generate', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const userId = req.user!.id;
@@ -1629,7 +1628,7 @@ router.post('/report/generate', authenticate, validateTenantAccess, async (req: 
  * GET /api/skills/report/preview
  * Get report data without generating file (for preview)
  */
-router.get('/report/preview', authenticate, validateTenantAccess, async (req: Request, res: Response) => {
+router.get('/report/preview', authenticate, async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
     const { reportType, departmentId } = req.query;
