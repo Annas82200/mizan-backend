@@ -473,14 +473,34 @@ export class SkillsAgent extends ThreeEngineAgent {
         throw new Error('Failed to parse skills analysis result');
       }
 
+      // Create session ID for tracking (use analysisId or generate new)
+      const sessionId = randomUUID();
+
+      // Save analysis results first to get session context (non-blocking)
+      try {
+        await this.saveSkillsAnalysis(analysis, input, sessionId);
+      } catch (error) {
+        console.error('[Skills Agent] Error saving analysis results:', error);
+        // Log but don't fail - analysis can still be returned
+      }
+
       // Trigger LXP module if critical gaps identified (non-blocking)
-      if (analysis.criticalGaps.length > 0) {
+      if (analysis.criticalGaps.length > 0 && input.employeeData && input.employeeData.length > 0) {
         try {
-          analysis.lxpTriggers = await this.triggerLXPModule(analysis.criticalGaps, input.tenantId);
+          // Create LXP triggers for each employee with critical gaps
+          for (const employee of input.employeeData) {
+            await this.createLXPTrigger(
+              employee.employeeId,
+              input.tenantId,
+              sessionId,
+              analysis.criticalGaps
+            );
+          }
+
+          console.log(`[Skills Agent] Created LXP triggers for ${input.employeeData.length} employees`);
         } catch (error) {
           console.error('[Skills Agent] Error triggering LXP module:', error);
           // Non-critical - continue without LXP triggers
-          analysis.lxpTriggers = [];
         }
       }
 
@@ -502,14 +522,6 @@ export class SkillsAgent extends ThreeEngineAgent {
           console.error('[Skills Agent] Error triggering Bonus module:', error);
           // Non-critical - continue
         }
-      }
-
-      // Save analysis results (non-blocking)
-      try {
-        await this.saveSkillsAnalysis(analysis, input);
-      } catch (error) {
-        console.error('[Skills Agent] Error saving analysis results:', error);
-        // Log but don't fail - analysis can still be returned
       }
 
       return analysis;
@@ -1219,6 +1231,143 @@ Assess level based on:
     return 'intermediate'; // default fallback
   }
 
+  /**
+   * Create LXP trigger for learning path generation
+   * Production-ready implementation with proper error handling and validation
+   */
+  private async createLXPTrigger(
+    employeeId: string,
+    tenantId: string,
+    sessionId: string,
+    criticalGaps: SkillsGap[]
+  ): Promise<void> {
+    try {
+      // Validate inputs
+      if (!employeeId || !tenantId || !criticalGaps || criticalGaps.length === 0) {
+        console.warn('[Skills Agent] createLXPTrigger: Invalid inputs', {
+          hasEmployeeId: !!employeeId,
+          hasTenantId: !!tenantId,
+          gapsCount: criticalGaps?.length || 0
+        });
+        return;
+      }
+
+      // Filter gaps by priority - only trigger for critical and high gaps
+      const highPriorityGaps = criticalGaps.filter(gap =>
+        gap.gap === 'critical' || gap.gap === 'high'
+      );
+
+      if (highPriorityGaps.length === 0) {
+        console.log('[Skills Agent] No high-priority gaps to trigger LXP for');
+        return;
+      }
+
+      // Generate learning path recommendations for each gap
+      const learningPaths = highPriorityGaps.map(gap => ({
+        skillName: gap.skill,
+        category: gap.category,
+        currentLevel: gap.currentLevel,
+        targetLevel: gap.requiredLevel,
+        priority: gap.gap,
+        estimatedDuration: this.estimateLearningDuration(gap),
+        recommendedResources: this.generateLearningResources(gap)
+      }));
+
+      // Import skillsLearningTriggers table
+      const { skillsLearningTriggers } = await import('../../../../db/schema/skills.js');
+
+      // Insert trigger record
+      await db.insert(skillsLearningTriggers).values({
+        id: randomUUID(),
+        tenantId,
+        employeeId,
+        sessionId,
+        skillGaps: highPriorityGaps as unknown as Record<string, unknown>,
+        learningPaths: learningPaths as unknown as Record<string, unknown>,
+        priority: highPriorityGaps[0].gap, // Use highest priority gap
+        status: 'pending',
+        lxpPathId: null,
+        createdAt: new Date(),
+        processedAt: null
+      });
+
+      console.log(`[Skills Agent] Created LXP trigger for employee ${employeeId} with ${highPriorityGaps.length} skill gaps`);
+    } catch (error) {
+      // Non-blocking error - log and continue
+      console.error('[Skills Agent] Error creating LXP trigger:', error);
+      console.error('[Skills Agent] Trigger data:', {
+        employeeId,
+        tenantId,
+        sessionId,
+        gapsCount: criticalGaps.length
+      });
+    }
+  }
+
+  /**
+   * Estimate learning duration based on gap severity and skill complexity
+   */
+  private estimateLearningDuration(gap: SkillsGap): string {
+    const severityMultiplier = {
+      critical: 3,
+      high: 2,
+      medium: 1.5,
+      low: 1
+    };
+
+    const levelDifference = this.getSkillLevelScore(gap.requiredLevel) -
+                           this.getSkillLevelScore(gap.currentLevel);
+
+    const baseWeeks = 4; // Base learning time
+    const estimatedWeeks = Math.ceil(baseWeeks * levelDifference * severityMultiplier[gap.gap]);
+
+    if (estimatedWeeks <= 4) return '1-4 weeks';
+    if (estimatedWeeks <= 8) return '1-2 months';
+    if (estimatedWeeks <= 12) return '2-3 months';
+    return '3-6 months';
+  }
+
+  /**
+   * Generate learning resource recommendations based on skill gap
+   */
+  private generateLearningResources(gap: SkillsGap): string[] {
+    const resources: string[] = [];
+
+    // Recommend resources based on category
+    switch (gap.category) {
+      case 'technical':
+        resources.push('Online Course (Udemy/Coursera)');
+        resources.push('Hands-on Project');
+        resources.push('Technical Certification');
+        break;
+      case 'leadership':
+        resources.push('Leadership Workshop');
+        resources.push('Executive Mentoring');
+        resources.push('Stretch Assignment');
+        break;
+      case 'communication':
+        resources.push('Presentation Training');
+        resources.push('Writing Workshop');
+        resources.push('Public Speaking Course');
+        break;
+      case 'analytical':
+        resources.push('Data Analysis Course');
+        resources.push('Problem Solving Workshop');
+        resources.push('Case Study Practice');
+        break;
+      case 'soft':
+        resources.push('Team Collaboration Exercises');
+        resources.push('Coaching Sessions');
+        resources.push('Feedback Training');
+        break;
+      default:
+        resources.push('Self-directed Learning');
+        resources.push('On-the-job Training');
+    }
+
+    return resources.slice(0, 3); // Return top 3 recommendations
+  }
+
   private async triggerLXPModule(
     gaps: SkillsGap[],
     tenantId: string
@@ -1277,11 +1426,14 @@ Assess level based on:
 
   private async saveSkillsAnalysis(
     analysis: SkillsAnalysisResult,
-    input: SkillsAnalysisInput
+    input: SkillsAnalysisInput,
+    sessionId?: string
   ): Promise<void> {
     // Save analysis results to database
+    const assessmentId = sessionId || randomUUID();
+
     await db.insert(skillsAssessments).values({
-      id: randomUUID(),
+      id: assessmentId,
       tenantId: input.tenantId,
       userId: input.companyId, // Use companyId as userId for organization-level assessments
       analysisData: JSON.stringify(analysis),
@@ -1309,6 +1461,166 @@ Assess level based on:
         createdAt: new Date(),
         updatedAt: new Date()
       });
+    }
+  }
+
+  /**
+   * Handle LXP completion and update skills profile
+   * Called by LXP module when a learning path is completed
+   * Production-ready with comprehensive validation and error handling
+   */
+  async handleLXPCompletion(input: {
+    employeeId: string;
+    tenantId: string;
+    learningExperienceId: string;
+    skillsAcquired: Array<{
+      skillName: string;
+      skillCategory: string;
+      skillLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+      evidenceType: string;
+      validationStatus: 'pending' | 'validated' | 'not_validated' | 'requires_review';
+    }>;
+    completionPercentage: number;
+    totalScore: number;
+  }): Promise<{
+    success: boolean;
+    profileUpdated: boolean;
+    skillsUpdated: number;
+    message: string;
+  }> {
+    try {
+      // Validate inputs
+      if (!input.employeeId || !input.tenantId || !input.learningExperienceId) {
+        return {
+          success: false,
+          profileUpdated: false,
+          skillsUpdated: 0,
+          message: 'Missing required fields: employeeId, tenantId, or learningExperienceId'
+        };
+      }
+
+      if (!input.skillsAcquired || input.skillsAcquired.length === 0) {
+        return {
+          success: true,
+          profileUpdated: false,
+          skillsUpdated: 0,
+          message: 'No skills to update'
+        };
+      }
+
+      // Import skills table
+      const { skills, skillsProgress, skillsLearningTriggers } = await import('../../../../db/schema/skills.js');
+
+      let skillsUpdated = 0;
+
+      // Update or create skill records for validated skills
+      for (const skill of input.skillsAcquired) {
+        if (skill.validationStatus !== 'validated' && skill.validationStatus !== 'pending') {
+          console.warn(`[Skills Agent] Skipping non-validated skill: ${skill.skillName}`);
+          continue;
+        }
+
+        try {
+          // Check if skill already exists for employee
+          const existingSkill = await db.select()
+            .from(skills)
+            .where(and(
+              eq(skills.userId, input.employeeId),
+              eq(skills.name, skill.skillName)
+            ))
+            .limit(1);
+
+          if (existingSkill.length > 0) {
+            // Update existing skill if new level is higher
+            const currentLevelScore = this.getSkillLevelScore(existingSkill[0].level);
+            const newLevelScore = this.getSkillLevelScore(skill.skillLevel);
+
+            if (newLevelScore > currentLevelScore) {
+              await db.update(skills)
+                .set({
+                  level: skill.skillLevel,
+                  verified: skill.validationStatus === 'validated',
+                  updatedAt: new Date()
+                })
+                .where(eq(skills.id, existingSkill[0].id));
+
+              skillsUpdated++;
+              console.log(`[Skills Agent] Updated skill ${skill.skillName} for employee ${input.employeeId} to ${skill.skillLevel}`);
+            }
+          } else {
+            // Create new skill record
+            await db.insert(skills).values({
+              id: randomUUID(),
+              userId: input.employeeId,
+              tenantId: input.tenantId,
+              name: skill.skillName,
+              category: skill.skillCategory as any,
+              level: skill.skillLevel,
+              verified: skill.validationStatus === 'validated',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+
+            skillsUpdated++;
+            console.log(`[Skills Agent] Created new skill ${skill.skillName} for employee ${input.employeeId}`);
+          }
+
+          // Update progress tracking
+          await db.update(skillsProgress)
+            .set({
+              currentLevel: skill.skillLevel,
+              progressPercentage: 100,
+              lastUpdated: new Date()
+            })
+            .where(and(
+              eq(skillsProgress.employeeId, input.employeeId),
+              eq(skillsProgress.skillName, skill.skillName)
+            ));
+
+        } catch (error) {
+          console.error(`[Skills Agent] Error updating skill ${skill.skillName}:`, error);
+          // Continue with other skills even if one fails
+        }
+      }
+
+      // Update LXP trigger status to completed
+      try {
+        await db.update(skillsLearningTriggers)
+          .set({
+            status: 'completed',
+            lxpPathId: input.learningExperienceId,
+            processedAt: new Date()
+          })
+          .where(and(
+            eq(skillsLearningTriggers.employeeId, input.employeeId),
+            eq(skillsLearningTriggers.status, 'pending')
+          ));
+      } catch (error) {
+        console.error('[Skills Agent] Error updating trigger status:', error);
+        // Non-critical - continue
+      }
+
+      // Trigger re-analysis if significant skills were acquired
+      if (skillsUpdated >= 2 && input.completionPercentage === 100) {
+        console.log(`[Skills Agent] Employee ${input.employeeId} acquired ${skillsUpdated} skills - consider triggering re-analysis`);
+        // TODO: Optionally trigger automatic re-analysis
+      }
+
+      return {
+        success: true,
+        profileUpdated: true,
+        skillsUpdated,
+        message: `Successfully updated ${skillsUpdated} skill(s) for employee`
+      };
+
+    } catch (error) {
+      console.error('[Skills Agent] Error handling LXP completion:', error);
+      return {
+        success: false,
+        profileUpdated: false,
+        skillsUpdated: 0,
+        message: `Failed to handle LXP completion: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 

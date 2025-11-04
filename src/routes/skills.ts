@@ -1694,4 +1694,223 @@ router.get('/report/preview', authenticate, async (req: Request, res: Response) 
   }
 });
 
+// ============================================================================
+// LXP INTEGRATION ENDPOINTS - Phase 4.1
+// ============================================================================
+
+/**
+ * POST /api/skills/lxp/completion
+ * Handle LXP learning path completion and update skills profile
+ * Called by LXP module when employee completes a learning path
+ */
+router.post('/lxp/completion', authenticate, async (req: Request, res: Response) => {
+  try {
+    // Validation schema
+    const LXPCompletionSchema = z.object({
+      employeeId: z.string().uuid(),
+      tenantId: z.string().uuid(),
+      learningExperienceId: z.string().uuid(),
+      skillsAcquired: z.array(z.object({
+        skillName: z.string(),
+        skillCategory: z.string(),
+        skillLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
+        evidenceType: z.string(),
+        validationStatus: z.enum(['pending', 'validated', 'not_validated', 'requires_review'])
+      })),
+      completionPercentage: z.number().min(0).max(100),
+      totalScore: z.number().min(0)
+    });
+
+    const validatedData = LXPCompletionSchema.parse(req.body);
+
+    // Verify tenant access
+    if (req.user!.tenantId !== validatedData.tenantId && req.user!.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to update skills for this tenant'
+      });
+    }
+
+    // Call Skills Agent to handle completion (validatedData is guaranteed to have all required fields)
+    const result = await skillsAgent.handleLXPCompletion(validatedData as {
+      employeeId: string;
+      tenantId: string;
+      learningExperienceId: string;
+      skillsAcquired: Array<{
+        skillName: string;
+        skillCategory: string;
+        skillLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+        evidenceType: string;
+        validationStatus: 'pending' | 'validated' | 'not_validated' | 'requires_review';
+      }>;
+      completionPercentage: number;
+      totalScore: number;
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        profileUpdated: result.profileUpdated,
+        skillsUpdated: result.skillsUpdated,
+        message: result.message
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Error handling LXP completion:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request data',
+        details: error.errors
+      });
+    }
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to handle LXP completion' });
+  }
+});
+
+/**
+ * GET /api/skills/lxp/triggers/:employeeId
+ * Get pending LXP triggers for an employee
+ * Used by LXP module to retrieve skill gaps and learning path recommendations
+ */
+router.get('/lxp/triggers/:employeeId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const userTenantId = req.user!.tenantId;
+
+    // Validate UUID format
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid employee ID format'
+      });
+    }
+
+    // Verify employee belongs to user's tenant
+    const employee = await db.select()
+      .from(users)
+      .where(and(
+        eq(users.id, employeeId),
+        eq(users.tenantId, userTenantId)
+      ))
+      .limit(1);
+
+    if (employee.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found or not authorized'
+      });
+    }
+
+    // Fetch pending LXP triggers for this employee
+    const triggers = await db.select()
+      .from(skillsLearningTriggers)
+      .where(and(
+        eq(skillsLearningTriggers.employeeId, employeeId),
+        eq(skillsLearningTriggers.tenantId, userTenantId),
+        eq(skillsLearningTriggers.status, 'pending')
+      ))
+      .orderBy(desc(skillsLearningTriggers.createdAt));
+
+    res.json({
+      success: true,
+      data: {
+        employeeId,
+        employeeName: employee[0].name,
+        triggers: triggers.map(trigger => ({
+          id: trigger.id,
+          sessionId: trigger.sessionId,
+          skillGaps: trigger.skillGaps,
+          learningPaths: trigger.learningPaths,
+          priority: trigger.priority,
+          createdAt: trigger.createdAt
+        }))
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Error fetching LXP triggers:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to fetch LXP triggers' });
+  }
+});
+
+/**
+ * PUT /api/skills/lxp/triggers/:triggerId/status
+ * Update LXP trigger status (for LXP module to mark as processing/completed)
+ */
+router.put('/lxp/triggers/:triggerId/status', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { triggerId } = req.params;
+    const { status, lxpPathId } = req.body;
+    const userTenantId = req.user!.tenantId;
+
+    // Validate inputs
+    if (!status || !['pending', 'processing', 'completed', 'failed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be: pending, processing, completed, or failed'
+      });
+    }
+
+    // Fetch trigger to verify tenant access
+    const trigger = await db.select()
+      .from(skillsLearningTriggers)
+      .where(eq(skillsLearningTriggers.id, triggerId))
+      .limit(1);
+
+    if (trigger.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Trigger not found'
+      });
+    }
+
+    if (trigger[0].tenantId !== userTenantId && req.user!.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to update this trigger'
+      });
+    }
+
+    // Update trigger status
+    await db.update(skillsLearningTriggers)
+      .set({
+        status,
+        lxpPathId: lxpPathId || trigger[0].lxpPathId,
+        processedAt: status === 'completed' || status === 'failed' ? new Date() : null
+      })
+      .where(eq(skillsLearningTriggers.id, triggerId));
+
+    res.json({
+      success: true,
+      data: {
+        triggerId,
+        status,
+        message: 'Trigger status updated successfully'
+      }
+    });
+
+  } catch (error: unknown) {
+    console.error('Error updating trigger status:', error);
+    if (error instanceof Error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to update trigger status' });
+  }
+});
+
 export default router;

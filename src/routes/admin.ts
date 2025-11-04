@@ -278,13 +278,11 @@ router.get('/employees', async (req: Request, res: Response) => {
     .orderBy(users.name);
 
     // Get total count for pagination
-    const countResult = await db.select({
-      count: db.$count(users.id)
-    })
+    const countResult = await db.select()
     .from(users)
     .where(eq(users.tenantId, targetTenantId));
 
-    const total = Number(countResult[0]?.count || 0);
+    const total = countResult.length;
     const totalPages = Math.ceil(total / limit);
 
     return res.json({
