@@ -35,7 +35,7 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   role: text('role').notNull().default('employee'), // employee, manager, admin, superadmin
   title: text('title'),
-  departmentId: text('department_id'),
+  departmentId: uuid('department_id'), // Changed from text to uuid to match departments.id type
   managerId: text('manager_id'),
   isActive: boolean('is_active').default(true),
   lastLoginAt: timestamp('last_login_at'),
