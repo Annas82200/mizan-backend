@@ -242,6 +242,65 @@ router.get('/users', async (req: Request, res: Response) => {
   }
 });
 
+// Get employees with pagination (fixes 404 console error)
+router.get('/employees', async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !req.user.tenantId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Parse pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = (page - 1) * limit;
+
+    // Support explicit tenantId for superadmin (via query param or header)
+    const targetTenantId = req.user.role === 'superadmin'
+      ? (req.query.tenantId as string) || req.headers['x-tenant-id'] as string || req.user.tenantId
+      : req.user.tenantId;
+
+    // Get employees from the tenant with pagination
+    const employeesList = await db.select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      position: users.title,
+      departmentId: users.departmentId,
+      departmentName: departments.name,
+      status: users.isActive,
+      createdAt: users.createdAt
+    })
+    .from(users)
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .where(eq(users.tenantId, targetTenantId))
+    .limit(limit)
+    .offset(offset)
+    .orderBy(users.name);
+
+    // Get total count for pagination
+    const countResult = await db.select({
+      count: db.$count(users.id)
+    })
+    .from(users)
+    .where(eq(users.tenantId, targetTenantId));
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    return res.json({
+      employees: employeesList,
+      total,
+      page,
+      limit,
+      totalPages
+    });
+
+  } catch (error) {
+    console.error('Employees fetch error:', error);
+    return res.status(500).json({ error: 'Failed to fetch employees' });
+  }
+});
+
 router.post('/users/invite', async (req: Request, res: Response) => {
   try {
     if (!req.user || !req.user.tenantId) {
