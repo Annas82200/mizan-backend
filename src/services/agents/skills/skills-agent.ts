@@ -2,7 +2,7 @@
 
 import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent';
 import { db } from '../../../../db/index';
-import { tenants, users, departments, skills, skillsAssessments, skillsGaps, skillsFramework } from '../../../../db/schema';
+import { tenants, users, departments, skills, skillsAssessments, skillsGaps, skillsFramework, companyStrategies } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -75,6 +75,12 @@ export interface SkillsAnalysisResult {
   skillsCoverage: number;
   criticalGaps: SkillsGap[];
 
+  // AI-generated narrative explanations
+  scoreNarrative?: string; // Explains what the scores mean
+  readinessAssessment?: string; // Answers "Does tenant have right skills for strategy?" with detailed WHY
+  readinessStatus?: 'ready' | 'partial' | 'not_ready'; // Ready/Partially Ready/Not Ready
+  gapAnalysisNarrative?: string; // Explains critical gaps and their impact on strategy
+
   skillCategories: {
     technical: SkillCategoryAnalysis;
     leadership: SkillCategoryAnalysis;
@@ -112,6 +118,8 @@ export interface SkillsAnalysisResult {
     description: string;
     expectedImpact: string;
     estimatedCost?: string;
+    timeline?: string; // Added for implementation timeline
+    impact?: string; // Added for impact description
   }>;
 
   lxpTriggers?: Array<{
@@ -300,22 +308,58 @@ export class SkillsAgent extends ThreeEngineAgent {
     dataOutput: Record<string, unknown>
   ): string {
     const skillsInput = inputData as unknown as SkillsAnalysisInput;
-    return `Generate strategic skills analysis and recommendations for ${skillsInput.organizationName}:
+    return `Generate strategic skills analysis with NARRATIVE EXPLANATIONS for ${skillsInput.organizationName}:
 
     Context:
     - Industry: ${skillsInput.industry}
     - Strategy: ${skillsInput.strategy || 'Not provided'}
 
-    Analyze:
-    1. Strategic capability assessment - can the organization execute its strategy with current skills?
-    2. Critical skills gaps that prevent strategic success
-    3. Priority areas for skill development
-    4. Recommendations for closing skill gaps
-    5. Learning and development priorities
-    6. Talent optimization opportunities
-    7. Hiring needs based on skill gaps
+    IMPORTANT: You must provide:
+    1. Numerical scores (overallScore, strategicAlignment, etc.)
+    2. **Narrative explanations** for every score and finding
 
-    Provide specific, actionable recommendations with clear priorities and expected impact.`;
+    Required Narratives:
+
+    A. scoreNarrative:
+       - Explain what the overallScore and strategicAlignment scores mean in plain language
+       - Context: "The organization shows a X% overall skills score, indicating [interpretation].
+         Strategic alignment at Y% suggests [what this means for strategy execution]..."
+       - Length: 3-4 sentences
+
+    B. readinessAssessment:
+       - Answer: "Does ${skillsInput.organizationName} have the right skills to achieve its strategy?"
+       - Format: "[Company] is [READY/PARTIALLY READY/NOT READY] to achieve its strategic goals..."
+       - **CRITICAL**: Explain WHY in detail - what specific skills exist/don't exist
+       - **CRITICAL**: Explain IMPACT - which strategic objectives are blocked by gaps
+       - Include: Current strengths, critical gaps, and how gaps block strategy
+       - Length: 6-8 sentences (comprehensive explanation)
+
+    C. readinessStatus:
+       - Set to 'ready' if overallScore >= 85 AND strategicAlignment >= 80
+       - Set to 'partial' if overallScore >= 60 OR strategicAlignment >= 60
+       - Set to 'not_ready' if overallScore < 60 AND strategicAlignment < 60
+
+    D. gapAnalysisNarrative:
+       - List the top 3-5 critical skill gaps
+       - For EACH gap, explain:
+         * What skill is missing
+         * How many employees are affected
+         * **WHY this gap matters** (what strategic initiative it blocks)
+         * The business impact if not addressed
+       - Format: "Three critical skill gaps threaten strategic execution: 1. [Skill] (Gap: X people) -
+         BLOCKS [specific strategy objective] because [reason]..."
+       - Length: 5-7 sentences
+
+    Standard Analysis Fields:
+    1. Strategic capability assessment
+    2. Critical skills gaps with priorities
+    3. Skill categories breakdown
+    4. Recommendations with timeline and impact
+    5. Learning priorities
+    6. Hiring needs
+
+    Return JSON with ALL fields including narratives. Narratives should be conversational, specific,
+    and always tie back to the company strategy.`;
   }
 
   protected getKnowledgeBase(): Record<string, unknown> {
@@ -473,6 +517,13 @@ export class SkillsAgent extends ThreeEngineAgent {
       strategicAlignment: typeof output.strategicAlignment === 'number' ? output.strategicAlignment : 0,
       skillsCoverage: typeof output.skillsCoverage === 'number' ? output.skillsCoverage : 0,
       criticalGaps: Array.isArray(output.criticalGaps) ? output.criticalGaps as SkillsGap[] : [],
+      // Narrative explanations
+      scoreNarrative: typeof output.scoreNarrative === 'string' ? output.scoreNarrative : undefined,
+      readinessAssessment: typeof output.readinessAssessment === 'string' ? output.readinessAssessment : undefined,
+      readinessStatus: (output.readinessStatus === 'ready' || output.readinessStatus === 'partial' || output.readinessStatus === 'not_ready')
+        ? output.readinessStatus
+        : undefined,
+      gapAnalysisNarrative: typeof output.gapAnalysisNarrative === 'string' ? output.gapAnalysisNarrative : undefined,
       skillCategories: isSkillCategoriesValid(output.skillCategories) ? output.skillCategories : {
         technical: defaultSkillCategory,
         leadership: defaultSkillCategory,
@@ -654,6 +705,45 @@ Consider:
 
   // Helper methods
   private async getCompanyStrategy(companyId: string): Promise<string> {
+    // First, try to read from companyStrategies table (primary source)
+    const strategyResult = await db.select()
+      .from(companyStrategies)
+      .where(eq(companyStrategies.tenantId, companyId))
+      .limit(1);
+
+    if (strategyResult.length > 0) {
+      const strategy = strategyResult[0];
+      // Combine vision, mission, values, and objectives into comprehensive strategy
+      const parts: string[] = [];
+
+      if (strategy.vision) {
+        parts.push(`Vision: ${strategy.vision}`);
+      }
+
+      if (strategy.mission) {
+        parts.push(`Mission: ${strategy.mission}`);
+      }
+
+      if (strategy.values) {
+        const valuesArray = Array.isArray(strategy.values) ? strategy.values : [];
+        if (valuesArray.length > 0) {
+          parts.push(`Values: ${valuesArray.join(', ')}`);
+        }
+      }
+
+      if (strategy.objectives) {
+        const objectivesArray = Array.isArray(strategy.objectives) ? strategy.objectives : [];
+        if (objectivesArray.length > 0) {
+          parts.push(`Strategic Objectives: ${objectivesArray.map((obj: any) => typeof obj === 'string' ? obj : obj.title || obj.name || JSON.stringify(obj)).join('; ')}`);
+        }
+      }
+
+      if (parts.length > 0) {
+        return parts.join('\n\n');
+      }
+    }
+
+    // Fallback to legacy tenants.strategy field for backward compatibility
     const tenantResult = await db.select().from(tenants).where(eq(tenants.id, companyId)).limit(1);
     const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
     return tenant?.strategy || '';
