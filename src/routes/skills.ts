@@ -572,38 +572,47 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
+        const userRole = req.user!.role;
 
         // Resolve "current" to logged-in user's ID
         const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
 
-        // Verify employee belongs to user's tenant
+        // Build query conditions - superadmins bypass tenant isolation
+        const whereConditions = [eq(users.id, resolvedEmployeeId)];
+
+        // Only enforce tenant isolation for non-superadmin users
+        if (userRole !== 'superadmin') {
+            whereConditions.push(eq(users.tenantId, userTenantId));
+        }
+
+        // Verify employee exists (and belongs to user's tenant if not superadmin)
         const employee = await db.select()
             .from(users)
-            .where(and(
-                eq(users.id, resolvedEmployeeId),
-                eq(users.tenantId, userTenantId)
-            ))
+            .where(and(...whereConditions))
             .limit(1);
 
         if (employee.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Employee not found or access denied' 
+            return res.status(404).json({
+                success: false,
+                error: 'Employee not found or access denied'
             });
         }
 
-        // Get the strategic framework for the user's tenant only
+        // Use employee's actual tenant ID for framework query
+        const employeeTenantId = employee[0].tenantId;
+
+        // Get the strategic framework for the employee's tenant
         const frameworkFromDb = await db.select()
             .from(skillsFramework)
             .where(and(
-                eq(skillsFramework.tenantId, userTenantId)
+                eq(skillsFramework.tenantId, employeeTenantId)
             ))
             .limit(1);
 
         if (frameworkFromDb.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Skills framework not found for this tenant.' 
+            return res.status(404).json({
+                success: false,
+                error: 'Skills framework not found for this tenant.'
             });
         }
 
@@ -617,7 +626,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             obsoleteSkills: []       // These should be populated from the database if available
         };
 
-        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, userTenantId, mappedFramework);
+        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, employeeTenantId, mappedFramework);
         res.json({ success: true, gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);
@@ -636,32 +645,39 @@ router.get('/employee/:employeeId', authenticate, async (req: Request, res: Resp
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
+        const userRole = req.user!.role;
 
         // Resolve "current" to logged-in user's ID
         const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
 
-        // Verify employee belongs to user's tenant
+        // Build query conditions - superadmins bypass tenant isolation
+        const whereConditions = [eq(users.id, resolvedEmployeeId)];
+
+        // Only enforce tenant isolation for non-superadmin users
+        if (userRole !== 'superadmin') {
+            whereConditions.push(eq(users.tenantId, userTenantId));
+        }
+
+        // Verify employee exists (and belongs to user's tenant if not superadmin)
         const employee = await db.select()
             .from(users)
-            .where(and(
-                eq(users.id, resolvedEmployeeId),
-                eq(users.tenantId, userTenantId)
-            ))
+            .where(and(...whereConditions))
             .limit(1);
 
         if (employee.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Employee not found or access denied' 
+            return res.status(404).json({
+                success: false,
+                error: 'Employee not found or access denied'
             });
         }
 
-        // Get skills filtered by both userId and tenantId for security
+        // Get skills filtered by employee's actual tenant (not requester's tenant)
+        const employeeTenantId = employee[0].tenantId;
         const userSkills = await db.select()
             .from(skills)
             .where(and(
                 eq(skills.userId, resolvedEmployeeId),
-                eq(skills.tenantId, userTenantId)
+                eq(skills.tenantId, employeeTenantId)
             ));
 
         res.json({ success: true, skills: userSkills });
@@ -682,29 +698,38 @@ router.post('/employee/:employeeId', authenticate, async (req: Request, res: Res
     try {
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
+        const userRole = req.user!.role;
         const skillsToAdd = z.array(SkillSchema).parse(req.body.skills);
 
-        // Verify employee belongs to user's tenant
+        // Build query conditions - superadmins bypass tenant isolation
+        const whereConditions = [eq(users.id, employeeId)];
+
+        // Only enforce tenant isolation for non-superadmin users
+        if (userRole !== 'superadmin') {
+            whereConditions.push(eq(users.tenantId, userTenantId));
+        }
+
+        // Verify employee exists (and belongs to user's tenant if not superadmin)
         const employee = await db.select()
             .from(users)
-            .where(and(
-                eq(users.id, employeeId),
-                eq(users.tenantId, userTenantId)
-            ))
+            .where(and(...whereConditions))
             .limit(1);
 
         if (employee.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Employee not found or access denied' 
+            return res.status(404).json({
+                success: false,
+                error: 'Employee not found or access denied'
             });
         }
+
+        // Use employee's actual tenant ID (not requester's tenant ID)
+        const employeeTenantId = employee[0].tenantId;
 
         const newSkills = [];
         for (const skill of skillsToAdd) {
             const [newSkill] = await db.insert(skills).values({
                 userId: employeeId,
-                tenantId: userTenantId, // Always use user's tenant ID for security
+                tenantId: employeeTenantId, // Use employee's tenant ID for proper data association
                 name: skill.name!,
                 category: skill.category!,
                 level: skill.level!,
@@ -1123,36 +1148,45 @@ router.delete('/employee/:employeeId/skill/:skillName', authenticate, async (req
     try {
         const { employeeId, skillName } = req.params;
         const userTenantId = req.user!.tenantId;
+        const userRole = req.user!.role;
 
-        // Verify employee belongs to user's tenant
+        // Build query conditions - superadmins bypass tenant isolation
+        const whereConditions = [eq(users.id, employeeId)];
+
+        // Only enforce tenant isolation for non-superadmin users
+        if (userRole !== 'superadmin') {
+            whereConditions.push(eq(users.tenantId, userTenantId));
+        }
+
+        // Verify employee exists (and belongs to user's tenant if not superadmin)
         const employee = await db.select()
             .from(users)
-            .where(and(
-                eq(users.id, employeeId),
-                eq(users.tenantId, userTenantId)
-            ))
+            .where(and(...whereConditions))
             .limit(1);
 
         if (employee.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Employee not found or access denied' 
+            return res.status(404).json({
+                success: false,
+                error: 'Employee not found or access denied'
             });
         }
 
-        // Delete skill with tenant isolation
+        // Use employee's actual tenant ID for skill deletion
+        const employeeTenantId = employee[0].tenantId;
+
+        // Delete skill with proper tenant isolation
         const deletedSkill = await db.delete(skills)
             .where(and(
                 eq(skills.userId, employeeId),
                 eq(skills.name, skillName),
-                eq(skills.tenantId, userTenantId)
+                eq(skills.tenantId, employeeTenantId)
             ))
             .returning();
 
         if (deletedSkill.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Skill not found' 
+            return res.status(404).json({
+                success: false,
+                error: 'Skill not found'
             });
         }
 
@@ -1270,17 +1304,23 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
   try {
     const { employeeId } = req.params;
     const userTenantId = req.user!.tenantId;
+    const userRole = req.user!.role;
 
     // Resolve "current" to logged-in user's ID
     const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
 
-    // Verify employee belongs to user's tenant
+    // Build query conditions - superadmins bypass tenant isolation
+    const whereConditions = [eq(users.id, resolvedEmployeeId)];
+
+    // Only enforce tenant isolation for non-superadmin users
+    if (userRole !== 'superadmin') {
+      whereConditions.push(eq(users.tenantId, userTenantId));
+    }
+
+    // Verify employee exists (and belongs to user's tenant if not superadmin)
     const employee = await db.select()
       .from(users)
-      .where(and(
-        eq(users.id, resolvedEmployeeId),
-        eq(users.tenantId, userTenantId)
-      ))
+      .where(and(...whereConditions))
       .limit(1);
 
     if (employee.length === 0) {
@@ -1290,12 +1330,15 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
       });
     }
 
+    // Use employee's actual tenant ID for progress query
+    const employeeTenantId = employee[0].tenantId;
+
     // Get all progress records for this employee
     const progressRecords = await db.select()
       .from(skillsProgress)
       .where(and(
         eq(skillsProgress.employeeId, resolvedEmployeeId),
-        eq(skillsProgress.tenantId, userTenantId)
+        eq(skillsProgress.tenantId, employeeTenantId)
       ))
       .orderBy(desc(skillsProgress.lastUpdated));
 
@@ -1344,6 +1387,7 @@ router.post('/progress/:employeeId', authenticate, async (req: Request, res: Res
   try {
     const { employeeId } = req.params;
     const userTenantId = req.user!.tenantId;
+    const userRole = req.user!.role;
 
     // Validation schema
     const ProgressSchema = z.object({
@@ -1357,13 +1401,18 @@ router.post('/progress/:employeeId', authenticate, async (req: Request, res: Res
 
     const validatedData = ProgressSchema.parse(req.body);
 
-    // Verify employee belongs to user's tenant
+    // Build query conditions - superadmins bypass tenant isolation
+    const whereConditions = [eq(users.id, employeeId)];
+
+    // Only enforce tenant isolation for non-superadmin users
+    if (userRole !== 'superadmin') {
+      whereConditions.push(eq(users.tenantId, userTenantId));
+    }
+
+    // Verify employee exists (and belongs to user's tenant if not superadmin)
     const employee = await db.select()
       .from(users)
-      .where(and(
-        eq(users.id, employeeId),
-        eq(users.tenantId, userTenantId)
-      ))
+      .where(and(...whereConditions))
       .limit(1);
 
     if (employee.length === 0) {
@@ -1373,12 +1422,15 @@ router.post('/progress/:employeeId', authenticate, async (req: Request, res: Res
       });
     }
 
+    // Use employee's actual tenant ID for progress tracking
+    const employeeTenantId = employee[0].tenantId;
+
     // Check if progress record already exists for this skill
     const existingProgress = await db.select()
       .from(skillsProgress)
       .where(and(
         eq(skillsProgress.employeeId, employeeId),
-        eq(skillsProgress.tenantId, userTenantId),
+        eq(skillsProgress.tenantId, employeeTenantId),
         eq(skillsProgress.skillName, validatedData.skillName)
       ))
       .limit(1);
@@ -1404,7 +1456,7 @@ router.post('/progress/:employeeId', authenticate, async (req: Request, res: Res
       // Create new progress record
       const [created] = await db.insert(skillsProgress)
         .values({
-          tenantId: userTenantId,
+          tenantId: employeeTenantId,
           employeeId,
           skillId: randomUUID(), // Generate unique skill ID
           skillName: validatedData.skillName,
