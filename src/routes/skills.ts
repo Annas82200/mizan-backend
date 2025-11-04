@@ -573,11 +573,14 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
 
+        // Resolve "current" to logged-in user's ID
+        const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
+
         // Verify employee belongs to user's tenant
         const employee = await db.select()
             .from(users)
             .where(and(
-                eq(users.id, employeeId),
+                eq(users.id, resolvedEmployeeId),
                 eq(users.tenantId, userTenantId)
             ))
             .limit(1);
@@ -614,7 +617,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             obsoleteSkills: []       // These should be populated from the database if available
         };
 
-        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(employeeId, userTenantId, mappedFramework);
+        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, userTenantId, mappedFramework);
         res.json({ success: true, gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);
@@ -634,11 +637,14 @@ router.get('/employee/:employeeId', authenticate, async (req: Request, res: Resp
         const { employeeId } = req.params;
         const userTenantId = req.user!.tenantId;
 
+        // Resolve "current" to logged-in user's ID
+        const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
+
         // Verify employee belongs to user's tenant
         const employee = await db.select()
             .from(users)
             .where(and(
-                eq(users.id, employeeId),
+                eq(users.id, resolvedEmployeeId),
                 eq(users.tenantId, userTenantId)
             ))
             .limit(1);
@@ -654,7 +660,7 @@ router.get('/employee/:employeeId', authenticate, async (req: Request, res: Resp
         const userSkills = await db.select()
             .from(skills)
             .where(and(
-                eq(skills.userId, employeeId),
+                eq(skills.userId, resolvedEmployeeId),
                 eq(skills.tenantId, userTenantId)
             ));
 
@@ -1265,11 +1271,14 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
     const { employeeId } = req.params;
     const userTenantId = req.user!.tenantId;
 
+    // Resolve "current" to logged-in user's ID
+    const resolvedEmployeeId = employeeId === 'current' ? req.user!.id : employeeId;
+
     // Verify employee belongs to user's tenant
     const employee = await db.select()
       .from(users)
       .where(and(
-        eq(users.id, employeeId),
+        eq(users.id, resolvedEmployeeId),
         eq(users.tenantId, userTenantId)
       ))
       .limit(1);
@@ -1285,7 +1294,7 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
     const progressRecords = await db.select()
       .from(skillsProgress)
       .where(and(
-        eq(skillsProgress.employeeId, employeeId),
+        eq(skillsProgress.employeeId, resolvedEmployeeId),
         eq(skillsProgress.tenantId, userTenantId)
       ))
       .orderBy(desc(skillsProgress.lastUpdated));
