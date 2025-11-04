@@ -308,58 +308,27 @@ export class SkillsAgent extends ThreeEngineAgent {
     dataOutput: Record<string, unknown>
   ): string {
     const skillsInput = inputData as unknown as SkillsAnalysisInput;
-    return `Generate strategic skills analysis with NARRATIVE EXPLANATIONS for ${skillsInput.organizationName}:
+    return `Generate strategic skills analysis and recommendations for ${skillsInput.organizationName}:
 
     Context:
     - Industry: ${skillsInput.industry}
     - Strategy: ${skillsInput.strategy || 'Not provided'}
 
-    IMPORTANT: You must provide:
-    1. Numerical scores (overallScore, strategicAlignment, etc.)
-    2. **Narrative explanations** for every score and finding
+    Analyze:
+    1. Strategic capability assessment - can the organization execute its strategy with current skills?
+    2. Critical skills gaps that prevent strategic success
+    3. Priority areas for skill development
+    4. Recommendations for closing skill gaps
+    5. Learning and development priorities
+    6. Talent optimization opportunities
 
-    Required Narratives:
+    Provide specific, actionable recommendations with clear priorities and expected impact.
 
-    A. scoreNarrative:
-       - Explain what the overallScore and strategicAlignment scores mean in plain language
-       - Context: "The organization shows a X% overall skills score, indicating [interpretation].
-         Strategic alignment at Y% suggests [what this means for strategy execution]..."
-       - Length: 3-4 sentences
-
-    B. readinessAssessment:
-       - Answer: "Does ${skillsInput.organizationName} have the right skills to achieve its strategy?"
-       - Format: "[Company] is [READY/PARTIALLY READY/NOT READY] to achieve its strategic goals..."
-       - **CRITICAL**: Explain WHY in detail - what specific skills exist/don't exist
-       - **CRITICAL**: Explain IMPACT - which strategic objectives are blocked by gaps
-       - Include: Current strengths, critical gaps, and how gaps block strategy
-       - Length: 6-8 sentences (comprehensive explanation)
-
-    C. readinessStatus:
-       - Set to 'ready' if overallScore >= 85 AND strategicAlignment >= 80
-       - Set to 'partial' if overallScore >= 60 OR strategicAlignment >= 60
-       - Set to 'not_ready' if overallScore < 60 AND strategicAlignment < 60
-
-    D. gapAnalysisNarrative:
-       - List the top 3-5 critical skill gaps
-       - For EACH gap, explain:
-         * What skill is missing
-         * How many employees are affected
-         * **WHY this gap matters** (what strategic initiative it blocks)
-         * The business impact if not addressed
-       - Format: "Three critical skill gaps threaten strategic execution: 1. [Skill] (Gap: X people) -
-         BLOCKS [specific strategy objective] because [reason]..."
-       - Length: 5-7 sentences
-
-    Standard Analysis Fields:
-    1. Strategic capability assessment
-    2. Critical skills gaps with priorities
-    3. Skill categories breakdown
-    4. Recommendations with timeline and impact
-    5. Learning priorities
-    6. Hiring needs
-
-    Return JSON with ALL fields including narratives. Narratives should be conversational, specific,
-    and always tie back to the company strategy.`;
+    **IMPORTANT**: Also include these narrative fields in your JSON response:
+    - scoreNarrative: Brief 2-3 sentence explanation of what the scores mean
+    - readinessAssessment: 4-5 sentence answer to "Does this organization have the right skills to execute strategy?" Include WHY
+    - readinessStatus: "ready" (score >= 85 AND alignment >= 80), "partial" (score >= 60 OR alignment >= 60), or "not_ready" (score < 60 AND alignment < 60)
+    - gapAnalysisNarrative: 4-5 sentences listing top 3-5 gaps and their impact on strategy execution`;
   }
 
   protected getKnowledgeBase(): Record<string, unknown> {
@@ -450,42 +419,129 @@ export class SkillsAgent extends ThreeEngineAgent {
    * Main analysis method - Analyzes skills and generates strategic recommendations
    */
   async analyzeSkills(input: SkillsAnalysisInput): Promise<SkillsAnalysisResult> {
-    // Get strategy if not provided
-    if (!input.strategy) {
-      const strategy = await this.getCompanyStrategy(input.companyId);
-      input.strategy = strategy;
+    try {
+      // Validate input
+      if (!input.tenantId || !input.companyId) {
+        throw new Error('Missing required fields: tenantId and companyId are required');
+      }
+
+      // Get strategy if not provided
+      if (!input.strategy) {
+        try {
+          const strategy = await this.getCompanyStrategy(input.companyId);
+          input.strategy = strategy;
+        } catch (error) {
+          console.error('[Skills Agent] Error fetching company strategy:', error);
+          // Continue with empty strategy rather than failing
+          input.strategy = '';
+        }
+      }
+
+      // Get employee data if not provided
+      if (!input.employeeData) {
+        try {
+          input.employeeData = await this.getEmployeeSkillsData(input.tenantId);
+        } catch (error) {
+          console.error('[Skills Agent] Error fetching employee data:', error);
+          // Continue with empty employee data
+          input.employeeData = [];
+        }
+      }
+
+      // Execute three-engine analysis - cast input to Record<string, unknown>
+      let result;
+      try {
+        result = await this.analyze(input as unknown as Record<string, unknown>);
+      } catch (error) {
+        console.error('[Skills Agent] Error during three-engine analysis:', error);
+        throw new Error(`Skills analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      // Validate analysis result
+      if (!result || !result.finalOutput) {
+        console.error('[Skills Agent] Invalid analysis result - missing finalOutput');
+        throw new Error('Skills analysis returned invalid result');
+      }
+
+      // Structure the result - parse it as SkillsAnalysisResult
+      let analysis: SkillsAnalysisResult;
+      try {
+        analysis = this.parseSkillsAnalysisResult(result.finalOutput);
+      } catch (error) {
+        console.error('[Skills Agent] Error parsing analysis result:', error);
+        console.error('[Skills Agent] Raw finalOutput:', JSON.stringify(result.finalOutput, null, 2));
+        throw new Error('Failed to parse skills analysis result');
+      }
+
+      // Trigger LXP module if critical gaps identified (non-blocking)
+      if (analysis.criticalGaps.length > 0) {
+        try {
+          analysis.lxpTriggers = await this.triggerLXPModule(analysis.criticalGaps, input.tenantId);
+        } catch (error) {
+          console.error('[Skills Agent] Error triggering LXP module:', error);
+          // Non-critical - continue without LXP triggers
+          analysis.lxpTriggers = [];
+        }
+      }
+
+      // Trigger Talent module for high-potential employees (non-blocking)
+      if (analysis.talentTriggers && analysis.talentTriggers.length > 0) {
+        try {
+          await this.triggerTalentModule(analysis.talentTriggers, input.tenantId);
+        } catch (error) {
+          console.error('[Skills Agent] Error triggering Talent module:', error);
+          // Non-critical - continue
+        }
+      }
+
+      // Trigger Bonus module for skills achievements (non-blocking)
+      if (analysis.bonusTriggers && analysis.bonusTriggers.length > 0) {
+        try {
+          await this.triggerBonusModule(analysis.bonusTriggers, input.tenantId);
+        } catch (error) {
+          console.error('[Skills Agent] Error triggering Bonus module:', error);
+          // Non-critical - continue
+        }
+      }
+
+      // Save analysis results (non-blocking)
+      try {
+        await this.saveSkillsAnalysis(analysis, input);
+      } catch (error) {
+        console.error('[Skills Agent] Error saving analysis results:', error);
+        // Log but don't fail - analysis can still be returned
+      }
+
+      return analysis;
+
+    } catch (error) {
+      console.error('[Skills Agent] Fatal error in analyzeSkills:', error);
+      console.error('[Skills Agent] Input:', JSON.stringify({
+        tenantId: input.tenantId,
+        companyId: input.companyId,
+        organizationName: input.organizationName,
+        industry: input.industry,
+        hasStrategy: !!input.strategy,
+        hasEmployeeData: !!input.employeeData
+      }, null, 2));
+      throw error;
     }
+  }
 
-    // Get employee data if not provided
-    if (!input.employeeData) {
-      input.employeeData = await this.getEmployeeSkillsData(input.tenantId);
+  /**
+   * Calculate readiness status based on scores
+   */
+  private calculateReadinessStatus(
+    overallScore: number,
+    strategicAlignment: number
+  ): 'ready' | 'partial' | 'not_ready' {
+    if (overallScore >= 85 && strategicAlignment >= 80) {
+      return 'ready';
+    } else if (overallScore >= 60 || strategicAlignment >= 60) {
+      return 'partial';
+    } else {
+      return 'not_ready';
     }
-
-    // Execute three-engine analysis - cast input to Record<string, unknown>
-    const result = await this.analyze(input as unknown as Record<string, unknown>);
-
-    // Structure the result - parse it as SkillsAnalysisResult
-    const analysis = this.parseSkillsAnalysisResult(result.finalOutput);
-
-    // Trigger LXP module if critical gaps identified
-    if (analysis.criticalGaps.length > 0) {
-      analysis.lxpTriggers = await this.triggerLXPModule(analysis.criticalGaps, input.tenantId);
-    }
-
-    // Trigger Talent module for high-potential employees
-    if (analysis.talentTriggers && analysis.talentTriggers.length > 0) {
-      await this.triggerTalentModule(analysis.talentTriggers, input.tenantId);
-    }
-
-    // Trigger Bonus module for skills achievements
-    if (analysis.bonusTriggers && analysis.bonusTriggers.length > 0) {
-      await this.triggerBonusModule(analysis.bonusTriggers, input.tenantId);
-    }
-
-    // Save analysis results
-    await this.saveSkillsAnalysis(analysis, input);
-
-    return analysis;
   }
 
   /**
@@ -512,18 +568,54 @@ export class SkillsAgent extends ThreeEngineAgent {
       skills: []
     };
 
+    // Parse numerical values
+    const overallScore = typeof output.overallScore === 'number' ? output.overallScore : 0;
+    const strategicAlignment = typeof output.strategicAlignment === 'number' ? output.strategicAlignment : 0;
+    const skillsCoverage = typeof output.skillsCoverage === 'number' ? output.skillsCoverage : 0;
+    const criticalGaps = Array.isArray(output.criticalGaps) ? output.criticalGaps as SkillsGap[] : [];
+
+    // Narrative field validation with fallbacks
+    const scoreNarrative = typeof output.scoreNarrative === 'string' && output.scoreNarrative.trim().length > 0
+      ? output.scoreNarrative
+      : `The organization shows a ${overallScore}% overall skills score with ${strategicAlignment}% strategic alignment. ` +
+        (overallScore >= 75
+          ? 'This indicates strong capability to execute strategic initiatives.'
+          : overallScore >= 50
+            ? 'This suggests moderate capability with room for improvement in key areas.'
+            : 'This indicates significant skill gaps that may hinder strategic execution.');
+
+    const readinessStatus = (output.readinessStatus === 'ready' || output.readinessStatus === 'partial' || output.readinessStatus === 'not_ready')
+      ? output.readinessStatus
+      : this.calculateReadinessStatus(overallScore, strategicAlignment);
+
+    const readinessAssessment = typeof output.readinessAssessment === 'string' && output.readinessAssessment.trim().length > 0
+      ? output.readinessAssessment
+      : `The organization is ${readinessStatus === 'ready' ? 'well-positioned' : readinessStatus === 'partial' ? 'partially ready' : 'not yet ready'} to achieve its strategic goals. ` +
+        `With an overall skills score of ${overallScore}% and strategic alignment at ${strategicAlignment}%, ` +
+        (readinessStatus === 'ready'
+          ? 'the workforce has the critical skills needed to execute the strategy effectively.'
+          : readinessStatus === 'partial'
+            ? 'some strategic initiatives can proceed, but key skill gaps need to be addressed for full execution capability.'
+            : 'significant skill development is required before strategic objectives can be fully pursued.');
+
+    const gapAnalysisNarrative = typeof output.gapAnalysisNarrative === 'string' && output.gapAnalysisNarrative.trim().length > 0
+      ? output.gapAnalysisNarrative
+      : criticalGaps.length > 0
+        ? `Analysis identified ${criticalGaps.length} critical skill gap${criticalGaps.length > 1 ? 's' : ''} that could impact strategic execution. ` +
+          `The top gaps include: ${criticalGaps.slice(0, 3).map((gap, idx) => `${idx + 1}. ${gap.skill || gap.category} (${gap.gap || 'high'} priority)`).join('; ')}. ` +
+          'Addressing these gaps should be a priority for talent development and recruitment efforts.'
+        : 'No critical skill gaps were identified in the current analysis. The organization appears to have adequate skills coverage for strategic initiatives.';
+
     return {
-      overallScore: typeof output.overallScore === 'number' ? output.overallScore : 0,
-      strategicAlignment: typeof output.strategicAlignment === 'number' ? output.strategicAlignment : 0,
-      skillsCoverage: typeof output.skillsCoverage === 'number' ? output.skillsCoverage : 0,
-      criticalGaps: Array.isArray(output.criticalGaps) ? output.criticalGaps as SkillsGap[] : [],
-      // Narrative explanations
-      scoreNarrative: typeof output.scoreNarrative === 'string' ? output.scoreNarrative : undefined,
-      readinessAssessment: typeof output.readinessAssessment === 'string' ? output.readinessAssessment : undefined,
-      readinessStatus: (output.readinessStatus === 'ready' || output.readinessStatus === 'partial' || output.readinessStatus === 'not_ready')
-        ? output.readinessStatus
-        : undefined,
-      gapAnalysisNarrative: typeof output.gapAnalysisNarrative === 'string' ? output.gapAnalysisNarrative : undefined,
+      overallScore,
+      strategicAlignment,
+      skillsCoverage,
+      criticalGaps,
+      // Narrative explanations with guaranteed values
+      scoreNarrative,
+      readinessAssessment,
+      readinessStatus,
+      gapAnalysisNarrative,
       skillCategories: isSkillCategoriesValid(output.skillCategories) ? output.skillCategories : {
         technical: defaultSkillCategory,
         leadership: defaultSkillCategory,
@@ -705,48 +797,83 @@ Consider:
 
   // Helper methods
   private async getCompanyStrategy(companyId: string): Promise<string> {
-    // First, try to read from companyStrategies table (primary source)
-    const strategyResult = await db.select()
-      .from(companyStrategies)
-      .where(eq(companyStrategies.tenantId, companyId))
-      .limit(1);
-
-    if (strategyResult.length > 0) {
-      const strategy = strategyResult[0];
-      // Combine vision, mission, values, and objectives into comprehensive strategy
-      const parts: string[] = [];
-
-      if (strategy.vision) {
-        parts.push(`Vision: ${strategy.vision}`);
-      }
-
-      if (strategy.mission) {
-        parts.push(`Mission: ${strategy.mission}`);
-      }
-
-      if (strategy.values) {
-        const valuesArray = Array.isArray(strategy.values) ? strategy.values : [];
-        if (valuesArray.length > 0) {
-          parts.push(`Values: ${valuesArray.join(', ')}`);
-        }
-      }
-
-      if (strategy.objectives) {
-        const objectivesArray = Array.isArray(strategy.objectives) ? strategy.objectives : [];
-        if (objectivesArray.length > 0) {
-          parts.push(`Strategic Objectives: ${objectivesArray.map((obj: any) => typeof obj === 'string' ? obj : obj.title || obj.name || JSON.stringify(obj)).join('; ')}`);
-        }
-      }
-
-      if (parts.length > 0) {
-        return parts.join('\n\n');
-      }
+    // Edge case: Validate companyId
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
+      console.warn('[Skills Agent] getCompanyStrategy called with invalid companyId:', companyId);
+      return '';
     }
 
-    // Fallback to legacy tenants.strategy field for backward compatibility
-    const tenantResult = await db.select().from(tenants).where(eq(tenants.id, companyId)).limit(1);
-    const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
-    return tenant?.strategy || '';
+    try {
+      // First, try to read from companyStrategies table (primary source)
+      const strategyResult = await db.select()
+        .from(companyStrategies)
+        .where(eq(companyStrategies.tenantId, companyId))
+        .limit(1);
+
+      if (strategyResult.length > 0) {
+        const strategy = strategyResult[0];
+        // Combine vision, mission, values, and objectives into comprehensive strategy
+        const parts: string[] = [];
+
+        if (strategy.vision && typeof strategy.vision === 'string' && strategy.vision.trim() !== '') {
+          parts.push(`Vision: ${strategy.vision}`);
+        }
+
+        if (strategy.mission && typeof strategy.mission === 'string' && strategy.mission.trim() !== '') {
+          parts.push(`Mission: ${strategy.mission}`);
+        }
+
+        if (strategy.values) {
+          const valuesArray = Array.isArray(strategy.values) ? strategy.values : [];
+          const validValues = valuesArray.filter((v: any) =>
+            v && (typeof v === 'string' ? v.trim() !== '' : true)
+          );
+          if (validValues.length > 0) {
+            parts.push(`Values: ${validValues.join(', ')}`);
+          }
+        }
+
+        if (strategy.objectives) {
+          const objectivesArray = Array.isArray(strategy.objectives) ? strategy.objectives : [];
+          const validObjectives = objectivesArray.filter((obj: any) =>
+            obj && (typeof obj === 'string' ? obj.trim() !== '' : obj.title || obj.name)
+          );
+          if (validObjectives.length > 0) {
+            parts.push(`Strategic Objectives: ${validObjectives.map((obj: any) =>
+              typeof obj === 'string' ? obj : obj.title || obj.name || JSON.stringify(obj)
+            ).join('; ')}`);
+          }
+        }
+
+        if (parts.length > 0) {
+          return parts.join('\n\n');
+        }
+      }
+
+      // Fallback to legacy tenants.strategy field for backward compatibility
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, companyId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
+
+      if (!tenant) {
+        console.warn(`[Skills Agent] Tenant not found for companyId: ${companyId}`);
+        return '';
+      }
+
+      const legacyStrategy = tenant?.strategy || '';
+
+      if (!legacyStrategy || legacyStrategy.trim() === '') {
+        console.warn(`[Skills Agent] No strategy found for tenant ${companyId} - analysis will proceed without strategic context`);
+        return '';
+      }
+
+      return legacyStrategy;
+
+    } catch (error) {
+      console.error('[Skills Agent] Error fetching company strategy:', error);
+      console.error(`  CompanyId: ${companyId}`);
+      // Return empty string rather than throwing - allow analysis to continue without strategy
+      return '';
+    }
   }
 
   private async getEmployeeSkillsData(tenantId: string): Promise<EmployeeSkillData[]> {
