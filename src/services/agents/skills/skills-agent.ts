@@ -1123,6 +1123,12 @@ Consider:
    */
   private async extractSkillsFromResume(resumeText: string): Promise<Skill[]> {
     try {
+      console.log('[Skills Agent] Starting skill extraction from resume', {
+        resumeLength: resumeText.length,
+        resumePreview: resumeText.substring(0, 200) + '...',
+        timestamp: new Date().toISOString()
+      });
+
       const prompt = `Analyze the following resume and extract all professional skills. Categorize each skill and assess the proficiency level based on the context.
 
 Resume Text:
@@ -1154,6 +1160,14 @@ Assess level based on:
 - Project complexity
 - Certifications and achievements`;
 
+      console.log('[Skills Agent] Calling Data Engine for skill extraction', {
+        agent: 'skills',
+        engine: 'data',
+        promptLength: prompt.length,
+        temperature: 0.3,
+        requireJson: true
+      });
+
       // Use Data Engine for extraction (requires precision)
       const response = await this.dataAI.call({
         agent: 'skills',
@@ -1163,18 +1177,31 @@ Assess level based on:
         temperature: 0.3  // Low temperature for consistent extraction
       });
 
+      console.log('[Skills Agent] Received AI response for skill extraction', {
+        provider: response.provider,
+        confidence: response.confidence,
+        narrativeType: typeof response.narrative,
+        narrativeLength: typeof response.narrative === 'string' ? response.narrative.length : JSON.stringify(response.narrative).length,
+        timestamp: new Date().toISOString()
+      });
+
       // Parse AI response
       const parsedResponse = typeof response.narrative === 'string'
         ? JSON.parse(response.narrative)
         : response.narrative;
 
       if (!parsedResponse.skills || !Array.isArray(parsedResponse.skills)) {
-        console.warn('AI returned invalid skills format, returning empty array');
+        console.warn('[Skills Agent] AI returned invalid skills format', {
+          hasSkillsProperty: 'skills' in parsedResponse,
+          skillsType: typeof parsedResponse.skills,
+          isArray: Array.isArray(parsedResponse.skills),
+          parsedResponseKeys: Object.keys(parsedResponse)
+        });
         return [];
       }
 
       // Validate and normalize skills
-      return parsedResponse.skills
+      const extractedSkills = parsedResponse.skills
         .filter((skill: any) => skill.name && skill.category && skill.level)
         .map((skill: any) => ({
           name: skill.name.trim(),
@@ -1184,8 +1211,23 @@ Assess level based on:
           verified: false
         }));
 
+      console.log('[Skills Agent] Successfully extracted and normalized skills', {
+        totalRawSkills: parsedResponse.skills.length,
+        validSkills: extractedSkills.length,
+        skills: extractedSkills.map(s => `${s.name} (${s.category}/${s.level})`),
+        timestamp: new Date().toISOString()
+      });
+
+      return extractedSkills;
+
     } catch (error) {
-      console.error('Error extracting skills from resume:', error);
+      console.error('[Skills Agent] Error extracting skills from resume:', error);
+      console.error('[Skills Agent] Error context:', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        resumeLength: resumeText.length,
+        timestamp: new Date().toISOString()
+      });
       // Return empty array instead of throwing to allow graceful degradation
       return [];
     }

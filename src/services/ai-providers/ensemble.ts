@@ -69,10 +69,14 @@ export class EnsembleAI {
       // ✅ PRODUCTION: Use agent-specific threshold if available, otherwise use default
       const threshold = this.config.agentThresholds?.[call.agent] ?? this.config.minConfidence ?? 0.7;
 
-      // Validate response quality
-      if (response.confidence < threshold) {
+      // Validate response quality with floating point tolerance
+      // Allow small floating point precision errors (e.g., 0.799999... vs 0.8)
+      const CONFIDENCE_TOLERANCE = 0.001;
+      if (response.confidence < (threshold - CONFIDENCE_TOLERANCE)) {
         console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
           threshold,
+          tolerance: CONFIDENCE_TOLERANCE,
+          effectiveThreshold: threshold - CONFIDENCE_TOLERANCE,
           agent: call.agent,
           agent_specific_threshold: this.config.agentThresholds?.[call.agent] !== undefined,
           actual_confidence: response.confidence,

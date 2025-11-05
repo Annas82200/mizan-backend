@@ -168,10 +168,17 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
     const extractedSkills = await skillsAgent['extractSkillsFromResume'](resumeText);
 
     if (extractedSkills.length === 0) {
+      console.warn('[Resume Upload] No skills extracted from resume', {
+        employeeId,
+        tenantId: employeeTenantId,
+        resumeLength: resumeText.length,
+        timestamp: new Date().toISOString()
+      });
       return res.status(200).json({
         success: true,
-        message: 'No skills found in resume',
-        skills: []
+        message: 'No skills detected in resume. AI analysis did not identify recognizable skills. Please ensure the resume contains clear skill descriptions (e.g., "JavaScript", "Python", "Project Management").',
+        skills: [],
+        data: { extractedSkills: [] }
       });
     }
 
@@ -201,7 +208,8 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
     res.status(201).json({
       success: true,
       message: `Successfully extracted ${newSkills.length} skills from resume`,
-      skills: newSkills
+      skills: newSkills,  // Keep for backward compatibility
+      data: { extractedSkills: newSkills }  // Consistent API structure
     });
 
   } catch (error: unknown) {
