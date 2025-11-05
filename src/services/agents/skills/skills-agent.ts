@@ -507,7 +507,7 @@ export class SkillsAgent extends ThreeEngineAgent {
       // Trigger Talent module for high-potential employees (non-blocking)
       if (analysis.talentTriggers && analysis.talentTriggers.length > 0) {
         try {
-          await this.triggerTalentModule(analysis.talentTriggers, input.tenantId);
+          await this.triggerTalentModule(analysis.talentTriggers, input.tenantId, sessionId);
         } catch (error) {
           console.error('[Skills Agent] Error triggering Talent module:', error);
           // Non-critical - continue
@@ -517,7 +517,7 @@ export class SkillsAgent extends ThreeEngineAgent {
       // Trigger Bonus module for skills achievements (non-blocking)
       if (analysis.bonusTriggers && analysis.bonusTriggers.length > 0) {
         try {
-          await this.triggerBonusModule(analysis.bonusTriggers, input.tenantId);
+          await this.triggerBonusModule(analysis.bonusTriggers, input.tenantId, sessionId);
         } catch (error) {
           console.error('[Skills Agent] Error triggering Bonus module:', error);
           // Non-critical - continue
@@ -1452,18 +1452,106 @@ Assess level based on:
 
   private async triggerTalentModule(
     talentTriggers: Array<{ employeeId: string; potentialRole: string; readinessScore: number }>,
-    tenantId: string
+    tenantId: string,
+    sessionId?: string
   ): Promise<void> {
-    // Trigger Talent module for high-potential employees
-    console.log(`Triggering Talent module for ${talentTriggers.length} employees`);
+    if (talentTriggers.length === 0) {
+      console.log('[Skills Agent] No talent triggers to process');
+      return;
+    }
+
+    console.log(`[Skills Agent] Triggering Talent module for ${talentTriggers.length} employees`);
+
+    try {
+      // Import the trigger table
+      const { skillsTalentTriggers } = await import('../../../db/schema/skills');
+
+      for (const trigger of talentTriggers) {
+        try {
+          // Store trigger in database
+          const [triggerRecord] = await db.insert(skillsTalentTriggers).values({
+            tenantId,
+            employeeId: trigger.employeeId,
+            sessionId: sessionId || `skills-${Date.now()}`,
+            skillsData: {
+              readinessScore: trigger.readinessScore,
+              potentialRole: trigger.potentialRole,
+              timestamp: new Date().toISOString()
+            },
+            potentialRoles: [trigger.potentialRole],
+            readinessScore: trigger.readinessScore,
+            status: 'pending'
+          }).returning();
+
+          console.log(`[Skills Agent] Talent trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
+
+          // Optionally, call the Talent API to process immediately
+          // This would require an HTTP client or direct function call
+          // For now, we'll let the Talent module poll for pending triggers
+
+        } catch (error) {
+          console.error(`[Skills Agent] Failed to create talent trigger for employee ${trigger.employeeId}:`, error);
+        }
+      }
+
+      console.log(`[Skills Agent] Successfully created ${talentTriggers.length} talent trigger(s)`);
+
+    } catch (error) {
+      console.error('[Skills Agent] Error in triggerTalentModule:', error);
+      throw error;
+    }
   }
 
   private async triggerBonusModule(
     bonusTriggers: Array<{ employeeId: string; skillsAchieved: string[]; recommendedBonus: number }>,
-    tenantId: string
+    tenantId: string,
+    sessionId?: string
   ): Promise<void> {
-    // Trigger Bonus module for skills achievements
-    console.log(`Triggering Bonus module for ${bonusTriggers.length} employees`);
+    if (bonusTriggers.length === 0) {
+      console.log('[Skills Agent] No bonus triggers to process');
+      return;
+    }
+
+    console.log(`[Skills Agent] Triggering Bonus module for ${bonusTriggers.length} employees`);
+
+    try {
+      // Import the trigger table
+      const { skillsBonusTriggers } = await import('../../../db/schema/skills');
+
+      for (const trigger of bonusTriggers) {
+        try {
+          // Store trigger in database
+          const [triggerRecord] = await db.insert(skillsBonusTriggers).values({
+            tenantId,
+            employeeId: trigger.employeeId,
+            sessionId: sessionId || `skills-${Date.now()}`,
+            skillsAchievements: trigger.skillsAchieved,
+            recommendedBonus: trigger.recommendedBonus,
+            bonusCriteria: {
+              source: 'skills_assessment',
+              achievedSkills: trigger.skillsAchieved,
+              timestamp: new Date().toISOString()
+            },
+            status: 'pending'
+          }).returning();
+
+          console.log(`[Skills Agent] Bonus trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
+
+          // Optionally, call the Bonus API to process immediately
+          // This would require an HTTP client or direct function call
+          // For now, we'll let the Bonus module poll for pending triggers
+
+        } catch (error) {
+          console.error(`[Skills Agent] Failed to create bonus trigger for employee ${trigger.employeeId}:`, error);
+        }
+      }
+
+      console.log(`[Skills Agent] Successfully created ${bonusTriggers.length} bonus trigger(s)`);
+
+    } catch (error) {
+      console.error('[Skills Agent] Error in triggerBonusModule:', error);
+      throw error;
+    }
   }
 
   private async saveSkillsAnalysis(

@@ -182,34 +182,75 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
       });
     }
 
-    // Store extracted skills in database
+    // Store extracted skills in database with comprehensive error handling
     const newSkills = [];
+    const failedSkills = [];
+
     for (const skill of extractedSkills) {
-      const [newSkill] = await db.insert(skills).values({
-        userId: employeeId,
-        tenantId: employeeTenantId,
-        name: skill.name,
-        category: skill.category,
-        level: skill.level,
-        yearsOfExperience: skill.yearsOfExperience,
-        verified: false // Resume-extracted skills are not verified by default
-      }).onConflictDoUpdate({
-        target: [skills.userId, skills.name],
-        set: {
-          level: skill.level,
+      try {
+        const [newSkill] = await db.insert(skills).values({
+          userId: employeeId,
+          tenantId: employeeTenantId,
+          name: skill.name,
           category: skill.category,
+          level: skill.level,
           yearsOfExperience: skill.yearsOfExperience,
-          updatedAt: new Date()
-        }
-      }).returning();
-      newSkills.push(newSkill);
+          verified: false // Resume-extracted skills are not verified by default
+        }).onConflictDoUpdate({
+          target: [skills.userId, skills.name],
+          set: {
+            level: skill.level,
+            category: skill.category,
+            yearsOfExperience: skill.yearsOfExperience,
+            updatedAt: new Date()
+          }
+        }).returning();
+
+        newSkills.push(newSkill);
+
+      } catch (error) {
+        // Log error for monitoring but continue processing other skills
+        console.error(`[Skills Insert] Failed for skill: ${skill.name}`, {
+          employeeId,
+          tenantId: employeeTenantId,
+          skill,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorCode: error instanceof Error && 'code' in error ? (error as any).code : undefined,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
+
+        failedSkills.push({
+          skillName: skill.name,
+          category: skill.category,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        // Continue with other skills instead of failing completely
+      }
     }
 
-    res.status(201).json({
-      success: true,
-      message: `Successfully extracted ${newSkills.length} skills from resume`,
+    // Return comprehensive results
+    const statusCode = newSkills.length > 0 ? 201 : (failedSkills.length > 0 ? 207 : 200);
+    const message = failedSkills.length > 0
+      ? `Successfully saved ${newSkills.length} skills, ${failedSkills.length} failed. ${
+          failedSkills.length === extractedSkills.length
+            ? 'This may indicate a database constraint issue. Please check logs.'
+            : 'Review failed skills for details.'
+        }`
+      : `Successfully extracted and saved ${newSkills.length} skills from resume`;
+
+    res.status(statusCode).json({
+      success: newSkills.length > 0, // Success if at least some skills saved
+      message,
       skills: newSkills,  // Keep for backward compatibility
-      data: { extractedSkills: newSkills }  // Consistent API structure
+      data: {
+        extractedSkills: newSkills,
+        totalExtracted: extractedSkills.length,
+        successCount: newSkills.length,
+        failureCount: failedSkills.length,
+        failedSkills: failedSkills.length > 0 ? failedSkills : undefined
+      }
     });
 
   } catch (error: unknown) {
@@ -816,11 +857,46 @@ router.get('/dashboard/stats', authenticate, async (req: Request, res: Response)
       .where(eq(skillsAssessments.tenantId, userTenantId))
       .limit(10);
 
-    // Calculate skills by category
-    const skillsByCategory = totalSkills.reduce((acc, skill) => {
-      acc[skill.category] = (acc[skill.category] || 0) + 1;
+    // Helper function to convert skill level to numeric score
+    const levelToScore = (level: string): number => {
+      switch (level.toLowerCase()) {
+        case 'expert': return 100;
+        case 'advanced': return 75;
+        case 'intermediate': return 50;
+        case 'beginner': return 25;
+        default: return 0;
+      }
+    };
+
+    // Calculate skills by category with average scores
+    const categoryStats: Record<string, { count: number; totalScore: number; gapCount: number }> = {};
+
+    totalSkills.forEach(skill => {
+      if (!categoryStats[skill.category]) {
+        categoryStats[skill.category] = { count: 0, totalScore: 0, gapCount: 0 };
+      }
+      categoryStats[skill.category].count++;
+      categoryStats[skill.category].totalScore += levelToScore(skill.level);
+    });
+
+    // Add gap counts per category
+    skillsGapsList.forEach(gap => {
+      if (categoryStats[gap.category]) {
+        categoryStats[gap.category].gapCount++;
+      } else {
+        categoryStats[gap.category] = { count: 0, totalScore: 0, gapCount: 1 };
+      }
+    });
+
+    // Calculate final scores (average) per category
+    const skillsByCategory = Object.entries(categoryStats).reduce((acc, [category, data]) => {
+      acc[category] = {
+        count: data.count,
+        averageScore: data.count > 0 ? Math.round(data.totalScore / data.count) : 0,
+        gapCount: data.gapCount
+      };
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<string, { count: number; averageScore: number; gapCount: number }>);
 
     // Calculate skills by level
     const skillsByLevel = totalSkills.reduce((acc, skill) => {
