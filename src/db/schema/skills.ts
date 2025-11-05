@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, jsonb, uuid, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, jsonb, uuid, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { tenants, users } from './core';
 
@@ -318,7 +318,10 @@ export const skills = pgTable('skills', {
   verified: boolean('verified').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
-});
+}, (table) => ({
+  // Unique constraint on (userId, name) - required for onConflictDoUpdate operations
+  userSkillUnique: uniqueIndex('idx_skills_user_id_name_unique').on(table.userId, table.name),
+}));
 
 // Skills Gaps Table - for tracking skill gaps
 export const skillsGaps = pgTable('skills_gaps', {
