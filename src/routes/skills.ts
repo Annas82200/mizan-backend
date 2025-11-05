@@ -120,6 +120,7 @@ const SkillsAnalysisInputSchema = z.object({
 router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
+    const userRole = req.user!.role;
     const { employeeId } = req.body;
 
     if (!employeeId) {
@@ -136,13 +137,18 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
       });
     }
 
-    // Verify employee belongs to user's tenant
+    // Build query conditions - superadmins bypass tenant isolation
+    const whereConditions = [eq(users.id, employeeId)];
+
+    // Only enforce tenant isolation for non-superadmin users
+    if (userRole !== 'superadmin') {
+      whereConditions.push(eq(users.tenantId, userTenantId));
+    }
+
+    // Verify employee exists (and belongs to user's tenant if not superadmin)
     const employee = await db.select()
       .from(users)
-      .where(and(
-        eq(users.id, employeeId),
-        eq(users.tenantId, userTenantId)
-      ))
+      .where(and(...whereConditions))
       .limit(1);
 
     if (employee.length === 0) {
@@ -151,6 +157,9 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
         error: 'Employee not found or access denied'
       });
     }
+
+    // Use employee's actual tenant ID (not requester's tenant ID)
+    const employeeTenantId = employee[0].tenantId;
 
     // Extract text from resume
     const resumeText = await extractResumeText(req.file.buffer, req.file.mimetype);
@@ -171,7 +180,7 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
     for (const skill of extractedSkills) {
       const [newSkill] = await db.insert(skills).values({
         userId: employeeId,
-        tenantId: userTenantId,
+        tenantId: employeeTenantId,
         name: skill.name,
         category: skill.category,
         level: skill.level,
@@ -211,6 +220,7 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
 router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']), csvUpload.single('csv'), async (req: Request, res: Response) => {
   try {
     const userTenantId = req.user!.tenantId;
+    const userRole = req.user!.role;
 
     if (!req.file) {
       return res.status(400).json({
@@ -248,27 +258,35 @@ router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']
     const importResults = [];
 
     for (const employee of employeeData) {
-      // Verify/create employee in users table
+      // Build query conditions - superadmins bypass tenant isolation
+      const whereConditions = [eq(users.id, employee.employeeId)];
+
+      // Only enforce tenant isolation for non-superadmin users
+      if (userRole !== 'superadmin') {
+        whereConditions.push(eq(users.tenantId, userTenantId));
+      }
+
+      // Verify employee exists (and belongs to user's tenant if not superadmin)
       const existingEmployee = await db.select()
         .from(users)
-        .where(and(
-          eq(users.id, employee.employeeId),
-          eq(users.tenantId, userTenantId)
-        ))
+        .where(and(...whereConditions))
         .limit(1);
 
       if (existingEmployee.length === 0) {
         // Skip employees not in the system
-        console.warn(`Employee ${employee.employeeId} not found in tenant ${userTenantId}, skipping`);
+        console.warn(`Employee ${employee.employeeId} not found, skipping`);
         continue;
       }
+
+      // Use employee's actual tenant ID (not requester's tenant ID)
+      const employeeTenantId = existingEmployee[0].tenantId;
 
       // Import skills for this employee
       const importedSkills = [];
       for (const skill of employee.skills) {
         const [newSkill] = await db.insert(skills).values({
           userId: employee.employeeId,
-          tenantId: userTenantId,
+          tenantId: employeeTenantId,
           name: skill.name,
           category: skill.category,
           level: skill.level,
