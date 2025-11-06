@@ -676,10 +676,26 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             ))
             .limit(1);
 
+        // Handle missing framework gracefully
         if (frameworkFromDb.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Skills framework not found for this tenant.'
+            console.log(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, returning basic analysis`);
+
+            // Return a helpful response with instructions
+            return res.json({
+                success: true,
+                data: {
+                    frameworkMissing: true,
+                    message: 'No skills framework has been created for your organization yet. Please create a framework to enable gap analysis.',
+                    helpText: 'Admins can create a framework using the "Create Framework" button in the Skills Analysis dashboard.',
+                    overallGapScore: 0,
+                    criticalGaps: [],
+                    strengths: [],
+                    recommendations: [
+                        'Create a strategic skills framework to enable gap analysis',
+                        'Contact your admin to set up the organizational skills framework',
+                        'Continue adding your skills to prepare for analysis once the framework is ready'
+                    ]
+                }
             });
         }
 
@@ -694,7 +710,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         };
 
         const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, employeeTenantId, mappedFramework);
-        res.json({ success: true, gapAnalysis });
+        res.json({ success: true, data: gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);
         if (error instanceof Error) {

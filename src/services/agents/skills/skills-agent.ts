@@ -1930,18 +1930,138 @@ Respond in JSON format:
         businessImpact: gap.businessImpact
       }));
 
+      // Calculate real department comparison
+      const tenantDepartments = await db.select()
+        .from(departments)
+        .where(eq(departments.tenantId, tenantId));
+
+      const departmentComparison = await Promise.all(
+        tenantDepartments.map(async (dept) => {
+          // Get users in this department
+          const deptUsers = await db.select()
+            .from(users)
+            .where(and(
+              eq(users.tenantId, tenantId),
+              eq(users.departmentId, dept.id)
+            ));
+
+          const userIds = deptUsers.map(u => u.id);
+
+          // Get skills for department users
+          const deptSkills = orgSkills.filter(s => userIds.includes(s.userId));
+
+          // Calculate average proficiency score
+          const proficiencyScores = deptSkills.map(s => {
+            const levelMap: Record<string, number> = {
+              beginner: 25,
+              intermediate: 50,
+              advanced: 75,
+              expert: 100
+            };
+            return levelMap[s.level] || 0;
+          });
+
+          const avgScore = proficiencyScores.length > 0
+            ? Math.round(proficiencyScores.reduce((a, b) => a + b, 0) / proficiencyScores.length)
+            : 0;
+
+          // Count critical gaps for this department
+          const deptGaps = gaps.filter(g => userIds.includes(g.employeeId!));
+          const criticalGaps = deptGaps.filter(g => g.gapSeverity === 'critical').length;
+
+          return {
+            departmentId: dept.id,
+            departmentName: dept.name,
+            skillsScore: avgScore,
+            criticalGaps
+          };
+        })
+      );
+
+      // Calculate real strategic alignment
+      let strategicAlignment = 0;
+      try {
+        const framework = await db.select()
+          .from(skillsFramework)
+          .where(eq(skillsFramework.tenantId, tenantId))
+          .limit(1);
+
+        if (framework.length > 0 && framework[0].strategicSkills) {
+          const requiredSkills = (framework[0].strategicSkills as any[]) || [];
+          const requiredSkillNames = requiredSkills.map((s: any) =>
+            (s.name || s.skill || '').toLowerCase()
+          );
+
+          const orgSkillNames = new Set(
+            orgSkills.map(s => s.name.toLowerCase())
+          );
+
+          const matchedSkills = requiredSkillNames.filter((name: string) =>
+            orgSkillNames.has(name)
+          ).length;
+
+          strategicAlignment = requiredSkillNames.length > 0
+            ? Math.round((matchedSkills / requiredSkillNames.length) * 100)
+            : 0;
+        }
+      } catch (frameworkError) {
+        console.log('[Organization Analysis] No framework found or error calculating alignment:', frameworkError);
+        // strategicAlignment remains 0
+      }
+
+      // Generate context-aware recommendations based on actual gaps
+      const recommendations: string[] = [];
+
+      // Analyze gap patterns
+      const gapsBySkill: Record<string, number> = {};
+      gaps.forEach(gap => {
+        const skill = gap.skill.toLowerCase();
+        gapsBySkill[skill] = (gapsBySkill[skill] || 0) + 1;
+      });
+
+      // Sort by frequency
+      const sortedGaps = Object.entries(gapsBySkill)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3);
+
+      // Generate specific recommendations
+      if (sortedGaps.length > 0) {
+        sortedGaps.forEach(([skill, count]) => {
+          recommendations.push(
+            `Address ${skill} skill gap affecting ${count} employee${count > 1 ? 's' : ''} - consider targeted training programs`
+          );
+        });
+      }
+
+      // Add department-specific recommendations if there are large variances
+      const scores = departmentComparison.map(d => d.skillsScore);
+      if (scores.length > 1) {
+        const maxScore = Math.max(...scores);
+        const minScore = Math.min(...scores);
+        if (maxScore - minScore > 30) {
+          const topDept = departmentComparison.find(d => d.skillsScore === maxScore);
+          const bottomDept = departmentComparison.find(d => d.skillsScore === minScore);
+          recommendations.push(
+            `Establish knowledge sharing program between ${topDept?.departmentName} and ${bottomDept?.departmentName} departments to level up skills`
+          );
+        }
+      }
+
+      // Add general recommendations if needed
+      if (recommendations.length === 0) {
+        recommendations.push('Implement organization-wide skills development program');
+        recommendations.push('Create skills councils for critical skill areas');
+        recommendations.push('Establish mentorship programs for knowledge transfer');
+      }
+
       return {
         totalEmployees: uniqueEmployees,
         totalSkills: orgSkills.length,
         skillsCoverage: {},
-        departmentComparison: [],
+        departmentComparison,
         organizationGaps: mappedGaps,
-        strategicAlignment: 75, // Placeholder - calculate based on framework alignment
-        recommendations: [
-          'Implement organization-wide skills development program',
-          'Create skills councils for critical skill areas',
-          'Establish mentorship programs for knowledge transfer'
-        ]
+        strategicAlignment,
+        recommendations
       };
 
     } catch (error) {
