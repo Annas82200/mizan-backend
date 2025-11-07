@@ -774,6 +774,11 @@ Consider:
    * Uses three-engine AI system for intelligent framework generation
    */
   async autoGenerateFrameworkFromOrgData(tenantId: string): Promise<SkillsFramework> {
+    // Declare variables in function scope for error handling
+    let industry = 'Unknown';
+    let strategyText = '';
+    let departmentCount = 0;
+
     try {
       console.log(`[Auto-Generate Framework] Starting for tenant ${tenantId}`);
 
@@ -785,16 +790,17 @@ Consider:
         throw new Error(`Tenant not found: ${tenantId}`);
       }
 
-      const industry = tenant.industry || 'General Business';
+      industry = tenant.industry || 'General Business';
       console.log(`[Auto-Generate Framework] Industry: ${industry}`);
 
       // Step 2: Get company strategy
       const strategy = await this.getCompanyStrategy(tenantId);
-      const strategyText = strategy || 'Growth-focused organization committed to excellence and innovation';
+      strategyText = strategy || 'Growth-focused organization committed to excellence and innovation';
       console.log(`[Auto-Generate Framework] Strategy retrieved: ${strategyText.substring(0, 100)}...`);
 
       // Step 3: Get organization structure
       const departmentsList = await db.select().from(departments).where(eq(departments.tenantId, tenantId));
+      departmentCount = departmentsList.length;
       const structureContext = departmentsList.length > 0
         ? `Organization has ${departmentsList.length} departments: ${departmentsList.map(d => d.name).join(', ')}`
         : 'Flat organizational structure';
@@ -873,16 +879,78 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       // Step 5: Use Knowledge Engine with EnsembleAI for framework generation
       console.log(`[Auto-Generate Framework] Calling Knowledge Engine with EnsembleAI`);
       const response = await this.knowledgeAI.call({
-        agent: 'skills',
+        agent: 'skills-agent',  // Fixed: Use consistent agent name matching config
         engine: 'knowledge',
         prompt: enhancedPrompt,
         requireJson: true,
         temperature: 0.4  // Balanced creativity and consistency
       });
 
-      const parsedResponse = typeof response.narrative === 'string'
-        ? JSON.parse(response.narrative)
-        : response.narrative;
+      console.log(`[Auto-Generate Framework] Received response from ${response.provider} with confidence ${response.confidence}`);
+
+      // Step 5.5: Safe JSON parsing with comprehensive error handling
+      let parsedResponse: any;
+      try {
+        if (typeof response.narrative === 'string') {
+          // Log raw response for debugging (first 500 chars to avoid log overflow)
+          console.log(`[Auto-Generate Framework] Raw response preview: ${response.narrative.substring(0, 500)}...`);
+
+          // Attempt JSON parse with error recovery
+          parsedResponse = JSON.parse(response.narrative);
+          console.log(`[Auto-Generate Framework] JSON parsed successfully`);
+        } else {
+          parsedResponse = response.narrative;
+          console.log(`[Auto-Generate Framework] Response already in object format`);
+        }
+      } catch (parseError) {
+        // Log detailed parse error for debugging
+        console.error(`[Auto-Generate Framework] JSON parse failed:`, {
+          provider: response.provider,
+          confidence: response.confidence,
+          engine: response.engine,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          narrativeLength: response.narrative.length,
+          narrativePreview: typeof response.narrative === 'string'
+            ? response.narrative.substring(0, 1000)
+            : 'Not a string',
+          narrativeSuffix: typeof response.narrative === 'string'
+            ? response.narrative.substring(Math.max(0, response.narrative.length - 500))
+            : 'Not a string'
+        });
+
+        throw new Error(
+          `AI provider ${response.provider} returned malformed JSON (confidence: ${response.confidence}). ` +
+          `Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}. ` +
+          `This usually indicates the AI response was truncated or improperly formatted. ` +
+          `Please try again or create the framework manually.`
+        );
+      }
+
+      // Step 5.6: Validate response structure before using
+      if (!parsedResponse || typeof parsedResponse !== 'object') {
+        console.error(`[Auto-Generate Framework] Invalid response structure:`, {
+          provider: response.provider,
+          confidence: response.confidence,
+          parsedType: typeof parsedResponse,
+          parsedValue: parsedResponse
+        });
+        throw new Error(
+          `AI provider ${response.provider} returned invalid response structure. ` +
+          `Expected object with framework sections, got ${typeof parsedResponse}.`
+        );
+      }
+
+      // Validate required sections exist (allow empty arrays)
+      const requiredSections = ['strategicSkills', 'industryBenchmarks', 'criticalSkills', 'emergingSkills', 'obsoleteSkills'];
+      const missingSections = requiredSections.filter(section => !Array.isArray(parsedResponse[section]));
+
+      if (missingSections.length > 0) {
+        console.warn(`[Auto-Generate Framework] Missing or invalid sections: ${missingSections.join(', ')}. Using empty arrays.`);
+        // Initialize missing sections as empty arrays instead of failing
+        missingSections.forEach(section => {
+          parsedResponse[section] = [];
+        });
+      }
 
       // Step 6: Validate and normalize the framework
       const framework: SkillsFramework = {
@@ -919,8 +987,26 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       return framework;
 
     } catch (error) {
-      console.error('[Auto-Generate Framework] Error:', error);
-      throw new Error('Failed to auto-generate skills framework from organization data');
+      // Preserve detailed error information for debugging
+      const errorDetails = {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        tenantId,
+        industry,
+        departmentCount,
+        strategyLength: strategyText.length,
+        timestamp: new Date().toISOString()
+      };
+
+      console.error('[Auto-Generate Framework] Error:', errorDetails);
+
+      // Re-throw with detailed context instead of generic message
+      if (error instanceof Error) {
+        // Preserve original error message for debugging
+        throw error;
+      } else {
+        throw new Error('Failed to auto-generate skills framework from organization data');
+      }
     }
   }
 

@@ -681,25 +681,62 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         if (frameworkFromDb.length === 0) {
             console.log(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, auto-generating framework...`);
 
-            try {
-                // Auto-generate framework using organization data (industry, strategy, structure)
-                framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId);
-                console.log(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId}`);
-            } catch (autoGenError) {
-                console.error('[Skills Gap Analysis] Failed to auto-generate framework:', autoGenError);
+            // Retry logic: Try up to 2 times if framework generation fails
+            let lastError: any = null;
+            const maxRetries = 2;
 
-                // Fallback: Return helpful message if auto-generation fails
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    console.log(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} for tenant ${employeeTenantId}`);
+
+                    // Auto-generate framework using organization data (industry, strategy, structure)
+                    framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId);
+                    console.log(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId} on attempt ${attempt}`);
+                    lastError = null;
+                    break; // Success - exit retry loop
+                } catch (autoGenError) {
+                    lastError = autoGenError;
+                    const errorMsg = autoGenError instanceof Error ? autoGenError.message : String(autoGenError);
+
+                    console.error(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} failed:`, {
+                        attempt,
+                        error: errorMsg,
+                        willRetry: attempt < maxRetries
+                    });
+
+                    // If this was the last attempt, don't retry
+                    if (attempt >= maxRetries) {
+                        break;
+                    }
+
+                    // Wait briefly before retry (exponential backoff: 2s, 4s)
+                    const waitMs = 2000 * attempt;
+                    console.log(`[Skills Gap Analysis] Waiting ${waitMs}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitMs));
+                }
+            }
+
+            // If all retries failed, return helpful fallback message
+            if (lastError) {
+                console.error('[Skills Gap Analysis] All framework generation attempts failed:', lastError);
+
+                // Determine if error was due to malformed JSON
+                const errorMsg = lastError instanceof Error ? lastError.message : String(lastError);
+                const isJSONError = errorMsg.includes('malformed JSON') || errorMsg.includes('JSON parse');
+
                 return res.json({
                     success: true,
                     data: {
                         frameworkMissing: true,
-                        message: 'Unable to automatically generate skills framework. Please create a framework manually.',
+                        message: isJSONError
+                            ? 'Unable to automatically generate skills framework due to AI response errors. Please try again or create a framework manually.'
+                            : 'Unable to automatically generate skills framework. Please create a framework manually.',
                         helpText: 'Admins can create a framework using the "Create Framework" button in the Skills Analysis dashboard.',
                         overallGapScore: 0,
                         criticalGaps: [],
                         strengths: [],
                         recommendations: [
-                            'Create a strategic skills framework to enable gap analysis',
+                            isJSONError ? 'Try again - sometimes AI responses fail temporarily' : 'Create a strategic skills framework to enable gap analysis',
                             'Contact your admin to set up the organizational skills framework',
                             'Continue adding your skills to prepare for analysis once the framework is ready'
                         ]
