@@ -499,8 +499,14 @@ router.get('/departments', async (req: Request, res: Response) => {
     }
 
     const departmentsList = await db.select().from(departments).where(eq(departments.tenantId, req.user.tenantId));
-    
-    return res.json(departmentsList);
+
+    return res.json({
+      success: true,
+      data: departmentsList,
+      message: departmentsList.length === 0
+        ? 'No departments found. Create departments in Admin > Departments.'
+        : `Found ${departmentsList.length} departments`
+    });
     
   } catch (error) {
     console.error('Departments fetch error:', error);

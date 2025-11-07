@@ -769,6 +769,162 @@ Consider:
   }
 
   /**
+   * Auto-generate skills framework from organization data
+   * Automatically pulls industry, strategy, and organization structure
+   * Uses three-engine AI system for intelligent framework generation
+   */
+  async autoGenerateFrameworkFromOrgData(tenantId: string): Promise<SkillsFramework> {
+    try {
+      console.log(`[Auto-Generate Framework] Starting for tenant ${tenantId}`);
+
+      // Step 1: Get tenant data (industry)
+      const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
+
+      if (!tenant) {
+        throw new Error(`Tenant not found: ${tenantId}`);
+      }
+
+      const industry = tenant.industry || 'General Business';
+      console.log(`[Auto-Generate Framework] Industry: ${industry}`);
+
+      // Step 2: Get company strategy
+      const strategy = await this.getCompanyStrategy(tenantId);
+      const strategyText = strategy || 'Growth-focused organization committed to excellence and innovation';
+      console.log(`[Auto-Generate Framework] Strategy retrieved: ${strategyText.substring(0, 100)}...`);
+
+      // Step 3: Get organization structure
+      const departmentsList = await db.select().from(departments).where(eq(departments.tenantId, tenantId));
+      const structureContext = departmentsList.length > 0
+        ? `Organization has ${departmentsList.length} departments: ${departmentsList.map(d => d.name).join(', ')}`
+        : 'Flat organizational structure';
+      console.log(`[Auto-Generate Framework] Structure: ${structureContext}`);
+
+      // Step 4: Enhanced prompt with all three-engine context
+      const enhancedPrompt = `You are an expert organizational development consultant with deep knowledge of industry trends, strategic workforce planning, and skills development.
+
+**Organization Context:**
+Industry: ${industry}
+${structureContext}
+
+**Strategic Context:**
+${strategyText}
+
+**Your Task:**
+Generate a comprehensive strategic skills framework that aligns with this organization's industry, structure, and strategic direction. Use your expertise to identify:
+
+1. **Strategic Skills** - Skills that directly support the strategic objectives and competitive positioning
+2. **Industry Benchmarks** - Standard skills required across the ${industry} industry
+3. **Critical Skills** - Must-have skills for immediate organizational success
+4. **Emerging Skills** - Future-relevant skills based on industry trends and technological shifts
+5. **Obsolete Skills** - Skills that are declining in relevance
+
+**Response Format (JSON):**
+{
+  "strategicSkills": [
+    {
+      "name": "skill name",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "beginner|intermediate|advanced|expert",
+      "strategic_importance": "critical|high|medium|low",
+      "rationale": "why this skill aligns with organizational strategy"
+    }
+  ],
+  "industryBenchmarks": [
+    {
+      "name": "industry-standard skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "expected proficiency level",
+      "prevalence": "percentage or description of industry adoption"
+    }
+  ],
+  "criticalSkills": [
+    {
+      "name": "mission-critical skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "required minimum level",
+      "urgency": "immediate|short-term|medium-term"
+    }
+  ],
+  "emergingSkills": [
+    {
+      "name": "future-relevant skill",
+      "category": "technical|soft|leadership|analytical|communication",
+      "level": "recommended level",
+      "timeline": "when this skill will become important"
+    }
+  ],
+  "obsoleteSkills": [
+    {
+      "name": "declining skill",
+      "reason": "why this skill is becoming less relevant"
+    }
+  ]
+}
+
+**Considerations:**
+- Current ${industry} industry trends and technological disruptions
+- The organization's strategic direction and business goals
+- Departmental needs across the ${departmentsList.length} departments
+- Competitive landscape and market positioning
+- Future-ready capabilities for sustained success
+- Regulatory and compliance requirements specific to ${industry}`;
+
+      // Step 5: Use Knowledge Engine with EnsembleAI for framework generation
+      console.log(`[Auto-Generate Framework] Calling Knowledge Engine with EnsembleAI`);
+      const response = await this.knowledgeAI.call({
+        agent: 'skills',
+        engine: 'knowledge',
+        prompt: enhancedPrompt,
+        requireJson: true,
+        temperature: 0.4  // Balanced creativity and consistency
+      });
+
+      const parsedResponse = typeof response.narrative === 'string'
+        ? JSON.parse(response.narrative)
+        : response.narrative;
+
+      // Step 6: Validate and normalize the framework
+      const framework: SkillsFramework = {
+        tenantId,
+        strategicSkills: this.normalizeSkillList(parsedResponse.strategicSkills || []),
+        industryBenchmarks: this.normalizeSkillList(parsedResponse.industryBenchmarks || []),
+        criticalSkills: this.normalizeSkillList(parsedResponse.criticalSkills || []),
+        emergingSkills: this.normalizeSkillList(parsedResponse.emergingSkills || []),
+        obsoleteSkills: parsedResponse.obsoleteSkills || []
+      };
+
+      console.log(`[Auto-Generate Framework] Framework generated - Strategic: ${framework.strategicSkills.length}, Benchmarks: ${framework.industryBenchmarks.length}, Critical: ${framework.criticalSkills.length}`);
+
+      // Step 7: Store framework in database
+      const technicalSkillsList = framework.strategicSkills.filter(s => s.category === 'technical');
+      const softSkillsList = framework.strategicSkills.filter(s => s.category === 'soft');
+      const frameworkName = `${industry} Auto-Generated Framework`;
+
+      await db.insert(skillsFramework).values({
+        tenantId,
+        frameworkName,
+        industry,
+        strategicSkills: framework.strategicSkills as unknown as Record<string, unknown>[],
+        technicalSkills: technicalSkillsList as unknown as Record<string, unknown>[],
+        softSkills: softSkillsList as unknown as Record<string, unknown>[],
+        prioritization: framework.criticalSkills as unknown as Record<string, unknown>[],
+        createdBy: tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      console.log(`[Auto-Generate Framework] Framework stored in database successfully`);
+
+      return framework;
+
+    } catch (error) {
+      console.error('[Auto-Generate Framework] Error:', error);
+      throw new Error('Failed to auto-generate skills framework from organization data');
+    }
+  }
+
+  /**
    * Normalize skill list to ensure proper structure
    */
   private normalizeSkillList(skills: any[]): Skill[] {

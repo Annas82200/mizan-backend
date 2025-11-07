@@ -676,40 +676,50 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             ))
             .limit(1);
 
-        // Handle missing framework gracefully
+        // Auto-generate framework if missing
+        let framework: SkillsFramework;
         if (frameworkFromDb.length === 0) {
-            console.log(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, returning basic analysis`);
+            console.log(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, auto-generating framework...`);
 
-            // Return a helpful response with instructions
-            return res.json({
-                success: true,
-                data: {
-                    frameworkMissing: true,
-                    message: 'No skills framework has been created for your organization yet. Please create a framework to enable gap analysis.',
-                    helpText: 'Admins can create a framework using the "Create Framework" button in the Skills Analysis dashboard.',
-                    overallGapScore: 0,
-                    criticalGaps: [],
-                    strengths: [],
-                    recommendations: [
-                        'Create a strategic skills framework to enable gap analysis',
-                        'Contact your admin to set up the organizational skills framework',
-                        'Continue adding your skills to prepare for analysis once the framework is ready'
-                    ]
-                }
-            });
+            try {
+                // Auto-generate framework using organization data (industry, strategy, structure)
+                framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId);
+                console.log(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId}`);
+            } catch (autoGenError) {
+                console.error('[Skills Gap Analysis] Failed to auto-generate framework:', autoGenError);
+
+                // Fallback: Return helpful message if auto-generation fails
+                return res.json({
+                    success: true,
+                    data: {
+                        frameworkMissing: true,
+                        message: 'Unable to automatically generate skills framework. Please create a framework manually.',
+                        helpText: 'Admins can create a framework using the "Create Framework" button in the Skills Analysis dashboard.',
+                        overallGapScore: 0,
+                        criticalGaps: [],
+                        strengths: [],
+                        recommendations: [
+                            'Create a strategic skills framework to enable gap analysis',
+                            'Contact your admin to set up the organizational skills framework',
+                            'Continue adding your skills to prepare for analysis once the framework is ready'
+                        ]
+                    }
+                });
+            }
+        } else {
+            // Use existing framework from database
+            framework = {
+                tenantId: frameworkFromDb[0].tenantId,
+                strategicSkills: (frameworkFromDb[0].strategicSkills as Skill[]) || [],
+                industryBenchmarks: [],
+                criticalSkills: [],
+                emergingSkills: [],
+                obsoleteSkills: []
+            };
         }
 
-        // Map database framework to SkillsFramework interface
-        const mappedFramework: SkillsFramework = {
-            tenantId: frameworkFromDb[0].tenantId,
-            strategicSkills: (frameworkFromDb[0].strategicSkills as Skill[]) || [],
-            industryBenchmarks: [],  // These should be populated from the database if available
-            criticalSkills: [],      // These should be populated from the database if available
-            emergingSkills: [],      // These should be populated from the database if available
-            obsoleteSkills: []       // These should be populated from the database if available
-        };
-
-        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, employeeTenantId, mappedFramework);
+        // Perform gap analysis with the framework (auto-generated or existing)
+        const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, employeeTenantId, framework);
         res.json({ success: true, data: gapAnalysis });
     } catch (error: unknown) {
         console.error('Employee skills gap analysis error:', error);
@@ -717,6 +727,34 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             return res.status(500).json({ success: false, error: error.message });
         }
         res.status(500).json({ success: false, error: 'Failed to analyze employee skills gap' });
+    }
+});
+
+/**
+ * GET /api/skills/organization/analysis
+ * Get organization-wide skills analysis
+ * Requires authentication
+ */
+router.get('/organization/analysis', authenticate, async (req: Request, res: Response) => {
+    try {
+        if (!req.user || !req.user.tenantId) {
+            return res.status(401).json({ success: false, error: 'Not authenticated' });
+        }
+
+        console.log(`[Organization Analysis] Analyzing skills for tenant ${req.user.tenantId}`);
+
+        const analysis = await skillsAgent.analyzeOrganizationSkills(req.user.tenantId);
+
+        res.json({
+            success: true,
+            data: analysis
+        });
+    } catch (error: unknown) {
+        console.error('Organization skills analysis error:', error);
+        if (error instanceof Error) {
+            return res.status(500).json({ success: false, error: error.message });
+        }
+        res.status(500).json({ success: false, error: 'Failed to analyze organization skills' });
     }
 });
 
