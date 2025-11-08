@@ -1033,23 +1033,194 @@ Generate a comprehensive strategic skills framework that aligns with this organi
     tenantId: string,
     framework: SkillsFramework
   ): Promise<{
-    employeeId: string;
-    gaps: SkillsGap[];
-    developmentPlan: string[];
-    learningPaths: string[];
+    gapAnalysis: {
+      employeeId: string;
+      employeeName: string;
+      overallGapScore: number;
+      criticalGaps: any[];
+      gaps: any[];
+      strengths: any[];
+      recommendations: string[];
+    }
   }> {
+    // 1. Get employee information
+    const employeeInfo = await this.getEmployeeInfo(employeeId);
+
+    // 2. Get employee skills
     const employeeSkills = await this.getEmployeeSkills(employeeId);
-    const gaps = this.calculateSkillsGaps(employeeSkills, framework.strategicSkills);
+
+    // 3. Calculate all skill gaps
+    const rawGaps = this.calculateSkillsGaps(employeeSkills, framework.strategicSkills);
+
+    // 4. Transform gaps to match frontend SkillGap interface
+    const transformedGaps = rawGaps.map((gap, index) => ({
+      id: `gap-${employeeId}-${index}`,
+      skillName: gap.skill,
+      category: gap.category,
+      requiredLevel: gap.requiredLevel,
+      currentLevel: gap.currentLevel,
+      gapSeverity: gap.gap,
+      affectedEmployees: 1, // Individual analysis always 1
+      recommendations: this.generateSkillRecommendations(gap),
+      estimatedTrainingTime: this.estimateTrainingTime(gap.currentLevel, gap.requiredLevel)
+    }));
+
+    // 5. Filter critical gaps (critical or high severity)
+    const criticalGaps = transformedGaps.filter(
+      gap => gap.gapSeverity === 'critical' || gap.gapSeverity === 'high'
+    );
+
+    // 6. Identify strengths (skills where employee exceeds requirements or has advanced/expert level)
+    const strengths = this.identifyStrengths(employeeSkills, framework.strategicSkills);
+
+    // 7. Calculate overall gap score (0-100, where 100 = no gaps)
+    const overallGapScore = this.calculateOverallGapScore(rawGaps, framework.strategicSkills.length);
+
+    // 8. Generate personalized recommendations using existing development plan
+    const developmentPlanRecommendations = this.generateDevelopmentPlan(rawGaps);
+    const learningPathRecommendations = this.generateLearningPaths(rawGaps).slice(0, 3);
+
+    const recommendations = [
+      ...developmentPlanRecommendations,
+      ...learningPathRecommendations
+    ].slice(0, 5); // Top 5 recommendations
 
     return {
-      employeeId,
-      gaps,
-      developmentPlan: this.generateDevelopmentPlan(gaps),
-      learningPaths: this.generateLearningPaths(gaps)
+      gapAnalysis: {
+        employeeId,
+        employeeName: employeeInfo.name,
+        overallGapScore,
+        criticalGaps,
+        gaps: transformedGaps,
+        strengths,
+        recommendations
+      }
     };
   }
 
-  // Helper methods
+  // Helper methods for gap analysis
+
+  /**
+   * Get employee information (name)
+   */
+  private async getEmployeeInfo(employeeId: string): Promise<{ name: string }> {
+    const result = await db.select()
+      .from(users)
+      .where(eq(users.id, employeeId))
+      .limit(1);
+
+    if (result.length === 0) {
+      return { name: 'Unknown Employee' };
+    }
+
+    return { name: result[0].name || 'Unknown Employee' };
+  }
+
+  /**
+   * Identify employee strengths (skills at or above requirements, or advanced/expert skills)
+   */
+  private identifyStrengths(
+    currentSkills: Skill[],
+    requiredSkills: Skill[]
+  ): Skill[] {
+    const strengths: Skill[] = [];
+
+    for (const current of currentSkills) {
+      // Find if this skill is in requirements
+      const required = requiredSkills.find(r => r.name === current.name);
+
+      if (required) {
+        // Strength if current level meets or exceeds required level
+        if (this.getSkillLevelScore(current.level) >= this.getSkillLevelScore(required.level)) {
+          strengths.push(current);
+        }
+      } else {
+        // Also consider advanced/expert skills as strengths even if not in framework
+        if (current.level === 'advanced' || current.level === 'expert') {
+          strengths.push(current);
+        }
+      }
+    }
+
+    return strengths;
+  }
+
+  /**
+   * Calculate overall gap score (0-100, where 100 = perfect alignment, 0 = many critical gaps)
+   */
+  private calculateOverallGapScore(gaps: SkillsGap[], totalRequiredSkills: number): number {
+    if (totalRequiredSkills === 0) return 100;
+
+    // Calculate weighted gap penalty
+    let totalPenalty = 0;
+    const severityWeights = {
+      critical: 4,
+      high: 3,
+      medium: 2,
+      low: 1
+    };
+
+    for (const gap of gaps) {
+      totalPenalty += severityWeights[gap.gap] || 1;
+    }
+
+    // Maximum possible penalty (if all skills were critical gaps)
+    const maxPossiblePenalty = totalRequiredSkills * severityWeights.critical;
+
+    // Score: 100 - (actual penalty as percentage of max)
+    const score = Math.max(0, 100 - Math.round((totalPenalty / maxPossiblePenalty) * 100));
+
+    return score;
+  }
+
+  /**
+   * Generate recommendations for a specific skill gap
+   */
+  private generateSkillRecommendations(gap: SkillsGap): string[] {
+    const recommendations: string[] = [];
+
+    // Recommendation based on gap severity
+    if (gap.gap === 'critical') {
+      recommendations.push('Immediate training required - high priority for role effectiveness');
+    } else if (gap.gap === 'high') {
+      recommendations.push('Schedule training within next quarter');
+    } else if (gap.gap === 'medium') {
+      recommendations.push('Include in annual development plan');
+    }
+
+    // Category-specific recommendation
+    const categoryRecommendations: Record<string, string> = {
+      technical: 'Consider online courses, certifications, or hands-on projects',
+      leadership: 'Seek mentoring, leadership workshops, or stretch assignments',
+      communication: 'Practice through presentations, writing, or public speaking opportunities',
+      analytical: 'Engage in data analysis projects, problem-solving workshops, or case studies',
+      soft: 'Participate in team exercises, request feedback, or work with a coach'
+    };
+
+    if (categoryRecommendations[gap.category]) {
+      recommendations.push(categoryRecommendations[gap.category]);
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Estimate training time needed to close a skill gap
+   */
+  private estimateTrainingTime(currentLevel: string, requiredLevel: string): string {
+    const gap = this.getSkillLevelScore(requiredLevel) - this.getSkillLevelScore(currentLevel);
+
+    const timeEstimates: Record<number, string> = {
+      0: 'No training needed',
+      1: '1-2 months',
+      2: '3-6 months',
+      3: '6-12 months',
+      4: '12-18 months'
+    };
+
+    return timeEstimates[gap] || '6-12 months';
+  }
+
   private async getCompanyStrategy(companyId: string): Promise<string> {
     // Edge case: Validate companyId
     if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {

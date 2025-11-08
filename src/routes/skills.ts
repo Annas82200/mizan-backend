@@ -768,34 +768,6 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
 });
 
 /**
- * GET /api/skills/organization/analysis
- * Get organization-wide skills analysis
- * Requires authentication
- */
-router.get('/organization/analysis', authenticate, async (req: Request, res: Response) => {
-    try {
-        if (!req.user || !req.user.tenantId) {
-            return res.status(401).json({ success: false, error: 'Not authenticated' });
-        }
-
-        console.log(`[Organization Analysis] Analyzing skills for tenant ${req.user.tenantId}`);
-
-        const analysis = await skillsAgent.analyzeOrganizationSkills(req.user.tenantId);
-
-        res.json({
-            success: true,
-            data: analysis
-        });
-    } catch (error: unknown) {
-        console.error('Organization skills analysis error:', error);
-        if (error instanceof Error) {
-            return res.status(500).json({ success: false, error: error.message });
-        }
-        res.status(500).json({ success: false, error: 'Failed to analyze organization skills' });
-    }
-});
-
-/**
  * GET /api/skills/employee/:employeeId
  * Get skills for a specific employee
  */
@@ -1292,16 +1264,70 @@ router.get('/frameworks', authenticate, async (req: Request, res: Response) => {
 /**
  * GET /api/skills/gaps
  * Get all skills gaps for the user's tenant
+ * Transforms database schema to match frontend SkillGap interface
  */
 router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), async (req: Request, res: Response) => {
     try {
         const userTenantId = req.user!.tenantId;
 
-        const gaps = await db.select()
+        const dbGaps = await db.select()
             .from(skillsGaps)
             .where(eq(skillsGaps.tenantId, userTenantId));
 
-        res.json({ success: true, gaps });
+        // Transform database schema to match frontend interface
+        const transformedGaps = dbGaps.map((gap: any) => {
+            // Calculate affected employees for this skill gap
+            const affectedEmployees = dbGaps.filter(
+                (g: any) => g.skill === gap.skill && g.gapSeverity === gap.gapSeverity
+            ).length;
+
+            // Generate recommendations based on gap severity
+            const recommendations: string[] = [];
+            if (gap.gapSeverity === 'critical') {
+                recommendations.push('Immediate training required - high priority');
+                recommendations.push('Consider external expert consultation');
+            } else if (gap.gapSeverity === 'high') {
+                recommendations.push('Schedule training within next quarter');
+                recommendations.push('Assign mentor or coach');
+            } else if (gap.gapSeverity === 'medium') {
+                recommendations.push('Include in annual development plan');
+            } else {
+                recommendations.push('Optional skill enhancement');
+            }
+
+            // Add business impact as recommendation if available
+            if (gap.businessImpact) {
+                recommendations.push(`Business impact: ${gap.businessImpact}`);
+            }
+
+            // Estimate training time based on gap severity and levels
+            const estimateTrainingTime = (current: string, required: string): string => {
+                const levelScores: Record<string, number> = {
+                    none: 0, beginner: 1, intermediate: 2, advanced: 3, expert: 4
+                };
+                const gapSize = (levelScores[required] || 0) - (levelScores[current] || 0);
+
+                if (gapSize <= 0) return 'No training needed';
+                if (gapSize === 1) return '1-2 months';
+                if (gapSize === 2) return '3-6 months';
+                if (gapSize === 3) return '6-12 months';
+                return '12-18 months';
+            };
+
+            return {
+                id: gap.id,
+                skillName: gap.skill, // Transform 'skill' → 'skillName'
+                category: gap.category,
+                requiredLevel: gap.requiredLevel,
+                currentLevel: gap.currentLevel,
+                gapSeverity: gap.gapSeverity,
+                affectedEmployees,
+                recommendations,
+                estimatedTrainingTime: estimateTrainingTime(gap.currentLevel, gap.requiredLevel)
+            };
+        });
+
+        res.json({ success: true, gaps: transformedGaps });
     } catch (error: unknown) {
         console.error('Error fetching skills gaps:', error);
         if (error instanceof Error) {
