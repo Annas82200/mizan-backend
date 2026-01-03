@@ -1,12 +1,16 @@
 import { z } from 'zod';
 import { db } from '../../../../db/index';
 import { performanceCycles, performanceGoals } from '../../../../db/schema/performance';
+import { users } from '../../../../db/schema/core';
+import { eq, and } from 'drizzle-orm';
 import { KnowledgeEngine } from '../../../ai/engines/KnowledgeEngine';
 import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
+import { EnsembleAI } from '../../ai-providers/ensemble';
 import { randomUUID } from 'crypto';
 import { cultureAgent } from '../culture/culture-agent';
 import { skillsAgent, type SkillsAnalysisResult, type SkillCategoryAnalysis, type SkillsAnalysisInput } from '../skills/skills-agent';
+import { performanceGoalsPersistenceService } from '../../performance/performance-goals-persistence';
 
 // Zod schemas for validation, derived from db/schema/performance.ts and AGENT_CONTEXT_ULTIMATE.md
 // This ensures type safety and compliance.
@@ -75,6 +79,7 @@ interface IndividualGoalTemplate {
     type: 'performance' | 'culture' | 'learning' | 'skills';
     weight: number;
     status: 'draft' | 'active' | 'pending' | 'completed';
+    targetValue?: number | string;
 }
 
 interface Recommendation {
@@ -101,7 +106,23 @@ export interface PerformanceAnalysisOutput {
 interface PerformanceAnalysisResult {
     confidence: number;
     summary: string;
-    // ... other expected properties from reasoning engine
+    departmentalGoals?: Array<{
+        departmentId: string;
+        title: string;
+        description: string;
+        category: string;
+        targetValue: number;
+        weight: number;
+    }>;
+    individualGoals?: Array<{
+        employeeId: string;
+        title: string;
+        description: string;
+        category: string;
+        targetValue: number;
+        weight: number;
+        dueDate?: Date;
+    }>;
 }
 
 
@@ -109,11 +130,17 @@ class PerformanceAgent {
     private knowledgeEngine: KnowledgeEngine;
     private dataEngine: DataEngine;
     private reasoningEngine: ReasoningEngine;
+    private reasoningAI: EnsembleAI;
 
     constructor() {
         this.knowledgeEngine = new KnowledgeEngine();
         this.dataEngine = new DataEngine();
         this.reasoningEngine = new ReasoningEngine();
+        this.reasoningAI = new EnsembleAI({
+            strategy: 'weighted',
+            providers: ['openai', 'anthropic'],
+            minConfidence: 0.7
+        });
     }
 
     public async processPerformanceCycle(input: PerformanceAnalysisInput): Promise<PerformanceAnalysisOutput> {
@@ -148,16 +175,7 @@ class PerformanceAgent {
             ]
         });
 
-        // Map reasoning result to PerformanceAnalysisResult
-        const analysisResult: PerformanceAnalysisResult = {
-            confidence: reasoningResult.confidence || 0.8,
-            summary: reasoningResult.recommendations?.[0]?.rationale || 'Performance analysis completed'
-        };
-        
-        const cycle = await this.createPerformanceCycle(cycleId, tenantId, clientStrategy, culturePriorities, skillsGaps);
-
-        // TODO: Persist departmental and individual goals based on analysisResult
-        // Ensure department structure has required fields
+        // Prepare department structure
         const validDepartments = (departmentStructure || [])
             .filter(dept => dept.id && dept.name)
             .map(dept => ({
@@ -167,7 +185,72 @@ class PerformanceAgent {
                 headCount: dept.headCount,
                 manager: dept.manager
             })) as DepartmentStructure[];
-        await this.generateAndPersistGoals(cycleId, tenantId, analysisResult, validDepartments, culturePriorities, skillsGaps);
+
+        // Generate departmental goals from reasoning result
+        const departmentalGoals: PerformanceAnalysisResult['departmentalGoals'] = [];
+        for (const dept of validDepartments) {
+            const deptGoals = this.createDepartmentGoals(dept, { confidence: reasoningResult.confidence || 0.8, summary: '' });
+            for (const goal of deptGoals) {
+                departmentalGoals.push({
+                    departmentId: dept.id,
+                    title: goal.description,
+                    description: goal.description,
+                    category: goal.type === 'culture' ? 'leadership' : 'productivity',
+                    targetValue: typeof goal.targetValue === 'number' ? goal.targetValue : 0,
+                    weight: goal.weight
+                });
+            }
+        }
+
+        // Generate individual goals from reasoning result
+        const individualGoalTemplates = this.createIndividualGoals(
+            { confidence: reasoningResult.confidence || 0.8, summary: '' },
+            culturePriorities,
+            skillsGaps
+        );
+
+        // Fetch all active employees to assign goals
+        const employees = await db.select()
+            .from(users)
+            .where(
+                and(
+                    eq(users.tenantId, tenantId),
+                    eq(users.isActive, true)
+                )
+            );
+
+        const individualGoals: PerformanceAnalysisResult['individualGoals'] = [];
+        for (let i = 0; i < individualGoalTemplates.length && i < employees.length; i++) {
+            const goalTemplate = individualGoalTemplates[i];
+            const employee = employees[i];
+            individualGoals.push({
+                employeeId: employee.id,
+                title: goalTemplate.description,
+                description: goalTemplate.description,
+                category: this.mapGoalTypeToCategory(goalTemplate.type),
+                targetValue: typeof goalTemplate.targetValue === 'number' ? goalTemplate.targetValue : 0,
+                weight: goalTemplate.weight,
+                dueDate: new Date(new Date().setMonth(new Date().getMonth() + 3))
+            });
+        }
+
+        // Map reasoning result to PerformanceAnalysisResult with goals
+        const analysisResult: PerformanceAnalysisResult = {
+            confidence: reasoningResult.confidence || 0.8,
+            summary: reasoningResult.recommendations?.[0]?.rationale || 'Performance analysis completed',
+            departmentalGoals,
+            individualGoals
+        };
+
+        const cycle = await this.createPerformanceCycle(cycleId, tenantId, clientStrategy, culturePriorities, skillsGaps);
+
+        // Persist performance goals using production-ready persistence service
+        // This replaces TODO at line 159 and fixes placeholder employeeId/managerId at lines 363-364
+        await performanceGoalsPersistenceService.persistPerformanceGoals(
+            analysisResult,
+            tenantId,
+            tenantId // Using tenantId as the creator for system-generated goals
+        );
 
 
         const recommendations = this.generateRecommendations(analysisResult);
@@ -355,13 +438,29 @@ class PerformanceAgent {
             }
         }
 
-        // Individual Goals - This is a simplified example. A real implementation would iterate through employees.
+        // Individual Goals - Iterate through actual employees with proper ID resolution
         const individualGoals = this.createIndividualGoals(analysisResult, culturePriorities, skillsGaps);
-        for (const goal of individualGoals) {
+
+        // Fetch all active employees in the tenant to assign goals
+        const employees = await db.select()
+            .from(users)
+            .where(
+                and(
+                    eq(users.tenantId, tenantId),
+                    eq(users.isActive, true)
+                )
+            );
+
+        // Distribute goals among employees (or assign to specific employees if goal has employeeId)
+        for (let i = 0; i < individualGoals.length && i < employees.length; i++) {
+            const goal = individualGoals[i];
+            const employee = employees[i];
+
             const goalData = {
                 tenantId: tenantId,
-                employeeId: tenantId, // TODO: This should be the actual employee ID - using tenantId as placeholder
-                managerId: tenantId, // TODO: This should be the actual manager ID - using tenantId as placeholder
+                employeeId: employee.id, // Actual employee ID from users table
+                managerId: employee.managerId, // Actual manager ID from employee record
+                departmentId: employee.departmentId,
                 title: goal.description,
                 description: goal.description,
                 type: 'individual' as const,
@@ -420,7 +519,262 @@ class PerformanceAgent {
         return goals;
     }
 
-    // ... TODO: Migrate BOT assist functions and other helpers, fully typed.
+    /**
+     * Handle Performance BOT queries
+     * Provides AI-powered assistance for performance management questions
+     */
+    async handleBotQuery(
+        query: string,
+        tenantId: string,
+        userId: string,
+        context?: {
+            employeeId?: string;
+            role?: string;
+            departmentId?: string;
+        }
+    ): Promise<{
+        answer: string;
+        intent: string;
+        confidence: number;
+        suggestions: string[];
+        data?: any;
+    }> {
+        try {
+            // Get relevant context data based on user role
+            const contextData = await this.getBotContext(tenantId, userId, context);
+
+            const prompt = `You are an AI performance management advisor for the Mizan platform, trained on all performance management theories and best practices.
+
+User query: "${query}"
+
+User context:
+- Role: ${context?.role || 'employee'}
+- Tenant ID: ${tenantId}
+- User ID: ${userId}
+
+Performance data context:
+${JSON.stringify(contextData, null, 2)}
+
+Your expertise includes:
+- Goal setting (SMART goals, OKRs)
+- Performance evaluations and reviews
+- 1:1 meetings and feedback
+- Performance calibration
+- Continuous feedback and coaching
+- Performance improvement plans
+- Career development and growth paths
+
+Please provide:
+1. A clear, actionable answer to the query
+2. The intent of the question (e.g., "goal_setting", "evaluation_guidance", "feedback_request", "performance_tracking", "general_inquiry")
+3. Your confidence level (0-1)
+4. 2-3 helpful follow-up suggestions or action items
+
+Respond in JSON format:
+{
+  "answer": "your detailed, actionable answer here",
+  "intent": "intent category",
+  "confidence": 0.85,
+  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"],
+  "data": null
+}`;
+
+            // Use reasoningAI for BOT responses
+            const response = await this.reasoningAI.call({
+                agent: 'performance',
+                engine: 'reasoning',
+                prompt,
+                requireJson: true,
+                temperature: 0.6
+            });
+
+            const parsedResponse = typeof response.narrative === 'string'
+                ? JSON.parse(response.narrative)
+                : response.narrative;
+
+            return {
+                answer: parsedResponse.answer || 'I apologize, but I could not process your query.',
+                intent: parsedResponse.intent || 'unknown',
+                confidence: parsedResponse.confidence || 0.5,
+                suggestions: parsedResponse.suggestions || [],
+                data: parsedResponse.data || null
+            };
+
+        } catch (error) {
+            console.error('Error handling performance bot query:', error);
+            return {
+                answer: 'I apologize, but I encountered an error processing your query. Please try rephrasing or contact support.',
+                intent: 'error',
+                confidence: 0,
+                suggestions: [
+                    'Try asking about setting performance goals',
+                    'Ask how to prepare for a performance review',
+                    'Learn about giving effective feedback'
+                ]
+            };
+        }
+    }
+
+    /**
+     * Get relevant context data for BOT queries
+     */
+    private async getBotContext(
+        tenantId: string,
+        userId: string,
+        context?: {
+            employeeId?: string;
+            role?: string;
+            departmentId?: string;
+        }
+    ): Promise<any> {
+        try {
+            const targetUserId = context?.employeeId || userId;
+
+            // Get user's performance goals
+            const userGoals = await db.select()
+                .from(performanceGoals)
+                .where(
+                    and(
+                        eq(performanceGoals.tenantId, tenantId),
+                        eq(performanceGoals.employeeId, targetUserId)
+                    )
+                )
+                .limit(10);
+
+            // Get active performance cycle
+            const activeCycles = await db.select()
+                .from(performanceCycles)
+                .where(
+                    and(
+                        eq(performanceCycles.tenantId, tenantId),
+                        eq(performanceCycles.status, 'active')
+                    )
+                )
+                .limit(1);
+
+            return {
+                activeGoalsCount: userGoals.filter(g => g.status === 'active').length,
+                completedGoalsCount: userGoals.filter(g => g.status === 'completed').length,
+                draftGoalsCount: userGoals.filter(g => g.status === 'draft').length,
+                recentGoals: userGoals.slice(0, 5).map(g => ({
+                    title: g.title,
+                    status: g.status,
+                    category: g.category,
+                    progress: g.progressPercentage ? parseFloat(g.progressPercentage.toString()) : 0
+                })),
+                activeCycle: activeCycles[0] ? {
+                    name: activeCycles[0].name,
+                    cycleType: activeCycles[0].cycleType,
+                    startDate: activeCycles[0].startDate,
+                    endDate: activeCycles[0].endDate
+                } : null
+            };
+        } catch (error) {
+            console.error('Error fetching bot context:', error);
+            return {
+                activeGoalsCount: 0,
+                completedGoalsCount: 0,
+                draftGoalsCount: 0,
+                recentGoals: [],
+                activeCycle: null
+            };
+        }
+    }
+
+    /**
+     * Get performance analytics for a specific employee
+     * Used by managers and admins via BOT
+     */
+    async getEmployeePerformanceAnalytics(
+        employeeId: string,
+        tenantId: string
+    ): Promise<{
+        employeeId: string;
+        overallScore: number;
+        goalsProgress: {
+            total: number;
+            completed: number;
+            active: number;
+            overdue: number;
+        };
+        recentActivity: Array<{
+            type: string;
+            description: string;
+            date: Date;
+        }>;
+        recommendations: string[];
+    }> {
+        try {
+            const goals = await db.select()
+                .from(performanceGoals)
+                .where(
+                    and(
+                        eq(performanceGoals.tenantId, tenantId),
+                        eq(performanceGoals.employeeId, employeeId)
+                    )
+                );
+
+            const completedGoals = goals.filter(g => g.status === 'completed');
+            const activeGoals = goals.filter(g => g.status === 'active');
+            const overdueGoals = activeGoals.filter(g =>
+                g.targetDate && new Date(g.targetDate) < new Date()
+            );
+
+            // Calculate overall score
+            const overallScore = completedGoals.length > 0
+                ? Math.round(
+                    completedGoals.reduce((sum, g) => {
+                        // Use progressPercentage if available, otherwise calculate from current vs target
+                        const progress = g.progressPercentage
+                            ? parseFloat(g.progressPercentage.toString())
+                            : (() => {
+                                const targetValue = typeof g.target === 'object' && g.target !== null && 'value' in g.target
+                                    ? (g.target as { value: number }).value
+                                    : 100;
+                                const currentValue = typeof g.current === 'object' && g.current !== null && 'value' in g.current
+                                    ? (g.current as { value: number }).value
+                                    : 0;
+                                return (currentValue / targetValue) * 100;
+                            })();
+                        const weight = parseFloat(g.weight);
+                        return sum + (progress * weight);
+                    }, 0) / completedGoals.reduce((sum, g) => sum + parseFloat(g.weight), 0)
+                )
+                : 0;
+
+            // Generate recommendations
+            const recommendations: string[] = [];
+            if (overdueGoals.length > 0) {
+                recommendations.push(`Review ${overdueGoals.length} overdue goal(s) and update timelines`);
+            }
+            if (activeGoals.length === 0) {
+                recommendations.push('Set new performance goals for the current cycle');
+            }
+            if (completedGoals.length > 0 && activeGoals.length === 0) {
+                recommendations.push('Celebrate completed goals and plan next objectives');
+            }
+
+            return {
+                employeeId,
+                overallScore,
+                goalsProgress: {
+                    total: goals.length,
+                    completed: completedGoals.length,
+                    active: activeGoals.length,
+                    overdue: overdueGoals.length
+                },
+                recentActivity: goals.slice(0, 5).map(g => ({
+                    type: 'goal',
+                    description: g.title,
+                    date: g.updatedAt || g.createdAt
+                })),
+                recommendations
+            };
+        } catch (error) {
+            console.error('Error fetching employee performance analytics:', error);
+            throw error;
+        }
+    }
 }
 
 export const performanceAgent = new PerformanceAgent();

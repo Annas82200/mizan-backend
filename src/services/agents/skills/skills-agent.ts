@@ -5,6 +5,7 @@ import { db } from '../../../../db/index';
 import { tenants, users, departments, skills, skillsAssessments, skillsGaps, skillsFramework, companyStrategies } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { skillsReAnalysisService } from '../../skills/skills-reanalysis-service';
 
 /**
  * Skills Agent - Three-Engine Architecture Implementation
@@ -2145,8 +2146,24 @@ Assess level based on:
 
       // Trigger re-analysis if significant skills were acquired
       if (skillsUpdated >= 2 && input.completionPercentage === 100) {
-        console.log(`[Skills Agent] Employee ${input.employeeId} acquired ${skillsUpdated} skills - consider triggering re-analysis`);
-        // TODO: Optionally trigger automatic re-analysis
+        console.log(`[Skills Agent] Employee ${input.employeeId} acquired ${skillsUpdated} skills - triggering automatic re-analysis check`);
+
+        // Check if re-analysis triggers are met and automatically queue if needed
+        try {
+          const reAnalysisTriggered = await skillsReAnalysisService.checkReAnalysisTriggers(
+            input.employeeId,
+            input.tenantId
+          );
+
+          if (reAnalysisTriggered) {
+            console.log(`[Skills Agent] Re-analysis successfully queued for employee ${input.employeeId}`);
+          } else {
+            console.log(`[Skills Agent] Re-analysis not needed at this time for employee ${input.employeeId}`);
+          }
+        } catch (error) {
+          console.error('[Skills Agent] Error checking re-analysis triggers:', error);
+          // Non-critical - continue even if re-analysis check fails
+        }
       }
 
       return {

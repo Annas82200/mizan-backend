@@ -1,6 +1,10 @@
 // Agent System TypeScript Types
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types for agents
 
+import type { KnowledgeEngine } from '../ai/engines/KnowledgeEngine';
+import type { DataEngine } from '../ai/engines/DataEngine';
+import type { ReasoningEngine } from '../ai/engines/ReasoningEngine';
+
 export interface AgentResponse {
   content: string;
   confidence: number;
@@ -73,18 +77,18 @@ export interface MizanAgent {
   status: 'active' | 'inactive' | 'processing';
 
   // Three-Engine Architecture
-  knowledgeEngine: any;
-  dataEngine: any;
-  reasoningEngine: any;
+  knowledgeEngine: KnowledgeEngine;
+  dataEngine: DataEngine;
+  reasoningEngine: ReasoningEngine;
 
   // Core methods
-  analyze(input: any): Promise<any>;
-  process(data: any): Promise<any>;
-  generateInsights(context: any): Promise<any>;
+  analyze(input: AnalysisInput): Promise<AnalysisOutput>;
+  process(data: Record<string, unknown>): Promise<ProcessedData>;
+  generateInsights(context: KnowledgeContext): Promise<{ insights: string[]; recommendations: string[] }>;
 
   // Integration methods
-  triggerModule?(targetModule: string, data: any): Promise<void>;
-  receiveData?(sourceModule: string, data: any): Promise<void>;
+  triggerModule?(targetModule: string, data: Record<string, unknown>): Promise<void>;
+  receiveData?(sourceModule: string, data: Record<string, unknown>): Promise<void>;
 
   // Metadata
   createdAt: Date;
@@ -98,8 +102,8 @@ export interface Assessment {
   employeeId: string;
   type: 'skills' | 'culture' | 'performance' | 'talent';
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  results: any;
-  metadata?: any;
+  results: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }

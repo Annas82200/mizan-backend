@@ -661,6 +661,172 @@ export const oneOnOneMeetings = pgTable('one_on_one_meetings', {
 });
 
 // ============================================================================
+// PERFORMANCE EVALUATION MEETINGS TABLE
+// ============================================================================
+
+export const performanceEvaluations = pgTable('performance_evaluations', {
+  // Primary identification
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  managerId: uuid('manager_id').notNull(),
+  performanceReviewId: uuid('performance_review_id'), // Link to the actual review document
+  performanceCycleId: uuid('performance_cycle_id'), // Link to performance cycle
+
+  // Evaluation meeting details
+  title: text('title').notNull(),
+  description: text('description'),
+  evaluationType: text('evaluation_type').notNull().default('annual'), // 'annual', 'mid-year', 'quarterly', 'probation', 'project'
+  period: text('period'), // e.g., "Q4 2025", "Annual 2025"
+
+  // Scheduling
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  scheduledEndDate: timestamp('scheduled_end_date', { withTimezone: true }),
+  duration: integer('duration').notNull().default(60), // Duration in minutes
+  location: text('location'), // Physical location or meeting link
+  meetingLink: text('meeting_link'), // Video conference link
+
+  // Status
+  status: text('status').notNull().default('scheduled'), // 'scheduled', 'in_progress', 'completed', 'cancelled', 'rescheduled'
+  actualStartTime: timestamp('actual_start_time', { withTimezone: true }),
+  actualEndTime: timestamp('actual_end_time', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+
+  // Pre-meeting preparation
+  employeePreparationCompleted: boolean('employee_preparation_completed').default(false),
+  managerPreparationCompleted: boolean('manager_preparation_completed').default(false),
+  employeeSelfAssessment: jsonb('employee_self_assessment').default({}),
+  managerPreNotes: text('manager_pre_notes'),
+
+  // Meeting agenda
+  agenda: jsonb('agenda').default([]), // Array of agenda items
+  goalsToReview: jsonb('goals_to_review').default([]), // Goals being evaluated
+  competenciesToReview: jsonb('competencies_to_review').default([]), // Competencies to discuss
+
+  // Meeting outcomes
+  meetingNotes: text('meeting_notes'),
+  employeeNotes: text('employee_notes'),
+  managerNotes: text('manager_notes'),
+  discussionPoints: jsonb('discussion_points').default([]),
+  decisionsMode: jsonb('decisions_made').default([]),
+
+  // Performance discussion
+  strengthsDiscussed: jsonb('strengths_discussed').default([]),
+  areasForImprovement: jsonb('areas_for_improvement').default([]),
+  achievementsHighlighted: jsonb('achievements_highlighted').default([]),
+  challengesDiscussed: jsonb('challenges_discussed').default([]),
+
+  // Ratings and scores (preliminary or final)
+  overallRating: decimal('overall_rating', { precision: 3, scale: 2 }), // 1.00 to 5.00
+  goalAchievementRating: decimal('goal_achievement_rating', { precision: 3, scale: 2 }),
+  competencyRating: decimal('competency_rating', { precision: 3, scale: 2 }),
+  behaviorRating: decimal('behavior_rating', { precision: 3, scale: 2 }),
+
+  // Action items and development plans
+  actionItems: jsonb('action_items').default([]),
+  developmentObjectives: jsonb('development_objectives').default([]),
+  trainingNeeds: jsonb('training_needs').default([]),
+  nextSteps: jsonb('next_steps').default([]),
+
+  // Agreement and signatures
+  employeeAgreement: boolean('employee_agreement').default(false),
+  employeeAgreedAt: timestamp('employee_agreed_at', { withTimezone: true }),
+  employeeComments: text('employee_comments'),
+  managerSignedAt: timestamp('manager_signed_at', { withTimezone: true }),
+
+  // Follow-up
+  requiresFollowUp: boolean('requires_follow_up').default(false),
+  followUpDate: timestamp('follow_up_date', { withTimezone: true }),
+  followUpCompleted: boolean('follow_up_completed').default(false),
+
+  // BOT assistance
+  botAssisted: boolean('bot_assisted').default(true),
+  botSessionId: text('bot_session_id'),
+  botSuggestions: jsonb('bot_suggestions').default([]),
+
+  // Metadata
+  tags: jsonb('tags').default([]),
+  attachments: jsonb('attachments').default([]),
+  isConfidential: boolean('is_confidential').default(true),
+
+  // Audit fields
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  createdBy: uuid('created_by').notNull(),
+  updatedBy: uuid('updated_by').notNull()
+});
+
+// ============================================================================
+// PERFORMANCE CALIBRATION TABLE
+// ============================================================================
+
+export const performanceCalibrations = pgTable('performance_calibrations', {
+  // Primary identification
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  performanceCycleId: uuid('performance_cycle_id'), // Link to performance cycle
+
+  // Calibration details
+  name: text('name').notNull(),
+  description: text('description'),
+  calibrationType: text('calibration_type').notNull().default('ratings'), // 'ratings', 'rankings', 'distribution'
+
+  // Scheduling
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+
+  // Status
+  status: text('status').notNull().default('not_started'), // 'not_started', 'in_progress', 'completed', 'cancelled'
+
+  // Participants
+  facilitators: jsonb('facilitators').default([]), // Array of facilitator user IDs
+  participants: jsonb('participants').default([]), // Array of participant user IDs
+  departmentsIncluded: jsonb('departments_included').default([]), // Department IDs
+
+  // Calibration data
+  employeesReviewed: jsonb('employees_reviewed').default([]), // Employee IDs reviewed
+  ratingAdjustments: jsonb('rating_adjustments').default([]), // Rating changes
+  rankingResults: jsonb('ranking_results').default([]), // Final rankings
+  distributionTargets: jsonb('distribution_targets').default({}), // Target distribution (e.g., 20% top performers)
+  actualDistribution: jsonb('actual_distribution').default({}), // Actual distribution achieved
+
+  // Discussion and decisions
+  discussionNotes: text('discussion_notes'),
+  decisions: jsonb('decisions').default([]),
+  consensusReached: boolean('consensus_reached').default(false),
+  escalations: jsonb('escalations').default([]), // Escalated cases
+
+  // Calibration outcomes
+  calibrationSummary: text('calibration_summary'),
+  actionItems: jsonb('action_items').default([]),
+  followUpRequired: boolean('follow_up_required').default(false),
+  followUpDate: timestamp('follow_up_date', { withTimezone: true }),
+
+  // Analytics
+  totalEmployeesCalibrated: integer('total_employees_calibrated').default(0),
+  ratingsChanged: integer('ratings_changed').default(0),
+  averageRatingChange: decimal('average_rating_change', { precision: 3, scale: 2 }),
+  calibrationEffectiveness: decimal('calibration_effectiveness', { precision: 3, scale: 2 }), // 0-1 score
+
+  // Meeting information
+  meetingDuration: integer('meeting_duration'), // Duration in minutes
+  meetingLocation: text('meeting_location'),
+  meetingLink: text('meeting_link'),
+
+  // Metadata
+  guidelines: jsonb('guidelines').default({}), // Calibration guidelines
+  criteria: jsonb('criteria').default([]), // Calibration criteria
+  tags: jsonb('tags').default([]),
+  attachments: jsonb('attachments').default([]),
+
+  // Audit fields
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  createdBy: uuid('created_by').notNull(),
+  updatedBy: uuid('updated_by').notNull()
+});
+
+// ============================================================================
 // TABLE RELATIONS
 // ============================================================================
 
@@ -723,7 +889,29 @@ export const performanceAnalyticsRelations = relations(performanceAnalytics, ({ 
 export const performanceCyclesRelations = relations(performanceCycles, ({ many }) => ({
   goals: many(performanceGoals),
   reviews: many(performanceReviews),
-  oneOnOneMeetings: many(oneOnOneMeetings)
+  evaluations: many(performanceEvaluations),
+  oneOnOneMeetings: many(oneOnOneMeetings),
+  calibrations: many(performanceCalibrations)
+}));
+
+// Performance Evaluations Relations
+export const performanceEvaluationsRelations = relations(performanceEvaluations, ({ one }) => ({
+  performanceCycle: one(performanceCycles, {
+    fields: [performanceEvaluations.performanceCycleId],
+    references: [performanceCycles.id]
+  }),
+  performanceReview: one(performanceReviews, {
+    fields: [performanceEvaluations.performanceReviewId],
+    references: [performanceReviews.id]
+  })
+}));
+
+// Performance Calibrations Relations
+export const performanceCalibrationsRelations = relations(performanceCalibrations, ({ one }) => ({
+  performanceCycle: one(performanceCycles, {
+    fields: [performanceCalibrations.performanceCycleId],
+    references: [performanceCycles.id]
+  })
 }));
 
 // One-on-One Meetings Relations

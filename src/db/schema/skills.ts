@@ -284,6 +284,47 @@ export const skillsProgress = pgTable('skills_progress', {
   createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
+// Skills Re-Analysis Queue - tracks automatic re-analysis triggers
+export const skillsReAnalysisQueue = pgTable('skills_reanalysis_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  reason: text('reason').notNull(), // 'time-based' | 'role-change' | 'strategy-update' | 'learning-completion'
+  status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).default('pending'),
+  triggeredBy: text('triggered_by'), // 'system' | userId
+  metadata: jsonb('metadata'), // Additional context data
+  processedAt: timestamp('processed_at'),
+  error: text('error'), // Error message if failed
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Employee Role History - tracks role changes for re-analysis triggers
+export const employeeRoleHistory = pgTable('employee_role_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  previousRole: text('previous_role'),
+  newRole: text('new_role').notNull(),
+  previousDepartment: text('previous_department'),
+  newDepartment: text('new_department'),
+  changeReason: text('change_reason'), // 'promotion' | 'transfer' | 'restructure'
+  effectiveDate: timestamp('effective_date').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Learning Progress Events - tracks learning completions for re-analysis triggers
+export const learningProgressEvents = pgTable('learning_progress_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  eventType: text('event_type').notNull(), // 'enrollment' | 'progress' | 'completion'
+  learningPathId: text('learning_path_id'),
+  courseId: text('course_id'),
+  skillsAcquired: jsonb('skills_acquired'), // Array of skills acquired
+  completionPercentage: integer('completion_percentage').default(0),
+  timestamp: timestamp('timestamp').defaultNow().notNull()
+});
+
 // ============================================================================
 // ADDITIONAL SKILLS TABLES
 // ============================================================================

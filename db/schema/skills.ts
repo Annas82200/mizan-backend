@@ -453,3 +453,46 @@ export const skillsProgressRelations = relations(skillsProgress, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================================================
+// RE-ANALYSIS TRIGGER SYSTEM
+// Production-ready tables for automated skills re-analysis
+// ============================================================================
+
+export const skillsReAnalysisQueue = pgTable('skills_reanalysis_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  reason: text('reason').notNull(), // 'time-based' | 'role-change' | 'strategy-update' | 'learning-completion' | 'manual-request'
+  status: text('status').notNull().default('pending'), // 'pending' | 'processing' | 'completed' | 'failed'
+  triggeredBy: text('triggered_by'), // userId who triggered (or 'system' for auto-triggers)
+  metadata: jsonb('metadata'),
+  processedAt: timestamp('processed_at'),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const employeeRoleHistory = pgTable('employee_role_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  previousRole: text('previous_role'),
+  newRole: text('new_role').notNull(),
+  previousDepartment: text('previous_department'),
+  newDepartment: text('new_department'),
+  changeReason: text('change_reason'),
+  effectiveDate: timestamp('effective_date').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const learningProgressEvents = pgTable('learning_progress_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+  eventType: text('event_type').notNull(), // 'completion' | 'progress' | 'started' | 'certification'
+  learningPathId: text('learning_path_id'),
+  courseId: text('course_id'),
+  skillsAcquired: jsonb('skills_acquired'),
+  completionPercentage: integer('completion_percentage').default(0),
+  timestamp: timestamp('timestamp').defaultNow().notNull()
+});

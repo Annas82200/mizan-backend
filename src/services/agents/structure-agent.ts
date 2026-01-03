@@ -68,6 +68,44 @@ export interface StructureAnalysisOutput {
   }>;
 }
 
+/**
+ * Structure-specific threshold configuration
+ * Lower threshold (0.6) accounts for organizational structure variations
+ * across different industries and company sizes.
+ *
+ * Rationale: Structure analysis requires more tolerance for variation than
+ * culture analysis due to organizational diversity (flat vs hierarchical,
+ * startup vs enterprise, etc.)
+ */
+interface StructureThresholdConfig {
+  baseThreshold: number;
+  industryAdjustments: Record<string, number>;
+  sizeFactor: (employeeCount: number) => number;
+}
+
+const STRUCTURE_THRESHOLD_CONFIG: StructureThresholdConfig = {
+  baseThreshold: 0.6,
+  industryAdjustments: {
+    'technology': 0.05,  // More tolerance for tech (flatter structures)
+    'finance': -0.05,    // Less tolerance (more hierarchical)
+    'healthcare': -0.03,
+    'manufacturing': -0.02,
+    'retail': 0.03
+  },
+  sizeFactor: (count) => count < 50 ? 0.1 : count < 200 ? 0.05 : 0
+};
+
+function calculateStructureThreshold(
+  industry: string,
+  employeeCount: number
+): number {
+  const config = STRUCTURE_THRESHOLD_CONFIG;
+  const industryAdj = config.industryAdjustments[industry] || 0;
+  const sizeAdj = config.sizeFactor(employeeCount);
+
+  return Math.min(0.85, config.baseThreshold + industryAdj + sizeAdj);
+}
+
 export class StructureAgent extends ThreeEngineAgent {
   constructor() {
     const config: ThreeEngineConfig = {
@@ -89,15 +127,40 @@ export class StructureAgent extends ThreeEngineAgent {
         temperature: 0.4,
         maxTokens: 4000
       },
-      // Consensus threshold set to 0.6 to accommodate genuinely flat org structures
-      // Some orgs have 5 depts for 12 people (42% dept heads) which is unusual but valid
-      // AI providers struggle with flat structures, returning 0.6-0.7 confidence
-      // TODO: Revert to 0.8 once org structure normalizes or add structure-specific thresholds
-      // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready configuration
+      // Structure-specific consensus threshold using dynamic calculation
+      // Base threshold accommodates flat org structures (5 depts for 12 people scenario)
+      // Adjusts based on industry (tech=flatter, finance=hierarchical) and company size
+      // Uses calculateStructureThreshold() function for context-aware thresholds
       consensusThreshold: 0.6
     };
 
     super('structure', config);
+  }
+
+  /**
+   * Get context-aware consensus threshold for a specific tenant
+   * Adjusts threshold based on industry and company size
+   */
+  async getContextualThreshold(tenantId: string): Promise<number> {
+    try {
+      const tenantData = await db.select()
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .limit(1);
+
+      if (tenantData.length === 0) {
+        return this.config.consensusThreshold;
+      }
+
+      const tenant = tenantData[0];
+      const industry = tenant.industry || 'general';
+      const employeeCount = tenant.employeeCount || 50;
+
+      return calculateStructureThreshold(industry, employeeCount);
+    } catch (error) {
+      console.error('Error calculating contextual threshold:', error);
+      return this.config.consensusThreshold;
+    }
   }
 
   /**

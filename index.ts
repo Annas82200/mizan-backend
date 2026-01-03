@@ -73,6 +73,7 @@ import webhookRoutes from './src/routes/webhooks';
 import demoRoutes from './src/routes/demo';
 import skillsRoutes from './src/routes/skills';
 import socialMediaRoutes from './src/routes/social-media';
+import performanceRoutes from './src/routes/performance';
 console.log('✅ Database module loaded');
 
 const app = express();
@@ -480,6 +481,7 @@ app.use('/api/modules', modulesRoutes); // Module-specific endpoints
 app.use('/api/export', exportRoutes); // Export formatted reports (structure analysis HTML export)
 app.use('/api/skills', skillsRoutes); // Skills Analysis endpoints (AGENT_CONTEXT_ULTIMATE.md Lines 56-226)
 app.use('/api/social-media', socialMediaRoutes); // Social Media Content Generation endpoints
+app.use('/api/performance', performanceRoutes); // Performance Management endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware

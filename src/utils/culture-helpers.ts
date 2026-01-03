@@ -10,6 +10,53 @@ import { randomUUID } from 'crypto';
 import { CultureAgentV2 } from '../services/agents/culture/culture-agent';
 
 /**
+ * Type definitions for culture helpers - production-ready typed interfaces
+ */
+interface CultureAssessmentData {
+  id: string;
+  employeeId: string;
+  tenantId: string;
+  personalValues: string[];
+  currentExperience: string[];
+  desiredExperience: string[];
+  engagement: number;
+  recognition: number;
+  completedAt: Date;
+  responses?: Record<string, number | string>;
+}
+
+interface EngagementAnalysis {
+  score: number;
+  level: 'low' | 'medium' | 'high';
+  alignment: number;
+  factors?: Array<{
+    factor: string;
+    impact: number;
+    recommendation: string;
+  }>;
+  riskIndicators?: string[];
+}
+
+interface CultureReport {
+  employeeId: string;
+  employeeName: string;
+  assessmentDate: Date;
+  personalValues: {
+    selected: string[];
+    cylinderScores: Record<number, number>;
+    interpretation: string;
+    strengths?: string[];
+    gaps?: string[];
+  };
+  strengthsAnalysis?: unknown;
+  engagementStrategy?: unknown;
+  reflectionQuestions?: unknown;
+  engagement?: unknown;
+  recognition?: unknown;
+  generatedAt?: string;
+}
+
+/**
  * Calculate days between a date and now
  * @param date - The date to calculate from
  * @returns Number of days since the given date
@@ -38,8 +85,17 @@ export async function generateEmployeeReport(
   tenantId: string
 ): Promise<void> {
   // Declare variables outside try block for access in catch block (error recovery)
-  let assessmentData: any = null;
-  let userData: any = null;
+  let assessmentData: {
+    id: string;
+    personalValues?: unknown;
+    currentExperience?: unknown;
+    desiredExperience?: unknown;
+    engagement?: number;
+    recognition?: number;
+    completedAt?: Date;
+    [key: string]: unknown;
+  } | null = null;
+  let userData: { id: string; name: string; [key: string]: unknown } | null = null;
 
   try {
     console.log(`📊 [REPORT GENERATION] Starting for employee ${employeeId}`);
@@ -278,9 +334,13 @@ export async function generateEmployeeReport(
  * Calculate values alignment score
  * Production-ready implementation
  */
-function calculateValuesAlignment(assessment: any): number {
-  const personalValues = assessment.personalValues || [];
-  const desiredValues = assessment.desiredExperience || [];
+function calculateValuesAlignment(assessment: {
+  personalValues?: unknown;
+  desiredExperience?: unknown;
+  [key: string]: unknown;
+}): number {
+  const personalValues = (Array.isArray(assessment.personalValues) ? assessment.personalValues : []) as string[];
+  const desiredValues = (Array.isArray(assessment.desiredExperience) ? assessment.desiredExperience : []) as string[];
 
   if (personalValues.length === 0 || desiredValues.length === 0) {
     return 0;
@@ -298,9 +358,13 @@ function calculateValuesAlignment(assessment: any): number {
  * Calculate experience gap score
  * Production-ready implementation
  */
-function calculateExperienceGap(assessment: any): number {
-  const current = assessment.currentExperience || [];
-  const desired = assessment.desiredExperience || [];
+function calculateExperienceGap(assessment: {
+  currentExperience?: unknown;
+  desiredExperience?: unknown;
+  [key: string]: unknown;
+}): number {
+  const current = (Array.isArray(assessment.currentExperience) ? assessment.currentExperience : []) as string[];
+  const desired = (Array.isArray(assessment.desiredExperience) ? assessment.desiredExperience : []) as string[];
 
   if (current.length === 0 || desired.length === 0) {
     return 100; // Maximum gap if no data
@@ -318,7 +382,14 @@ function calculateExperienceGap(assessment: any): number {
  * Calculate overall culture score
  * Production-ready implementation combining multiple factors
  */
-function calculateOverallCultureScore(assessment: any): number {
+function calculateOverallCultureScore(assessment: {
+  engagement?: number;
+  recognition?: number;
+  personalValues?: unknown;
+  currentExperience?: unknown;
+  desiredExperience?: unknown;
+  [key: string]: unknown;
+}): number {
   const engagement = assessment.engagement || 0;
   const recognition = assessment.recognition || 0;
   const valuesAlignment = calculateValuesAlignment(assessment);
@@ -345,7 +416,14 @@ function calculateOverallCultureScore(assessment: any): number {
  * Generate culture insights based on assessment data
  * Production-ready implementation
  */
-function generateCultureInsights(assessment: any): string[] {
+function generateCultureInsights(assessment: {
+  engagement?: number;
+  recognition?: number;
+  personalValues?: unknown;
+  currentExperience?: unknown;
+  desiredExperience?: unknown;
+  [key: string]: unknown;
+}): string[] {
   const insights: string[] = [];
   const engagement = assessment.engagement || 0;
   const recognition = assessment.recognition || 0;
@@ -387,7 +465,14 @@ function generateCultureInsights(assessment: any): string[] {
  * Generate actionable recommendations
  * Production-ready implementation
  */
-function generateRecommendations(assessment: any): string[] {
+function generateRecommendations(assessment: {
+  engagement?: number;
+  recognition?: number;
+  personalValues?: unknown;
+  currentExperience?: unknown;
+  desiredExperience?: unknown;
+  [key: string]: unknown;
+}): string[] {
   const recommendations: string[] = [];
   const engagement = assessment.engagement || 0;
   const recognition = assessment.recognition || 0;
@@ -1018,7 +1103,7 @@ function getAlignmentInterpretation(score: number): string {
 /**
  * Get engagement interpretation with context
  */
-function getEngagementInterpretation(score: number, analysis: any): string {
+function getEngagementInterpretation(score: number, analysis: { alignment?: number; [key: string]: unknown }): string {
   const level = score >= 4 ? 'high' : score >= 3 ? 'moderate' : 'low';
   return `Your ${level} engagement level (${score}/5) combined with ${analysis.alignment}% values alignment suggests ${score >= 4 ? 'strong connection with your work' : score >= 3 ? 'room for increased connection' : 'opportunities to improve engagement'}`;
 }
@@ -1036,7 +1121,18 @@ function getRecognitionInterpretation(score: number): string {
 /**
  * Validate report structure before saving
  */
-function validateReportStructure(report: any): void {
+function validateReportStructure(report: {
+  employeeId?: string;
+  employeeName?: string;
+  personalValues?: {
+    interpretation?: string;
+    strengths?: unknown[];
+    [key: string]: unknown;
+  };
+  engagement?: unknown;
+  recognition?: unknown;
+  [key: string]: unknown;
+}): void {
   const required = ['employeeId', 'employeeName', 'personalValues', 'engagement', 'recognition'];
 
   for (const field of required) {

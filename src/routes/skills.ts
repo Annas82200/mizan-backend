@@ -11,7 +11,7 @@ import { authenticate, authorize } from '../middleware/auth';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
 import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants, departments } from '../../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, gte, asc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
 import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../services/reports/skills-report';
@@ -1356,6 +1356,95 @@ router.get('/assessments', authenticate, authorize(['superadmin', 'clientAdmin']
             return res.status(500).json({ success: false, error: error.message });
         }
         res.status(500).json({ success: false, error: 'Failed to fetch skills assessments' });
+    }
+});
+
+/**
+ * GET /api/skills/assessments/history
+ * Get historical skills assessment data for trend calculation
+ * Production-ready implementation - supports Fix 6 (SkillsAnalysisDashboard.tsx:96)
+ */
+router.get('/assessments/history', authenticate, async (req: Request, res: Response) => {
+    try {
+        const { employeeId, category, months = '12' } = req.query;
+        const userTenantId = req.user!.tenantId;
+        const userRole = req.user!.role;
+
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                error: 'category is required'
+            });
+        }
+
+        // Calculate start date for historical data
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - parseInt(months as string));
+
+        // Build query conditions
+        const whereConditions: any[] = [
+            eq(skillsAssessments.tenantId, userTenantId),
+            gte(skillsAssessments.createdAt, startDate)
+        ];
+
+        // If employeeId is provided, filter by employee
+        if (employeeId) {
+            whereConditions.push(eq(skillsAssessments.userId, employeeId as string));
+        }
+
+        // Fetch historical assessments
+        const assessments = await db.select()
+            .from(skillsAssessments)
+            .where(and(...whereConditions))
+            .orderBy(asc(skillsAssessments.createdAt));
+
+        // Calculate scores per category from assessment analysisData
+        const categoryScores = assessments.map(assessment => {
+            try {
+                const analysisData = typeof assessment.analysisData === 'string'
+                    ? JSON.parse(assessment.analysisData as string)
+                    : assessment.analysisData as any;
+
+                const categoryData = analysisData?.categories?.find(
+                    (c: any) => c.name === category || c.category === category
+                );
+
+                return {
+                    assessedAt: assessment.createdAt,
+                    score: categoryData?.score || categoryData?.averageScore || 0,
+                    assessmentId: assessment.id
+                };
+            } catch (error) {
+                console.error('Error parsing assessment analysisData:', error);
+                return {
+                    assessedAt: assessment.createdAt,
+                    score: 0,
+                    assessmentId: assessment.id
+                };
+            }
+        });
+
+        const currentScore = categoryScores.length > 0
+            ? categoryScores[categoryScores.length - 1].score
+            : 0;
+
+        res.json({
+            success: true,
+            currentScore,
+            assessments: categoryScores,
+            employeeId: employeeId || 'all',
+            category,
+            period: {
+                months: parseInt(months as string),
+                startDate: startDate.toISOString()
+            }
+        });
+    } catch (error: unknown) {
+        console.error('Error fetching skills history:', error);
+        if (error instanceof Error) {
+            return res.status(500).json({ success: false, error: error.message });
+        }
+        res.status(500).json({ success: false, error: 'Failed to fetch skills history' });
     }
 });
 
