@@ -17,6 +17,7 @@ import {
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { emailService } from '../services/email';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -52,7 +53,7 @@ const validateTenantAccess = async (req: Request, res: Response, next: NextFunct
 
     next();
   } catch (error) {
-    console.error('Tenant validation error:', error);
+    logger.error('Tenant validation error:', error);
     return res.status(500).json({ error: 'Failed to validate tenant access' });
   }
 };
@@ -135,7 +136,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Dashboard error:', error);
+    logger.error('Dashboard error:', error);
     return res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
@@ -153,7 +154,7 @@ router.get('/companies', async (req: Request, res: Response) => {
     return res.json(companiesList);
     
   } catch (error) {
-    console.error('Companies fetch error:', error);
+    logger.error('Companies fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch companies' });
   }
 });
@@ -194,7 +195,7 @@ router.post('/companies', async (req: Request, res: Response) => {
     return res.json(company);
     
   } catch (error) {
-    console.error('Company creation error:', error);
+    logger.error('Company creation error:', error);
     return res.status(500).json({ error: 'Failed to create company' });
   }
 });
@@ -237,7 +238,7 @@ router.get('/users', async (req: Request, res: Response) => {
     return res.json(sanitizedUsers);
     
   } catch (error) {
-    console.error('Users fetch error:', error);
+    logger.error('Users fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
@@ -294,7 +295,7 @@ router.get('/employees', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Employees fetch error:', error);
+    logger.error('Employees fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch employees' });
   }
 });
@@ -388,7 +389,7 @@ router.post('/users/invite', async (req: Request, res: Response) => {
         }
       });
     } catch (emailError) {
-      console.error('Failed to send invitation email:', emailError);
+      logger.error('Failed to send invitation email:', emailError);
       // Don't fail the request if email fails
     }
 
@@ -403,7 +404,7 @@ router.post('/users/invite', async (req: Request, res: Response) => {
     });
     
   } catch (error) {
-    console.error('User invite error:', error);
+    logger.error('User invite error:', error);
     return res.status(500).json({ error: 'Failed to invite user' });
   }
 });
@@ -420,7 +421,7 @@ router.get('/analyses', async (req: Request, res: Response) => {
     return res.json(analysesList);
     
   } catch (error) {
-    console.error('Analyses fetch error:', error);
+    logger.error('Analyses fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch analyses' });
   }
 });
@@ -437,7 +438,7 @@ router.get('/triggers', async (req: Request, res: Response) => {
     return res.json(triggersList);
     
   } catch (error) {
-    console.error('Triggers fetch error:', error);
+    logger.error('Triggers fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch triggers' });
   }
 });
@@ -486,7 +487,7 @@ router.put('/triggers/:id', async (req: Request, res: Response) => {
     return res.json(updated);
     
   } catch (error) {
-    console.error('Trigger update error:', error);
+    logger.error('Trigger update error:', error);
     return res.status(500).json({ error: 'Failed to update trigger' });
   }
 });
@@ -509,7 +510,7 @@ router.get('/departments', async (req: Request, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Departments fetch error:', error);
+    logger.error('Departments fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch departments' });
   }
 });
@@ -561,7 +562,7 @@ router.get('/reports/culture', async (req: Request, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Culture report error:', error);
+    logger.error('Culture report error:', error);
     return res.status(500).json({ error: 'Failed to generate culture report' });
   }
 });
@@ -613,7 +614,7 @@ router.get('/security/verify', async (req: Request, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Security verification error:', error);
+    logger.error('Security verification error:', error);
     return res.status(500).json({ error: 'Failed to verify security' });
   }
 });
