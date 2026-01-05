@@ -5,6 +5,7 @@ import { demoRequests } from '../../db/schema/payments';
 import { eq, desc, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
 import { emailService } from '../services/email';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -122,7 +123,7 @@ router.post('/submit', async (req: Request, res: Response) => {
         }
       });
     } catch (emailError) {
-      console.error('Failed to send customer confirmation email:', emailError);
+      logger.error('Failed to send customer confirmation email:', emailError);
       // Don't fail the request if email fails
     }
 
@@ -146,7 +147,7 @@ router.post('/submit', async (req: Request, res: Response) => {
         }
       });
     } catch (emailError) {
-      console.error('Failed to send superadmin notification email:', emailError);
+      logger.error('Failed to send superadmin notification email:', emailError);
       // Don't fail the request if email fails
     }
 
@@ -160,11 +161,11 @@ router.post('/submit', async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('Demo request submission error:', e);
+    logger.error('Demo request submission error:', e);
     
     // Log security-relevant errors for monitoring
     if (e.message.includes('duplicate') || e.message.includes('constraint')) {
-      console.warn('Potential security issue - duplicate demo request attempt:', {
+      logger.warn('Potential security issue - duplicate demo request attempt:', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         body: req.body
@@ -189,7 +190,7 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
-      console.warn('Unauthorized access attempt to demo requests:', {
+      logger.warn('Unauthorized access attempt to demo requests:', {
         userId: req.user?.id,
         role: req.user?.role,
         ip: req.ip,
@@ -243,7 +244,7 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
     const totalCount = totalCountResult.length;
 
     // Log access for audit
-    console.info('Demo requests accessed by superadmin:', {
+    logger.info('Demo requests accessed by superadmin:', {
       userId: req.user.id,
       count: requests.length,
       filters: { status },
@@ -265,7 +266,7 @@ router.get('/requests', authenticate, async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get demo requests error:', e);
+    logger.error('Get demo requests error:', e);
     return res.status(500).json({
       success: false,
       error: 'Failed to retrieve demo requests'
@@ -284,7 +285,7 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
-      console.warn('Unauthorized access attempt to demo request:', {
+      logger.warn('Unauthorized access attempt to demo request:', {
         userId: req.user?.id,
         role: req.user?.role,
         requestedId: req.params.id,
@@ -322,7 +323,7 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
     }
 
     // Log access for audit
-    console.info('Demo request accessed by superadmin:', {
+    logger.info('Demo request accessed by superadmin:', {
       userId: req.user.id,
       requestId: id,
       requestEmail: request.email
@@ -335,7 +336,7 @@ router.get('/requests/:id', authenticate, async (req: Request, res: Response) =>
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get demo request error:', e);
+    logger.error('Get demo request error:', e);
     return res.status(500).json({
       success: false,
       error: 'Failed to retrieve demo request'
@@ -354,7 +355,7 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
   try {
     // Double-check superadmin role (defense in depth)
     if (!req.user || req.user.role !== 'superadmin') {
-      console.warn('Unauthorized update attempt on demo request:', {
+      logger.warn('Unauthorized update attempt on demo request:', {
         userId: req.user?.id,
         role: req.user?.role,
         requestedId: req.params.id,
@@ -424,7 +425,7 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
       .returning();
 
     // Log the update for audit
-    console.info('Demo request status updated by superadmin:', {
+    logger.info('Demo request status updated by superadmin:', {
       userId: req.user.id,
       requestId: id,
       oldStatus: existingRequest.status,
@@ -440,7 +441,7 @@ router.patch('/requests/:id/status', authenticate, async (req: Request, res: Res
 
   } catch (error) {
     const e = error as Error;
-    console.error('Update demo request status error:', e);
+    logger.error('Update demo request status error:', e);
     return res.status(500).json({
       success: false,
       error: 'Failed to update demo request status'
@@ -497,7 +498,7 @@ router.get('/stats', authenticate, async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get demo stats error:', e);
+    logger.error('Get demo stats error:', e);
     return res.status(500).json({
       success: false,
       error: 'Failed to retrieve demo statistics'

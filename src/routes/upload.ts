@@ -11,6 +11,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { AnalysisResult } from "../types/shared";
 import bcrypt from "bcryptjs";
 import { Department, ReportingLine, StructureData, Role, StrategyData } from "../types/structure-types";
+import { logger } from "../services/logger";
 
 const router = Router();
 
@@ -37,7 +38,7 @@ const validateTenantAccess = async (req: Request, res: Response, next: Function)
 
     next();
   } catch (error) {
-    console.error("Tenant validation failed:", error);
+    logger.error("Tenant validation failed:", error);
     return res.status(500).json({ error: "Tenant validation failed" });
   }
 };
@@ -259,7 +260,7 @@ router.post("/analyze", upload.single("file"), async (req: Request, res: Respons
 
     return res.json(result);
   } catch (error: unknown) {
-    console.error("Upload analysis failed:", error);
+    logger.error("Upload analysis failed:", error);
     if (error instanceof Error) {
       return res.status(400).json({ error: error.message });
     } else {
@@ -365,10 +366,10 @@ async function handleOrgChartUpload(req: Request, res: Response) {
               if (err && typeof err === 'object' && 'code' in err) {
                 const pgError = err as { code: string };
                 if (pgError.code !== '23505') {  // 23505 = unique_violation
-                  console.error(`Error creating user ${employeeEmail}:`, err);
+                  logger.error(`Error creating user ${employeeEmail}:`, err);
                 }
               } else {
-                console.error(`Error creating user ${employeeEmail}:`, err);
+                logger.error(`Error creating user ${employeeEmail}:`, err);
               }
             }
           }
@@ -406,8 +407,8 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       uploadedBy: req.user!.id,
     });
     
-    console.log('✅ Organization structure saved successfully');
-    console.log(`📊 Data quality: ${parsedData.totalEmployees} employees, ${parsedData.organizationLevels} levels, ${parsedData.departments.length} departments`);
+    logger.info('✅ Organization structure saved successfully');
+    logger.info(`📊 Data quality: ${parsedData.totalEmployees} employees, ${parsedData.organizationLevels} levels, ${parsedData.departments.length} departments`);
 
     // STEP 3: NOW run analysis (data already saved, so failure won't block persistence)
     // Use generateRichStructureAnalysis which works correctly with provided data
@@ -434,12 +435,12 @@ async function handleOrgChartUpload(req: Request, res: Response) {
         }
       });
 
-      console.log('✅ Structure analysis completed successfully');
+      logger.info('✅ Structure analysis completed successfully');
     } catch (analysisError) {
       // Log but don't fail the entire upload - data already saved
       const e = analysisError as Error;
-      console.error('⚠️  Structure analysis failed (data already saved):', e.message);
-      console.error('💡 User can retry analysis from dashboard');
+      logger.error('⚠️  Structure analysis failed (data already saved):', e.message);
+      logger.error('💡 User can retry analysis from dashboard');
       
       // Return success with warning - GRACEFUL DEGRADATION
       return res.status(201).json({
@@ -471,7 +472,7 @@ async function handleOrgChartUpload(req: Request, res: Response) {
       ...(analysisResult || {})
     };
     
-    console.log('📊 Sending response to frontend:', {
+    logger.info('📊 Sending response to frontend:', {
       id: response.id,
       success: response.success,
       dataSaved: response.dataSaved,
@@ -484,8 +485,8 @@ async function handleOrgChartUpload(req: Request, res: Response) {
     return res.json(response);
   } catch (error: unknown) {
     const e = error as Error;
-    console.error("Save org structure failed:", e);
-    console.error("Error stack:", e.stack);
+    logger.error("Save org structure failed:", e);
+    logger.error("Error stack:", e.stack);
     return res.status(500).json({
       error: "Failed to save organization structure",
       details: process.env.NODE_ENV === 'development' ? e.message : undefined
@@ -685,7 +686,7 @@ router.get("/structures", authenticate, async (req: Request, res: Response) => {
     
     return res.json({ structures });
   } catch (error) {
-    console.error("Failed to retrieve structures:", error);
+    logger.error("Failed to retrieve structures:", error);
     return res.status(500).json({ error: "Failed to retrieve structures" });
   }
 });
@@ -732,7 +733,7 @@ router.get("/template", (req, res) => {
       res.send(textTemplate);
     }
   } catch (error) {
-    console.error("Template download failed:", error);
+    logger.error("Template download failed:", error);
     return res.status(500).json({ error: "Template download failed" });
   }
 });
