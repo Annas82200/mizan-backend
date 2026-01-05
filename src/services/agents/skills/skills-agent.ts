@@ -6,6 +6,7 @@ import { tenants, users, departments, skills, skillsAssessments, skillsGaps, ski
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { skillsReAnalysisService } from '../../skills/skills-reanalysis-service';
+import { logger } from '../../logger';
 
 /**
  * Skills Agent - Three-Engine Architecture Implementation
@@ -432,7 +433,7 @@ export class SkillsAgent extends ThreeEngineAgent {
           const strategy = await this.getCompanyStrategy(input.companyId);
           input.strategy = strategy;
         } catch (error) {
-          console.error('[Skills Agent] Error fetching company strategy:', error);
+          logger.error('[Skills Agent] Error fetching company strategy:', error);
           // Continue with empty strategy rather than failing
           input.strategy = '';
         }
@@ -443,7 +444,7 @@ export class SkillsAgent extends ThreeEngineAgent {
         try {
           input.employeeData = await this.getEmployeeSkillsData(input.tenantId);
         } catch (error) {
-          console.error('[Skills Agent] Error fetching employee data:', error);
+          logger.error('[Skills Agent] Error fetching employee data:', error);
           // Continue with empty employee data
           input.employeeData = [];
         }
@@ -454,13 +455,13 @@ export class SkillsAgent extends ThreeEngineAgent {
       try {
         result = await this.analyze(input as unknown as Record<string, unknown>);
       } catch (error) {
-        console.error('[Skills Agent] Error during three-engine analysis:', error);
+        logger.error('[Skills Agent] Error during three-engine analysis:', error);
         throw new Error(`Skills analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
 
       // Validate analysis result
       if (!result || !result.finalOutput) {
-        console.error('[Skills Agent] Invalid analysis result - missing finalOutput');
+        logger.error('[Skills Agent] Invalid analysis result - missing finalOutput');
         throw new Error('Skills analysis returned invalid result');
       }
 
@@ -469,8 +470,8 @@ export class SkillsAgent extends ThreeEngineAgent {
       try {
         analysis = this.parseSkillsAnalysisResult(result.finalOutput);
       } catch (error) {
-        console.error('[Skills Agent] Error parsing analysis result:', error);
-        console.error('[Skills Agent] Raw finalOutput:', JSON.stringify(result.finalOutput, null, 2));
+        logger.error('[Skills Agent] Error parsing analysis result:', error);
+        logger.error('[Skills Agent] Raw finalOutput:', JSON.stringify(result.finalOutput, null, 2));
         throw new Error('Failed to parse skills analysis result');
       }
 
@@ -481,7 +482,7 @@ export class SkillsAgent extends ThreeEngineAgent {
       try {
         await this.saveSkillsAnalysis(analysis, input, sessionId);
       } catch (error) {
-        console.error('[Skills Agent] Error saving analysis results:', error);
+        logger.error('[Skills Agent] Error saving analysis results:', error);
         // Log but don't fail - analysis can still be returned
       }
 
@@ -498,9 +499,9 @@ export class SkillsAgent extends ThreeEngineAgent {
             );
           }
 
-          console.log(`[Skills Agent] Created LXP triggers for ${input.employeeData.length} employees`);
+          logger.info(`[Skills Agent] Created LXP triggers for ${input.employeeData.length} employees`);
         } catch (error) {
-          console.error('[Skills Agent] Error triggering LXP module:', error);
+          logger.error('[Skills Agent] Error triggering LXP module:', error);
           // Non-critical - continue without LXP triggers
         }
       }
@@ -510,7 +511,7 @@ export class SkillsAgent extends ThreeEngineAgent {
         try {
           await this.triggerTalentModule(analysis.talentTriggers, input.tenantId, sessionId);
         } catch (error) {
-          console.error('[Skills Agent] Error triggering Talent module:', error);
+          logger.error('[Skills Agent] Error triggering Talent module:', error);
           // Non-critical - continue
         }
       }
@@ -520,7 +521,7 @@ export class SkillsAgent extends ThreeEngineAgent {
         try {
           await this.triggerBonusModule(analysis.bonusTriggers, input.tenantId, sessionId);
         } catch (error) {
-          console.error('[Skills Agent] Error triggering Bonus module:', error);
+          logger.error('[Skills Agent] Error triggering Bonus module:', error);
           // Non-critical - continue
         }
       }
@@ -528,8 +529,8 @@ export class SkillsAgent extends ThreeEngineAgent {
       return analysis;
 
     } catch (error) {
-      console.error('[Skills Agent] Fatal error in analyzeSkills:', error);
-      console.error('[Skills Agent] Input:', JSON.stringify({
+      logger.error('[Skills Agent] Fatal error in analyzeSkills:', error);
+      logger.error('[Skills Agent] Input:', JSON.stringify({
         tenantId: input.tenantId,
         companyId: input.companyId,
         organizationName: input.organizationName,
@@ -764,7 +765,7 @@ Consider:
       return framework;
 
     } catch (error) {
-      console.error('Error creating strategic skills framework:', error);
+      logger.error('Error creating strategic skills framework:', error);
       throw new Error('Failed to create strategic skills framework');
     }
   }
@@ -781,7 +782,7 @@ Consider:
     let departmentCount = 0;
 
     try {
-      console.log(`[Auto-Generate Framework] Starting for tenant ${tenantId}`);
+      logger.info(`[Auto-Generate Framework] Starting for tenant ${tenantId}`);
 
       // Step 1: Get tenant data (industry)
       const tenantResult = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
@@ -792,12 +793,12 @@ Consider:
       }
 
       industry = tenant.industry || 'General Business';
-      console.log(`[Auto-Generate Framework] Industry: ${industry}`);
+      logger.info(`[Auto-Generate Framework] Industry: ${industry}`);
 
       // Step 2: Get company strategy
       const strategy = await this.getCompanyStrategy(tenantId);
       strategyText = strategy || 'Growth-focused organization committed to excellence and innovation';
-      console.log(`[Auto-Generate Framework] Strategy retrieved: ${strategyText.substring(0, 100)}...`);
+      logger.info(`[Auto-Generate Framework] Strategy retrieved: ${strategyText.substring(0, 100)}...`);
 
       // Step 3: Get organization structure
       const departmentsList = await db.select().from(departments).where(eq(departments.tenantId, tenantId));
@@ -805,7 +806,7 @@ Consider:
       const structureContext = departmentsList.length > 0
         ? `Organization has ${departmentsList.length} departments: ${departmentsList.map(d => d.name).join(', ')}`
         : 'Flat organizational structure';
-      console.log(`[Auto-Generate Framework] Structure: ${structureContext}`);
+      logger.info(`[Auto-Generate Framework] Structure: ${structureContext}`);
 
       // Step 4: Enhanced prompt with all three-engine context
       const enhancedPrompt = `You are an expert organizational development consultant with deep knowledge of industry trends, strategic workforce planning, and skills development.
@@ -878,7 +879,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
 - Regulatory and compliance requirements specific to ${industry}`;
 
       // Step 5: Use Knowledge Engine with EnsembleAI for framework generation
-      console.log(`[Auto-Generate Framework] Calling Knowledge Engine with EnsembleAI`);
+      logger.info(`[Auto-Generate Framework] Calling Knowledge Engine with EnsembleAI`);
       const response = await this.knowledgeAI.call({
         agent: 'skills-agent',  // Fixed: Use consistent agent name matching config
         engine: 'knowledge',
@@ -887,25 +888,25 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         temperature: 0.4  // Balanced creativity and consistency
       });
 
-      console.log(`[Auto-Generate Framework] Received response from ${response.provider} with confidence ${response.confidence}`);
+      logger.info(`[Auto-Generate Framework] Received response from ${response.provider} with confidence ${response.confidence}`);
 
       // Step 5.5: Safe JSON parsing with comprehensive error handling
       let parsedResponse: any;
       try {
         if (typeof response.narrative === 'string') {
           // Log raw response for debugging (first 500 chars to avoid log overflow)
-          console.log(`[Auto-Generate Framework] Raw response preview: ${response.narrative.substring(0, 500)}...`);
+          logger.info(`[Auto-Generate Framework] Raw response preview: ${response.narrative.substring(0, 500)}...`);
 
           // Attempt JSON parse with error recovery
           parsedResponse = JSON.parse(response.narrative);
-          console.log(`[Auto-Generate Framework] JSON parsed successfully`);
+          logger.info(`[Auto-Generate Framework] JSON parsed successfully`);
         } else {
           parsedResponse = response.narrative;
-          console.log(`[Auto-Generate Framework] Response already in object format`);
+          logger.info(`[Auto-Generate Framework] Response already in object format`);
         }
       } catch (parseError) {
         // Log detailed parse error for debugging
-        console.error(`[Auto-Generate Framework] JSON parse failed:`, {
+        logger.error(`[Auto-Generate Framework] JSON parse failed:`, {
           provider: response.provider,
           confidence: response.confidence,
           engine: response.engine,
@@ -929,7 +930,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
 
       // Step 5.6: Validate response structure before using
       if (!parsedResponse || typeof parsedResponse !== 'object') {
-        console.error(`[Auto-Generate Framework] Invalid response structure:`, {
+        logger.error(`[Auto-Generate Framework] Invalid response structure:`, {
           provider: response.provider,
           confidence: response.confidence,
           parsedType: typeof parsedResponse,
@@ -946,7 +947,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       const missingSections = requiredSections.filter(section => !Array.isArray(parsedResponse[section]));
 
       if (missingSections.length > 0) {
-        console.warn(`[Auto-Generate Framework] Missing or invalid sections: ${missingSections.join(', ')}. Using empty arrays.`);
+        logger.warn(`[Auto-Generate Framework] Missing or invalid sections: ${missingSections.join(', ')}. Using empty arrays.`);
         // Initialize missing sections as empty arrays instead of failing
         missingSections.forEach(section => {
           parsedResponse[section] = [];
@@ -963,7 +964,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         obsoleteSkills: parsedResponse.obsoleteSkills || []
       };
 
-      console.log(`[Auto-Generate Framework] Framework generated - Strategic: ${framework.strategicSkills.length}, Benchmarks: ${framework.industryBenchmarks.length}, Critical: ${framework.criticalSkills.length}`);
+      logger.info(`[Auto-Generate Framework] Framework generated - Strategic: ${framework.strategicSkills.length}, Benchmarks: ${framework.industryBenchmarks.length}, Critical: ${framework.criticalSkills.length}`);
 
       // Step 7: Store framework in database
       const technicalSkillsList = framework.strategicSkills.filter(s => s.category === 'technical');
@@ -983,7 +984,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         updatedAt: new Date()
       });
 
-      console.log(`[Auto-Generate Framework] Framework stored in database successfully`);
+      logger.info(`[Auto-Generate Framework] Framework stored in database successfully`);
 
       return framework;
 
@@ -999,7 +1000,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         timestamp: new Date().toISOString()
       };
 
-      console.error('[Auto-Generate Framework] Error:', errorDetails);
+      logger.error('[Auto-Generate Framework] Error:', errorDetails);
 
       // Re-throw with detailed context instead of generic message
       if (error instanceof Error) {
@@ -1225,7 +1226,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
   private async getCompanyStrategy(companyId: string): Promise<string> {
     // Edge case: Validate companyId
     if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
-      console.warn('[Skills Agent] getCompanyStrategy called with invalid companyId:', companyId);
+      logger.warn('[Skills Agent] getCompanyStrategy called with invalid companyId:', companyId);
       return '';
     }
 
@@ -1281,22 +1282,22 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
 
       if (!tenant) {
-        console.warn(`[Skills Agent] Tenant not found for companyId: ${companyId}`);
+        logger.warn(`[Skills Agent] Tenant not found for companyId: ${companyId}`);
         return '';
       }
 
       const legacyStrategy = tenant?.strategy || '';
 
       if (!legacyStrategy || legacyStrategy.trim() === '') {
-        console.warn(`[Skills Agent] No strategy found for tenant ${companyId} - analysis will proceed without strategic context`);
+        logger.warn(`[Skills Agent] No strategy found for tenant ${companyId} - analysis will proceed without strategic context`);
         return '';
       }
 
       return legacyStrategy;
 
     } catch (error) {
-      console.error('[Skills Agent] Error fetching company strategy:', error);
-      console.error(`  CompanyId: ${companyId}`);
+      logger.error('[Skills Agent] Error fetching company strategy:', error);
+      logger.error(`  CompanyId: ${companyId}`);
       // Return empty string rather than throwing - allow analysis to continue without strategy
       return '';
     }
@@ -1451,7 +1452,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
   private async parseCSVData(csvData: unknown): Promise<EmployeeSkillData[]> {
     try {
       if (!Array.isArray(csvData)) {
-        console.error('CSV data is not an array');
+        logger.error('CSV data is not an array');
         return [];
       }
 
@@ -1466,7 +1467,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         const experience = parseInt(record.experience || '0', 10);
 
         if (!employeeId || !employeeName) {
-          console.warn('Skipping CSV record with missing employee_id or employee_name:', record);
+          logger.warn('Skipping CSV record with missing employee_id or employee_name:', record);
           continue;
         }
 
@@ -1500,7 +1501,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
               }
             }
           } catch (error) {
-            console.warn('Failed to parse skills JSON:', error);
+            logger.warn('Failed to parse skills JSON:', error);
           }
         }
         // Otherwise, expect one skill per row
@@ -1525,7 +1526,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       return Array.from(employeeMap.values());
 
     } catch (error) {
-      console.error('Error parsing CSV data:', error);
+      logger.error('Error parsing CSV data:', error);
       return [];
     }
   }
@@ -1537,7 +1538,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
    */
   private async extractSkillsFromResume(resumeText: string): Promise<Skill[]> {
     try {
-      console.log('[Skills Agent] Starting skill extraction from resume', {
+      logger.info('[Skills Agent] Starting skill extraction from resume', {
         resumeLength: resumeText.length,
         resumePreview: resumeText.substring(0, 200) + '...',
         timestamp: new Date().toISOString()
@@ -1574,7 +1575,7 @@ Assess level based on:
 - Project complexity
 - Certifications and achievements`;
 
-      console.log('[Skills Agent] Calling Data Engine for skill extraction', {
+      logger.info('[Skills Agent] Calling Data Engine for skill extraction', {
         agent: 'skills',
         engine: 'data',
         promptLength: prompt.length,
@@ -1591,7 +1592,7 @@ Assess level based on:
         temperature: 0.3  // Low temperature for consistent extraction
       });
 
-      console.log('[Skills Agent] Received AI response for skill extraction', {
+      logger.info('[Skills Agent] Received AI response for skill extraction', {
         provider: response.provider,
         confidence: response.confidence,
         narrativeType: typeof response.narrative,
@@ -1605,7 +1606,7 @@ Assess level based on:
         : response.narrative;
 
       if (!parsedResponse.skills || !Array.isArray(parsedResponse.skills)) {
-        console.warn('[Skills Agent] AI returned invalid skills format', {
+        logger.warn('[Skills Agent] AI returned invalid skills format', {
           hasSkillsProperty: 'skills' in parsedResponse,
           skillsType: typeof parsedResponse.skills,
           isArray: Array.isArray(parsedResponse.skills),
@@ -1625,7 +1626,7 @@ Assess level based on:
           verified: false
         }));
 
-      console.log('[Skills Agent] Successfully extracted and normalized skills', {
+      logger.info('[Skills Agent] Successfully extracted and normalized skills', {
         totalRawSkills: parsedResponse.skills.length,
         validSkills: extractedSkills.length,
         skills: extractedSkills.map(s => `${s.name} (${s.category}/${s.level})`),
@@ -1635,8 +1636,8 @@ Assess level based on:
       return extractedSkills;
 
     } catch (error) {
-      console.error('[Skills Agent] Error extracting skills from resume:', error);
-      console.error('[Skills Agent] Error context:', {
+      logger.error('[Skills Agent] Error extracting skills from resume:', error);
+      logger.error('[Skills Agent] Error context:', {
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         errorStack: error instanceof Error ? error.stack : undefined,
         resumeLength: resumeText.length,
@@ -1700,7 +1701,7 @@ Assess level based on:
     try {
       // Validate inputs
       if (!employeeId || !tenantId || !criticalGaps || criticalGaps.length === 0) {
-        console.warn('[Skills Agent] createLXPTrigger: Invalid inputs', {
+        logger.warn('[Skills Agent] createLXPTrigger: Invalid inputs', {
           hasEmployeeId: !!employeeId,
           hasTenantId: !!tenantId,
           gapsCount: criticalGaps?.length || 0
@@ -1714,7 +1715,7 @@ Assess level based on:
       );
 
       if (highPriorityGaps.length === 0) {
-        console.log('[Skills Agent] No high-priority gaps to trigger LXP for');
+        logger.info('[Skills Agent] No high-priority gaps to trigger LXP for');
         return;
       }
 
@@ -1747,11 +1748,11 @@ Assess level based on:
         processedAt: null
       });
 
-      console.log(`[Skills Agent] Created LXP trigger for employee ${employeeId} with ${highPriorityGaps.length} skill gaps`);
+      logger.info(`[Skills Agent] Created LXP trigger for employee ${employeeId} with ${highPriorityGaps.length} skill gaps`);
     } catch (error) {
       // Non-blocking error - log and continue
-      console.error('[Skills Agent] Error creating LXP trigger:', error);
-      console.error('[Skills Agent] Trigger data:', {
+      logger.error('[Skills Agent] Error creating LXP trigger:', error);
+      logger.error('[Skills Agent] Trigger data:', {
         employeeId,
         tenantId,
         sessionId,
@@ -1829,7 +1830,7 @@ Assess level based on:
     tenantId: string
   ): Promise<Array<{ employeeId: string; skillGaps: SkillsGap[]; learningPaths: string[] }>> {
     // Trigger LXP module for learning path creation
-    console.log(`Triggering LXP module for ${gaps.length} skill gaps`);
+    logger.info(`Triggering LXP module for ${gaps.length} skill gaps`);
 
     // Create triggers in database
     const { triggers } = await import('../../../../db/schema.js');
@@ -1870,11 +1871,11 @@ Assess level based on:
     sessionId?: string
   ): Promise<void> {
     if (talentTriggers.length === 0) {
-      console.log('[Skills Agent] No talent triggers to process');
+      logger.info('[Skills Agent] No talent triggers to process');
       return;
     }
 
-    console.log(`[Skills Agent] Triggering Talent module for ${talentTriggers.length} employees`);
+    logger.info(`[Skills Agent] Triggering Talent module for ${talentTriggers.length} employees`);
 
     try {
       // Import the trigger table
@@ -1897,21 +1898,21 @@ Assess level based on:
             status: 'pending'
           }).returning();
 
-          console.log(`[Skills Agent] Talent trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
+          logger.info(`[Skills Agent] Talent trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
 
           // Optionally, call the Talent API to process immediately
           // This would require an HTTP client or direct function call
           // For now, we'll let the Talent module poll for pending triggers
 
         } catch (error) {
-          console.error(`[Skills Agent] Failed to create talent trigger for employee ${trigger.employeeId}:`, error);
+          logger.error(`[Skills Agent] Failed to create talent trigger for employee ${trigger.employeeId}:`, error);
         }
       }
 
-      console.log(`[Skills Agent] Successfully created ${talentTriggers.length} talent trigger(s)`);
+      logger.info(`[Skills Agent] Successfully created ${talentTriggers.length} talent trigger(s)`);
 
     } catch (error) {
-      console.error('[Skills Agent] Error in triggerTalentModule:', error);
+      logger.error('[Skills Agent] Error in triggerTalentModule:', error);
       throw error;
     }
   }
@@ -1922,11 +1923,11 @@ Assess level based on:
     sessionId?: string
   ): Promise<void> {
     if (bonusTriggers.length === 0) {
-      console.log('[Skills Agent] No bonus triggers to process');
+      logger.info('[Skills Agent] No bonus triggers to process');
       return;
     }
 
-    console.log(`[Skills Agent] Triggering Bonus module for ${bonusTriggers.length} employees`);
+    logger.info(`[Skills Agent] Triggering Bonus module for ${bonusTriggers.length} employees`);
 
     try {
       // Import the trigger table
@@ -1949,21 +1950,21 @@ Assess level based on:
             status: 'pending'
           }).returning();
 
-          console.log(`[Skills Agent] Bonus trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
+          logger.info(`[Skills Agent] Bonus trigger created for employee ${trigger.employeeId}: ${triggerRecord.id}`);
 
           // Optionally, call the Bonus API to process immediately
           // This would require an HTTP client or direct function call
           // For now, we'll let the Bonus module poll for pending triggers
 
         } catch (error) {
-          console.error(`[Skills Agent] Failed to create bonus trigger for employee ${trigger.employeeId}:`, error);
+          logger.error(`[Skills Agent] Failed to create bonus trigger for employee ${trigger.employeeId}:`, error);
         }
       }
 
-      console.log(`[Skills Agent] Successfully created ${bonusTriggers.length} bonus trigger(s)`);
+      logger.info(`[Skills Agent] Successfully created ${bonusTriggers.length} bonus trigger(s)`);
 
     } catch (error) {
-      console.error('[Skills Agent] Error in triggerBonusModule:', error);
+      logger.error('[Skills Agent] Error in triggerBonusModule:', error);
       throw error;
     }
   }
@@ -2060,7 +2061,7 @@ Assess level based on:
       // Update or create skill records for validated skills
       for (const skill of input.skillsAcquired) {
         if (skill.validationStatus !== 'validated' && skill.validationStatus !== 'pending') {
-          console.warn(`[Skills Agent] Skipping non-validated skill: ${skill.skillName}`);
+          logger.warn(`[Skills Agent] Skipping non-validated skill: ${skill.skillName}`);
           continue;
         }
 
@@ -2089,7 +2090,7 @@ Assess level based on:
                 .where(eq(skills.id, existingSkill[0].id));
 
               skillsUpdated++;
-              console.log(`[Skills Agent] Updated skill ${skill.skillName} for employee ${input.employeeId} to ${skill.skillLevel}`);
+              logger.info(`[Skills Agent] Updated skill ${skill.skillName} for employee ${input.employeeId} to ${skill.skillLevel}`);
             }
           } else {
             // Create new skill record
@@ -2106,7 +2107,7 @@ Assess level based on:
             });
 
             skillsUpdated++;
-            console.log(`[Skills Agent] Created new skill ${skill.skillName} for employee ${input.employeeId}`);
+            logger.info(`[Skills Agent] Created new skill ${skill.skillName} for employee ${input.employeeId}`);
           }
 
           // Update progress tracking
@@ -2122,7 +2123,7 @@ Assess level based on:
             ));
 
         } catch (error) {
-          console.error(`[Skills Agent] Error updating skill ${skill.skillName}:`, error);
+          logger.error(`[Skills Agent] Error updating skill ${skill.skillName}:`, error);
           // Continue with other skills even if one fails
         }
       }
@@ -2140,13 +2141,13 @@ Assess level based on:
             eq(skillsLearningTriggers.status, 'pending')
           ));
       } catch (error) {
-        console.error('[Skills Agent] Error updating trigger status:', error);
+        logger.error('[Skills Agent] Error updating trigger status:', error);
         // Non-critical - continue
       }
 
       // Trigger re-analysis if significant skills were acquired
       if (skillsUpdated >= 2 && input.completionPercentage === 100) {
-        console.log(`[Skills Agent] Employee ${input.employeeId} acquired ${skillsUpdated} skills - triggering automatic re-analysis check`);
+        logger.info(`[Skills Agent] Employee ${input.employeeId} acquired ${skillsUpdated} skills - triggering automatic re-analysis check`);
 
         // Check if re-analysis triggers are met and automatically queue if needed
         try {
@@ -2156,12 +2157,12 @@ Assess level based on:
           );
 
           if (reAnalysisTriggered) {
-            console.log(`[Skills Agent] Re-analysis successfully queued for employee ${input.employeeId}`);
+            logger.info(`[Skills Agent] Re-analysis successfully queued for employee ${input.employeeId}`);
           } else {
-            console.log(`[Skills Agent] Re-analysis not needed at this time for employee ${input.employeeId}`);
+            logger.info(`[Skills Agent] Re-analysis not needed at this time for employee ${input.employeeId}`);
           }
         } catch (error) {
-          console.error('[Skills Agent] Error checking re-analysis triggers:', error);
+          logger.error('[Skills Agent] Error checking re-analysis triggers:', error);
           // Non-critical - continue even if re-analysis check fails
         }
       }
@@ -2174,7 +2175,7 @@ Assess level based on:
       };
 
     } catch (error) {
-      console.error('[Skills Agent] Error handling LXP completion:', error);
+      logger.error('[Skills Agent] Error handling LXP completion:', error);
       return {
         success: false,
         profileUpdated: false,
@@ -2238,7 +2239,7 @@ Respond in JSON format:
       };
 
     } catch (error) {
-      console.error('Error handling bot query:', error);
+      logger.error('Error handling bot query:', error);
       return {
         answer: 'I apologize, but I encountered an error processing your query. Please try rephrasing or contact support.',
         intent: 'error',
@@ -2310,7 +2311,7 @@ Respond in JSON format:
       };
 
     } catch (error) {
-      console.error('Error analyzing department skills:', error);
+      logger.error('Error analyzing department skills:', error);
       throw new Error('Failed to analyze department skills');
     }
   }
@@ -2435,7 +2436,7 @@ Respond in JSON format:
             : 0;
         }
       } catch (frameworkError) {
-        console.log('[Organization Analysis] No framework found or error calculating alignment:', frameworkError);
+        logger.info('[Organization Analysis] No framework found or error calculating alignment:', frameworkError);
         // strategicAlignment remains 0
       }
 
@@ -2495,7 +2496,7 @@ Respond in JSON format:
       };
 
     } catch (error) {
-      console.error('Error analyzing organization skills:', error);
+      logger.error('Error analyzing organization skills:', error);
       throw new Error('Failed to analyze organization skills');
     }
   }
