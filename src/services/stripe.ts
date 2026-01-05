@@ -5,6 +5,7 @@ import { db } from '../../db/index';
 import { tenants, payments } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { logger } from './logger';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -134,7 +135,7 @@ export class BillingService {
 
       return customer.id;
     } catch (error) {
-      console.error('Failed to create Stripe customer:', error);
+      logger.error('Failed to create Stripe customer:', error);
       throw error;
     }
   }
@@ -210,7 +211,7 @@ export class BillingService {
       };
 
     } catch (error) {
-      console.error('Failed to create subscription:', error);
+      logger.error('Failed to create subscription:', error);
       throw error;
     }
   }
@@ -257,7 +258,7 @@ export class BillingService {
       };
 
     } catch (error) {
-      console.error('Failed to update subscription:', error);
+      logger.error('Failed to update subscription:', error);
       throw error;
     }
   }
@@ -288,7 +289,7 @@ export class BillingService {
         .where(eq(tenants.id, tenantId));
 
     } catch (error) {
-      console.error('Failed to cancel subscription:', error);
+      logger.error('Failed to cancel subscription:', error);
       throw error;
     }
   }
@@ -342,7 +343,7 @@ export class BillingService {
       return paymentIntent.client_secret!;
 
     } catch (error) {
-      console.error('Failed to create payment intent:', error);
+      logger.error('Failed to create payment intent:', error);
       throw error;
     }
   }
@@ -367,10 +368,10 @@ export class BillingService {
           break;
         
         default:
-          console.log(`Unhandled event type: ${event.type}`);
+          logger.info(`Unhandled event type: ${event.type}`);
       }
     } catch (error) {
-      console.error('Webhook handling failed:', error);
+      logger.error('Webhook handling failed:', error);
       throw error;
     }
   }
@@ -401,7 +402,7 @@ export class BillingService {
 
       return price;
     } catch (error) {
-      console.error('Failed to get or create price:', error);
+      logger.error('Failed to get or create price:', error);
       throw error;
     }
   }
@@ -421,7 +422,7 @@ export class BillingService {
         eq(payments.tenantId, tenantId)
       ));
 
-    console.log(`Payment succeeded for tenant ${tenantId}`);
+    logger.info(`Payment succeeded for tenant ${tenantId}`);
   }
 
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -447,7 +448,7 @@ export class BillingService {
       })
       .where(eq(tenants.id, tenantId));
 
-    console.log(`Payment failed for tenant ${tenantId}`);
+    logger.info(`Payment failed for tenant ${tenantId}`);
   }
 
   private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -468,7 +469,7 @@ export class BillingService {
       })
       .where(eq(tenants.id, tenantId));
 
-    console.log(`Subscription updated for tenant ${tenantId}: ${subscription.status}`);
+    logger.info(`Subscription updated for tenant ${tenantId}: ${subscription.status}`);
   }
 
   private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
@@ -490,7 +491,7 @@ export class BillingService {
       })
       .where(eq(tenants.id, tenantId));
 
-    console.log(`Subscription cancelled for tenant ${tenantId}`);
+    logger.info(`Subscription cancelled for tenant ${tenantId}`);
   }
 }
 
