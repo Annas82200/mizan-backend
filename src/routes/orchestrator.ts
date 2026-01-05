@@ -8,6 +8,7 @@ import { runArchitectAI, ArchitectAIInput, ArchitectAIResult } from '../services
 import { db } from '../../db/index';
 import { analyses, companies } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.post('/initialize', authorize(['clientAdmin', 'superadmin']), async (req,
     });
 
   } catch (error) {
-    console.error('Architect initialization error:', error);
+    logger.error('Architect initialization error:', error);
     return res.status(500).json({ error: 'Failed to initialize Architect AI' });
   }
 });
@@ -126,7 +127,7 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
               eq(analyses.tenantId, req.user!.tenantId)
             ));
         } catch (updateError) {
-          console.error('Failed to update analysis results:', updateError);
+          logger.error('Failed to update analysis results:', updateError);
         }
       })
       .catch(async (error) => {
@@ -148,7 +149,7 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
               eq(analyses.tenantId, req.user!.tenantId)
             ));
         } catch (updateError) {
-          console.error('Failed to update analysis error:', updateError);
+          logger.error('Failed to update analysis error:', updateError);
         }
       });
     
@@ -161,7 +162,7 @@ router.post('/analyze', authorize(['clientAdmin', 'superadmin']), async (req, re
     });
     
   } catch (error) {
-    console.error('Analysis error:', error);
+    logger.error('Analysis error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -206,7 +207,7 @@ router.get('/analysis/:id/status', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Status check error:', error);
+    logger.error('Status check error:', error);
     return res.status(500).json({ error: 'Failed to check status' });
   }
 });
@@ -247,7 +248,7 @@ router.get('/analysis/:id/results', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Results fetch error:', error);
+    logger.error('Results fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch results' });
   }
 });
@@ -273,7 +274,7 @@ router.get('/capabilities', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Capabilities error:', error);
+    logger.error('Capabilities error:', error);
     return res.status(500).json({ error: 'Failed to fetch capabilities' });
   }
 });
@@ -388,7 +389,7 @@ router.post('/agent/:type/run', authorize(['clientAdmin', 'superadmin']), async 
     }
     
   } catch (error) {
-    console.error('Agent run error:', error);
+    logger.error('Agent run error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -437,7 +438,7 @@ router.get('/analyses', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Analyses list error:', error);
+    logger.error('Analyses list error:', error);
     return res.status(500).json({ error: 'Failed to fetch analyses' });
   }
 });
@@ -477,7 +478,7 @@ router.delete('/analysis/:id', authorize(['clientAdmin', 'superadmin']), async (
     });
 
   } catch (error) {
-    console.error('Analysis deletion error:', error);
+    logger.error('Analysis deletion error:', error);
     return res.status(500).json({ error: 'Failed to delete analysis' });
   }
 });

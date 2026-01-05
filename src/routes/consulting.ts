@@ -47,7 +47,7 @@ router.post('/request', async (req, res) => {
         }
       });
     } catch (emailError) {
-      console.error('Failed to send consulting confirmation email:', emailError);
+      logger.error('Failed to send consulting confirmation email:', emailError);
     }
 
     // Send notification to consulting team
@@ -65,7 +65,7 @@ router.post('/request', async (req, res) => {
         }
       });
     } catch (emailError) {
-      console.error('Failed to send consulting team notification:', emailError);
+      logger.error('Failed to send consulting team notification:', emailError);
     }
 
     return res.json({
@@ -75,7 +75,7 @@ router.post('/request', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Consultation request error:', error);
+    logger.error('Consultation request error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -117,7 +117,7 @@ router.get('/requests', authorize(['clientAdmin', 'superadmin']), async (req, re
     return res.json(requests);
     
   } catch (error) {
-    console.error('Requests fetch error:', error);
+    logger.error('Requests fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch requests' });
   }
 });
@@ -165,7 +165,7 @@ router.put('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
     return res.json(updated);
     
   } catch (error) {
-    console.error('Request update error:', error);
+    logger.error('Request update error:', error);
     return res.status(500).json({ error: 'Failed to update request' });
   }
 });
@@ -199,7 +199,7 @@ router.get('/consultants', authorize(['clientAdmin', 'superadmin']), async (req,
     return res.json(consultantList);
     
   } catch (error) {
-    console.error('Consultants fetch error:', error);
+    logger.error('Consultants fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch consultants' });
   }
 });
@@ -244,7 +244,7 @@ router.post('/requests', authorize(['clientAdmin', 'superadmin']), async (req, r
     });
     
   } catch (error) {
-    console.error('Create consultation request error:', error);
+    logger.error('Create consultation request error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -291,7 +291,7 @@ router.get('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (req
     return res.json(request);
     
   } catch (error) {
-    console.error('Request fetch error:', error);
+    logger.error('Request fetch error:', error);
     return res.status(500).json({ error: 'Failed to fetch request' });
   }
 });
@@ -335,7 +335,7 @@ router.delete('/requests/:id', authorize(['clientAdmin', 'superadmin']), async (
     });
     
   } catch (error) {
-    console.error('Request deletion error:', error);
+    logger.error('Request deletion error:', error);
     return res.status(500).json({ error: 'Failed to delete request' });
   }
 });

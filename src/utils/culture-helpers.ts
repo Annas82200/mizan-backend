@@ -98,7 +98,7 @@ export async function generateEmployeeReport(
   let userData: { id: string; name: string; [key: string]: unknown } | null = null;
 
   try {
-    console.log(`📊 [REPORT GENERATION] Starting for employee ${employeeId}`);
+    logger.info(`📊 [REPORT GENERATION] Starting for employee ${employeeId}`);
 
     // 1. Fetch the assessment data
     const assessment = await db.select()
@@ -149,7 +149,7 @@ export async function generateEmployeeReport(
       consensusThreshold: 0.7
     };
 
-    console.log(`🎨 [CULTURE AGENT] Analyzing employee ${employeeId}...`);
+    logger.info(`🎨 [CULTURE AGENT] Analyzing employee ${employeeId}...`);
     const cultureAgent = new CultureAgentV2('culture', agentConfig);
 
     // 4. Call AI Agent for deep culture analysis
@@ -162,7 +162,7 @@ export async function generateEmployeeReport(
       assessmentData.recognition || 0
     );
 
-    console.log(`✅ [CULTURE AGENT] Analysis complete - Alignment: ${cultureAnalysis.alignment}%, Strengths: ${cultureAnalysis.strengths.length}, Gaps: ${cultureAnalysis.gaps.length}`);
+    logger.info(`✅ [CULTURE AGENT] Analysis complete - Alignment: ${cultureAnalysis.alignment}%, Strengths: ${cultureAnalysis.strengths.length}, Gaps: ${cultureAnalysis.gaps.length}`);
 
     // Calculate cylinder scores for desired values (for pathway analysis)
     const desiredCylinderScores = calculateSimpleCylinderScores(
@@ -238,7 +238,7 @@ export async function generateEmployeeReport(
     // 6. Validate report structure before saving
     validateReportStructure(reportData);
 
-    console.log(`💾 [REPORT GENERATION] Saving AI-powered report to database...`);
+    logger.info(`💾 [REPORT GENERATION] Saving AI-powered report to database...`);
 
     // 7. Store the report in the database
     await db.insert(cultureReports).values({
@@ -250,14 +250,14 @@ export async function generateEmployeeReport(
       createdAt: new Date()
     });
 
-    console.log(`✅ [REPORT GENERATION] Successfully generated AI-powered culture report for employee ${employeeId}`);
+    logger.info(`✅ [REPORT GENERATION] Successfully generated AI-powered culture report for employee ${employeeId}`);
 
   } catch (error) {
-    console.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
+    logger.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
 
     // Enhanced error recovery: Save partial report with error details
     try {
-      console.log(`🔄 [REPORT GENERATION] Attempting to save partial report with error details...`);
+      logger.info(`🔄 [REPORT GENERATION] Attempting to save partial report with error details...`);
 
       const partialReportData = {
         employeeId,
@@ -320,9 +320,9 @@ export async function generateEmployeeReport(
         createdAt: new Date()
       });
 
-      console.log(`⚠️ [REPORT GENERATION] Saved partial report with error details for employee ${employeeId}`);
+      logger.info(`⚠️ [REPORT GENERATION] Saved partial report with error details for employee ${employeeId}`);
     } catch (saveError) {
-      console.error(`❌ [REPORT GENERATION] Failed to save even partial report:`, saveError);
+      logger.error(`❌ [REPORT GENERATION] Failed to save even partial report:`, saveError);
     }
 
     // Re-throw original error for upstream handling
