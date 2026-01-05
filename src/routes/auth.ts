@@ -10,6 +10,7 @@ import { eq, and } from 'drizzle-orm';
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedUser, authenticate } from '../middleware/auth';
 import { generateFullToken } from '../services/auth';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -88,7 +89,7 @@ router.post('/signup', async (req, res) => {
 
         tenantId = tenant.id;
       } catch (tenantError) {
-        console.error('Tenant creation error:', tenantError);
+        logger.error('Tenant creation error:', tenantError);
         return res.status(500).json({ 
           error: 'Failed to create organization',
           code: 'TENANT_CREATION_FAILED' 
@@ -130,7 +131,7 @@ router.post('/signup', async (req, res) => {
       });
       
     } catch (userError) {
-      console.error('User creation error:', userError);
+      logger.error('User creation error:', userError);
       return res.status(500).json({ 
         error: 'Failed to create user account',
         code: 'USER_CREATION_FAILED' 
@@ -138,8 +139,8 @@ router.post('/signup', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Signup error:', error);
-    
+    logger.error('Signup error:', error);
+
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         error: 'Invalid input data',
@@ -217,8 +218,8 @@ router.post('/login', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Login error:', error);
-    
+    logger.error('Login error:', error);
+
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         error: 'Invalid input data',
@@ -226,10 +227,10 @@ router.post('/login', async (req, res) => {
         details: error.errors
       });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: 'Login process failed',
-      code: 'LOGIN_ERROR' 
+      code: 'LOGIN_ERROR'
     });
   }
 });
@@ -245,7 +246,7 @@ router.post('/logout', (req, res) => {
       message: 'Logged out successfully'
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error:', error);
     return res.status(500).json({
       error: 'Logout failed',
       code: 'LOGOUT_ERROR'
@@ -299,7 +300,7 @@ router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response)
     });
     
   } catch (error) {
-    console.error('Get current user error:', error);
+    logger.error('Get current user error:', error);
     return res.status(500).json({ 
       error: 'Failed to retrieve user information',
       code: 'GET_USER_ERROR' 
@@ -384,7 +385,7 @@ router.get('/verify', async (req: Request, res: Response) => {
       });
 
     } catch (jwtError) {
-      console.error('JWT verification error:', jwtError);
+      logger.error('JWT verification error:', jwtError);
       return res.status(401).json({
         valid: false,
         error: 'Invalid or expired token',
@@ -393,7 +394,7 @@ router.get('/verify', async (req: Request, res: Response) => {
     }
 
   } catch (error) {
-    console.error('Token verification error:', error);
+    logger.error('Token verification error:', error);
     return res.status(500).json({
       valid: false,
       error: 'Verification failed',
@@ -479,7 +480,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
       });
 
     } catch (jwtError) {
-      console.error('JWT refresh error:', jwtError);
+      logger.error('JWT refresh error:', jwtError);
       return res.status(401).json({
         error: 'Invalid or expired token',
         code: 'INVALID_TOKEN'
@@ -487,7 +488,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
 
   } catch (error) {
-    console.error('Token refresh error:', error);
+    logger.error('Token refresh error:', error);
     return res.status(500).json({
       error: 'Refresh failed',
       code: 'REFRESH_ERROR'
