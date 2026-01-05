@@ -15,6 +15,7 @@ import { eq, and, desc, gte, asc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
 import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../services/reports/skills-report';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -79,7 +80,7 @@ async function extractResumeText(buffer: Buffer, mimetype: string): Promise<stri
       throw new Error('Unsupported file type');
     }
   } catch (error) {
-    console.error('Error extracting resume text:', error);
+    logger.error('Error extracting resume text:', error);
     throw new Error('Failed to extract text from resume');
   }
 }
@@ -168,7 +169,7 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
     const extractedSkills = await skillsAgent['extractSkillsFromResume'](resumeText);
 
     if (extractedSkills.length === 0) {
-      console.warn('[Resume Upload] No skills extracted from resume', {
+      logger.warn('[Resume Upload] No skills extracted from resume', {
         employeeId,
         tenantId: employeeTenantId,
         resumeLength: resumeText.length,
@@ -210,7 +211,7 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
 
       } catch (error) {
         // Log error for monitoring but continue processing other skills
-        console.error(`[Skills Insert] Failed for skill: ${skill.name}`, {
+        logger.error(`[Skills Insert] Failed for skill: ${skill.name}`, {
           employeeId,
           tenantId: employeeTenantId,
           skill,
@@ -254,7 +255,7 @@ router.post('/resume/upload', authenticate, resumeUpload.single('resume'), async
     });
 
   } catch (error: unknown) {
-    console.error('Resume upload error:', error);
+    logger.error('Resume upload error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -323,7 +324,7 @@ router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']
 
       if (existingEmployee.length === 0) {
         // Skip employees not in the system
-        console.warn(`Employee ${employee.employeeId} not found, skipping`);
+        logger.warn(`Employee ${employee.employeeId} not found, skipping`);
         continue;
       }
 
@@ -370,7 +371,7 @@ router.post('/csv/import', authenticate, authorize(['superadmin', 'clientAdmin']
     });
 
   } catch (error: unknown) {
-    console.error('CSV import error:', error);
+    logger.error('CSV import error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -414,7 +415,7 @@ router.post('/analyze', authenticate, authorize(['superadmin', 'clientAdmin']), 
     const result = await skillsAgent.analyzeSkills(validatedInput as Parameters<typeof skillsAgent.analyzeSkills>[0]);
     res.json({ success: true, analysis: result });
   } catch (error: unknown) {
-    console.error('Skills analysis error:', error);
+    logger.error('Skills analysis error:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'Invalid input data', details: error.errors });
     }
@@ -466,7 +467,7 @@ router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin'])
         res.json({ success: true, framework });
 
     } catch (error: unknown) {
-        console.error('Framework creation error:', error);
+        logger.error('Framework creation error:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -539,7 +540,7 @@ router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin
         });
 
     } catch (error: unknown) {
-        console.error('Framework update error:', error);
+        logger.error('Framework update error:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -611,7 +612,7 @@ router.delete('/framework/:id', authenticate, authorize(['superadmin', 'clientAd
         });
 
     } catch (error: unknown) {
-        console.error('Framework deletion error:', error);
+        logger.error('Framework deletion error:', error);
 
         if (error instanceof Error) {
             // Handle specific error cases
@@ -679,7 +680,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         // Auto-generate framework if missing
         let framework: SkillsFramework;
         if (frameworkFromDb.length === 0) {
-            console.log(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, auto-generating framework...`);
+            logger.info(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, auto-generating framework...`);
 
             // Retry logic: Try up to 2 times if framework generation fails
             let lastError: any = null;
@@ -687,18 +688,18 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
 
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    console.log(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} for tenant ${employeeTenantId}`);
+                    logger.info(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} for tenant ${employeeTenantId}`);
 
                     // Auto-generate framework using organization data (industry, strategy, structure)
                     framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId);
-                    console.log(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId} on attempt ${attempt}`);
+                    logger.info(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId} on attempt ${attempt}`);
                     lastError = null;
                     break; // Success - exit retry loop
                 } catch (autoGenError) {
                     lastError = autoGenError;
                     const errorMsg = autoGenError instanceof Error ? autoGenError.message : String(autoGenError);
 
-                    console.error(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} failed:`, {
+                    logger.error(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} failed:`, {
                         attempt,
                         error: errorMsg,
                         willRetry: attempt < maxRetries
@@ -711,14 +712,14 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
 
                     // Wait briefly before retry (exponential backoff: 2s, 4s)
                     const waitMs = 2000 * attempt;
-                    console.log(`[Skills Gap Analysis] Waiting ${waitMs}ms before retry...`);
+                    logger.info(`[Skills Gap Analysis] Waiting ${waitMs}ms before retry...`);
                     await new Promise(resolve => setTimeout(resolve, waitMs));
                 }
             }
 
             // If all retries failed, return helpful fallback message
             if (lastError) {
-                console.error('[Skills Gap Analysis] All framework generation attempts failed:', lastError);
+                logger.error('[Skills Gap Analysis] All framework generation attempts failed:', lastError);
 
                 // Determine if error was due to malformed JSON
                 const errorMsg = lastError instanceof Error ? lastError.message : String(lastError);
@@ -759,7 +760,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
         const gapAnalysis = await skillsAgent.analyzeEmployeeSkillsGap(resolvedEmployeeId, employeeTenantId, framework);
         res.json({ success: true, data: gapAnalysis });
     } catch (error: unknown) {
-        console.error('Employee skills gap analysis error:', error);
+        logger.error('Employee skills gap analysis error:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -812,7 +813,7 @@ router.get('/employee/:employeeId', authenticate, async (req: Request, res: Resp
 
         res.json({ success: true, skills: userSkills });
     } catch (error: unknown) {
-        console.error('Error fetching employee skills:', error);
+        logger.error('Error fetching employee skills:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -880,7 +881,7 @@ router.post('/employee/:employeeId', authenticate, async (req: Request, res: Res
 
         res.status(201).json({ success: true, skills: newSkills });
     } catch (error: unknown) {
-        console.error('Error adding/updating employee skills:', error);
+        logger.error('Error adding/updating employee skills:', error);
         if (error instanceof z.ZodError) {
             return res.status(400).json({ success: false, error: 'Invalid skill data', details: error.errors });
         }
@@ -1001,7 +1002,7 @@ router.get('/dashboard/stats', authenticate, async (req: Request, res: Response)
     res.json({ success: true, stats });
 
   } catch (error: unknown) {
-    console.error('Error fetching dashboard stats:', error);
+    logger.error('Error fetching dashboard stats:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1083,7 +1084,7 @@ router.post('/workflow/start', authenticate, authorize(['superadmin', 'clientAdm
     });
 
   } catch (error: unknown) {
-    console.error('Workflow start error:', error);
+    logger.error('Workflow start error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1126,7 +1127,7 @@ router.get('/workflow/sessions', authenticate, async (req: Request, res: Respons
     });
 
   } catch (error: unknown) {
-    console.error('Workflow sessions error:', error);
+    logger.error('Workflow sessions error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1180,7 +1181,7 @@ router.post('/bot/query', authenticate, async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    console.error('Bot query error:', error);
+    logger.error('Bot query error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1206,7 +1207,7 @@ router.get('/department/:departmentId/analysis', authenticate, async (req: Reque
     });
 
   } catch (error: unknown) {
-    console.error('Department analysis error:', error);
+    logger.error('Department analysis error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1231,7 +1232,7 @@ router.get('/organization/analysis', authenticate, authorize(['superadmin', 'cli
     });
 
   } catch (error: unknown) {
-    console.error('Organization analysis error:', error);
+    logger.error('Organization analysis error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1253,7 +1254,7 @@ router.get('/frameworks', authenticate, async (req: Request, res: Response) => {
 
         res.json({ success: true, frameworks });
     } catch (error: unknown) {
-        console.error('Error fetching skills frameworks:', error);
+        logger.error('Error fetching skills frameworks:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -1329,7 +1330,7 @@ router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), asyn
 
         res.json({ success: true, gaps: transformedGaps });
     } catch (error: unknown) {
-        console.error('Error fetching skills gaps:', error);
+        logger.error('Error fetching skills gaps:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -1351,7 +1352,7 @@ router.get('/assessments', authenticate, authorize(['superadmin', 'clientAdmin']
 
         res.json({ success: true, assessments });
     } catch (error: unknown) {
-        console.error('Error fetching skills assessments:', error);
+        logger.error('Error fetching skills assessments:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -1415,7 +1416,7 @@ router.get('/assessments/history', authenticate, async (req: Request, res: Respo
                     assessmentId: assessment.id
                 };
             } catch (error) {
-                console.error('Error parsing assessment analysisData:', error);
+                logger.error('Error parsing assessment analysisData:', error);
                 return {
                     assessedAt: assessment.createdAt,
                     score: 0,
@@ -1440,7 +1441,7 @@ router.get('/assessments/history', authenticate, async (req: Request, res: Respo
             }
         });
     } catch (error: unknown) {
-        console.error('Error fetching skills history:', error);
+        logger.error('Error fetching skills history:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -1500,7 +1501,7 @@ router.delete('/employee/:employeeId/skill/:skillName', authenticate, async (req
 
         res.json({ success: true, message: 'Skill deleted successfully' });
     } catch (error: unknown) {
-        console.error('Error deleting employee skill:', error);
+        logger.error('Error deleting employee skill:', error);
         if (error instanceof Error) {
             return res.status(500).json({ success: false, error: error.message });
         }
@@ -1578,7 +1579,7 @@ router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), a
         });
         return { success: true, email: recipient.email };
       } catch (error) {
-        console.error(`Failed to send email to ${recipient.email}:`, error);
+        logger.error(`Failed to send email to ${recipient.email}:`, error);
         return { success: false, email: recipient.email, error: (error as Error).message };
       }
     });
@@ -1596,7 +1597,7 @@ router.post('/notify', authenticate, authorize(['superadmin', 'clientAdmin']), a
     });
 
   } catch (error: unknown) {
-    console.error('Notification error:', error);
+    logger.error('Notification error:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1679,7 +1680,7 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
       }
     });
   } catch (error: unknown) {
-    console.error('Error fetching employee progress:', error);
+    logger.error('Error fetching employee progress:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1785,7 +1786,7 @@ router.post('/progress/:employeeId', authenticate, async (req: Request, res: Res
       message: existingProgress.length > 0 ? 'Progress updated successfully' : 'Progress logged successfully'
     });
   } catch (error: unknown) {
-    console.error('Error logging progress:', error);
+    logger.error('Error logging progress:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'Invalid progress data', details: error.errors });
     }
@@ -1898,7 +1899,7 @@ router.get('/progress/department/:departmentId', authenticate, authorize(['super
       }
     });
   } catch (error: unknown) {
-    console.error('Error fetching department progress:', error);
+    logger.error('Error fetching department progress:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1982,7 +1983,7 @@ router.post('/report/generate', authenticate, async (req: Request, res: Response
     res.send(reportBuffer);
 
   } catch (error: unknown) {
-    console.error('Error generating report:', error);
+    logger.error('Error generating report:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'Invalid report configuration', details: error.errors });
     }
@@ -2046,7 +2047,7 @@ router.get('/report/preview', authenticate, async (req: Request, res: Response) 
     });
 
   } catch (error: unknown) {
-    console.error('Error fetching report preview:', error);
+    logger.error('Error fetching report preview:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -2124,7 +2125,7 @@ router.post('/lxp/completion', authenticate, async (req: Request, res: Response)
     });
 
   } catch (error: unknown) {
-    console.error('Error handling LXP completion:', error);
+    logger.error('Error handling LXP completion:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
@@ -2200,7 +2201,7 @@ router.get('/lxp/triggers/:employeeId', authenticate, async (req: Request, res: 
     });
 
   } catch (error: unknown) {
-    console.error('Error fetching LXP triggers:', error);
+    logger.error('Error fetching LXP triggers:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -2265,7 +2266,7 @@ router.put('/lxp/triggers/:triggerId/status', authenticate, async (req: Request,
     });
 
   } catch (error: unknown) {
-    console.error('Error updating trigger status:', error);
+    logger.error('Error updating trigger status:', error);
     if (error instanceof Error) {
       return res.status(500).json({ success: false, error: error.message });
     }
