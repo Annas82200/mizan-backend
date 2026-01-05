@@ -4,6 +4,7 @@ import { db } from '../../db/index';
 import { users, tenants } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyToken } from '../services/auth';
+import { logger } from '../services/logger';
 
 export interface AuthenticatedUser {
   id: string;
@@ -28,9 +29,9 @@ declare global {
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
     try {
         // DEBUG: Log cookie presence
-        console.log('[AUTH] Cookies received:', req.cookies ? Object.keys(req.cookies) : 'NO COOKIES');
-        console.log('[AUTH] mizan_auth_token cookie:', req.cookies?.mizan_auth_token ? 'PRESENT' : 'MISSING');
-        console.log('[AUTH] Authorization header:', req.headers.authorization ? 'PRESENT' : 'MISSING');
+        logger.info('[AUTH] Cookies received:', req.cookies ? Object.keys(req.cookies) : 'NO COOKIES');
+        logger.info('[AUTH] mizan_auth_token cookie:', req.cookies?.mizan_auth_token ? 'PRESENT' : 'MISSING');
+        logger.info('[AUTH] Authorization header:', req.headers.authorization ? 'PRESENT' : 'MISSING');
 
         // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
         let token: string | undefined;
@@ -38,7 +39,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         // Priority 1: Check httpOnly cookie (secure, preferred method)
         if (req.cookies && req.cookies.mizan_auth_token) {
             token = req.cookies.mizan_auth_token;
-            console.log('[AUTH] Token source: httpOnly cookie');
+            logger.info('[AUTH] Token source: httpOnly cookie');
         }
         // Priority 2: Check Authorization header (backward compatibility)
         else if (req.headers.authorization) {
@@ -56,11 +57,11 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
             }
 
             token = headerToken;
-            console.log('[AUTH] Token source: Authorization header');
+            logger.info('[AUTH] Token source: Authorization header');
         }
 
         if (!token) {
-            console.error('[AUTH] NO TOKEN FOUND - Rejecting request');
+            logger.error('[AUTH] NO TOKEN FOUND - Rejecting request');
             return res.status(401).json({ error: 'No token provided' });
         }
 
@@ -68,12 +69,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         const decoded = verifyToken(token);
 
         if (!decoded) {
-            console.error('Token verification failed - invalid token');
+            logger.error('Token verification failed - invalid token');
             return res.status(401).json({ error: 'Token invalid' });
         }
 
         if (!decoded.userId) {
-            console.error('Token verification failed - no userId in token');
+            logger.error('Token verification failed - no userId in token');
             return res.status(401).json({ error: 'Token invalid' });
         }
 
@@ -83,8 +84,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
             const userResult = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);
             userData = userResult[0];
         } catch (dbError) {
-            console.error('Database error during user lookup:', dbError);
-            console.error('Error details:', {
+            logger.error('Database error during user lookup:', dbError);
+            logger.error('Error details:', {
                 message: dbError instanceof Error ? dbError.message : 'Unknown',
                 stack: dbError instanceof Error ? dbError.stack : undefined,
                 userId: decoded.userId,
@@ -97,12 +98,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         }
 
         if (!userData) {
-            console.error('User not found in database:', decoded.userId);
+            logger.error('User not found in database:', decoded.userId);
             return res.status(401).json({ error: 'User not found' });
         }
 
         if (!userData.isActive) {
-            console.error('User account is inactive:', decoded.userId);
+            logger.error('User account is inactive:', decoded.userId);
             return res.status(401).json({ error: 'User account is inactive' });
         }
 
@@ -112,12 +113,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
                 const tenantResult = await db.select().from(tenants).where(eq(tenants.id, userData.tenantId)).limit(1);
                 const tenant = tenantResult[0];
                 if (tenant && tenant.status !== 'active') {
-                    console.error('Tenant is inactive:', userData.tenantId);
+                    logger.error('Tenant is inactive:', userData.tenantId);
                     return res.status(403).json({ error: 'Tenant account is inactive' });
                 }
             } catch (tenantError) {
-                console.error('Error checking tenant status:', tenantError);
-                console.error('Tenant error details:', {
+                logger.error('Error checking tenant status:', tenantError);
+                logger.error('Tenant error details:', {
                     message: tenantError instanceof Error ? tenantError.message : 'Unknown',
                     stack: tenantError instanceof Error ? tenantError.stack : undefined,
                     tenantId: userData.tenantId,
@@ -143,7 +144,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 
         next();
     } catch (error: unknown) {
-        console.error('Authentication middleware error:', error);
+        logger.error('Authentication middleware error:', error);
         if (error instanceof Error) {
             return res.status(401).json({ error: 'Token invalid', details: error.message });
         }
