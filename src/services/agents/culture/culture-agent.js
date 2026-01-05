@@ -1,0 +1,793 @@
+"use strict";
+// server/services/agents/culture/culture-agent-refactored.ts
+// ============================================================================
+// CULTURE AGENT - THREE-ENGINE ARCHITECTURE (PRODUCTION-READY)
+// ============================================================================
+// PURPOSE: Analyzes organizational culture using Mizan 7-Cylinder Framework
+// ARCHITECTURE: Three-Engine (Knowledge → Data → Reasoning)
+// TRAINING: Organizational culture theories, Mizan framework, culture-strategy alignment
+// ============================================================================
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.cultureAgent = exports.CultureAgentV2 = void 0;
+exports.analyzeCulture = analyzeCulture;
+const three_engine_agent_1 = require("../base/three-engine-agent");
+const index_1 = require("../../../../db/index");
+const schema_1 = require("../../../../db/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+// ============================================================================
+// CULTURE AGENT CLASS - THREE-ENGINE ARCHITECTURE
+// ============================================================================
+class CultureAgentV2 extends three_engine_agent_1.ThreeEngineAgent {
+    constructor(agentType, config) {
+        super(agentType, config);
+        this.mizanFramework = this.initializeMizanFramework();
+    }
+    /**
+     * Initialize the Mizan 7-Cylinder Framework
+     */
+    initializeMizanFramework() {
+        return [
+            {
+                level: 1,
+                name: 'Safety & Survival',
+                definition: 'Protecting life and dignity by ensuring health, stability, and freedom from harm. Organizations grounded here safeguard people\'s wellbeing before all else.',
+                ethicalPrinciple: 'Preservation of Life',
+                enablingValues: ['Safety', 'Stability', 'Preparedness', 'Wellbeing'],
+                limitingValues: ['Fear', 'Neglect', 'Instability', 'Complacency']
+            },
+            {
+                level: 2,
+                name: 'Belonging & Loyalty',
+                definition: 'Fostering genuine connection, trust, and shared identity within teams and communities.',
+                ethicalPrinciple: 'Human Dignity',
+                enablingValues: ['Inclusion', 'Trust', 'Collaboration', 'Compassion'],
+                limitingValues: ['Cliquishness', 'Bias', 'Distrust', 'Favoritism']
+            },
+            {
+                level: 3,
+                name: 'Growth & Achievement',
+                definition: 'Encouraging learning, mastery, and performance that honor both excellence and humility.',
+                ethicalPrinciple: 'Striving with Excellence',
+                enablingValues: ['Discipline', 'Learning', 'Ambition', 'Accountability'],
+                limitingValues: ['Ego', 'Burnout', 'Competition', 'Arrogance']
+            },
+            {
+                level: 4,
+                name: 'Meaning & Contribution',
+                definition: 'Connecting personal and collective work to purpose and long-term impact.',
+                ethicalPrinciple: 'Service',
+                enablingValues: ['Purpose', 'Stewardship', 'Empowerment', 'Recognition'],
+                limitingValues: ['Apathy', 'Self-interest', 'Cynicism', 'Disconnection']
+            },
+            {
+                level: 5,
+                name: 'Integrity & Justice',
+                definition: 'Upholding truth, fairness, and ethical responsibility as the foundation of trust.',
+                ethicalPrinciple: 'Justice and Accountability',
+                enablingValues: ['Integrity', 'Fairness', 'Transparency', 'Courage'],
+                limitingValues: ['Deception', 'Injustice', 'Blame', 'Corruption']
+            },
+            {
+                level: 6,
+                name: 'Wisdom & Compassion',
+                definition: 'Integrating intellect and empathy to lead with understanding and balance.',
+                ethicalPrinciple: 'Mercy and Knowledge',
+                enablingValues: ['Humility', 'Empathy', 'Discernment', 'Patience'],
+                limitingValues: ['Pride', 'Indifference', 'Impulsiveness', 'Judgmentalism']
+            },
+            {
+                level: 7,
+                name: 'Transcendence & Unity',
+                definition: 'Achieving harmony between self, others, and the greater purpose of existence.',
+                ethicalPrinciple: 'Unity of Being',
+                enablingValues: ['Alignment', 'Gratitude', 'Purposeful Reflection', 'Harmony'],
+                limitingValues: ['Division', 'Materialism', 'Alienation', 'Despair']
+            }
+        ];
+    }
+    /**
+     * Main analysis method
+     */
+    async analyzeCulture(input) {
+        // Get strategy if not provided
+        if (!input.strategy) {
+            input.strategy = await this.getCompanyStrategy(input.companyId, input.tenantId);
+        }
+        // Execute three-engine analysis
+        const result = await this.analyze(input);
+        // Structure the output
+        const output = {
+            companyId: input.companyId,
+            tenantId: input.tenantId,
+            analysisDate: new Date(),
+            strategyAlignmentScore: result.finalOutput.strategyAlignmentScore || 0,
+            isHealthyForStrategy: (result.finalOutput.strategyAlignmentScore || 0) >= 70,
+            valueMapping: result.finalOutput.valueMapping,
+            strategyAlignment: result.finalOutput.strategyAlignment,
+            cylinderHealth: result.finalOutput.cylinderHealth,
+            employeeCultureGap: result.finalOutput.employeeCultureGap || null,
+            entropyScore: result.finalOutput.entropyScore || 0,
+            recommendations: result.finalOutput.recommendations,
+            triggers: result.finalOutput.triggers || [],
+            confidence: result.overallConfidence,
+            processingTime: result.totalProcessingTime
+        };
+        // Save analysis results
+        await this.saveAnalysisResults(output);
+        return output;
+    }
+    // ============================================================================
+    // THREE-ENGINE ARCHITECTURE IMPLEMENTATION
+    // ============================================================================
+    async loadFrameworks() {
+        return {
+            mizanFramework: this.mizanFramework,
+            cultureTheories: {
+                scheinModel: {
+                    description: 'Culture exists at three levels: artifacts, espoused values, and basic assumptions',
+                    levels: ['Artifacts', 'Espoused Values', 'Basic Underlying Assumptions']
+                },
+                cameronQuinn: {
+                    description: 'Competing Values Framework - four culture types',
+                    types: ['Clan', 'Adhocracy', 'Market', 'Hierarchy']
+                },
+                denison: {
+                    description: 'Culture effectiveness model',
+                    dimensions: ['Adaptability', 'Mission', 'Involvement', 'Consistency']
+                }
+            },
+            valueMapping: {
+                enablingValues: 'Values that support organizational goals and employee wellbeing',
+                limitingValues: 'Values that create dysfunction, fear, or limitation',
+                balanceImportance: 'Healthy culture has predominantly enabling values with awareness of limiting values'
+            }
+        };
+    }
+    async processData(inputData) {
+        // Data processing happens in Data Engine
+        return inputData;
+    }
+    getKnowledgeSystemPrompt() {
+        return `You are the Knowledge Engine for Mizan's Culture Agent. Your role is to provide expert knowledge about organizational culture using the Mizan 7-Cylinder Framework and established culture theories.
+
+You have deep expertise in:
+- Mizan 7-Cylinder Framework (values-based culture assessment)
+- Schein's Three Levels of Culture
+- Cameron & Quinn's Competing Values Framework
+- Denison's Culture Model
+- Culture-strategy alignment principles
+- Organizational development theories
+
+Your task is to provide theoretical context and frameworks for understanding culture patterns and strategy alignment.`;
+    }
+    getDataSystemPrompt() {
+        return `You are the Data Engine for Mizan's Culture Agent. Your role is to process and analyze culture data using the Mizan 7-Cylinder Framework.
+
+Analyze the culture data in context of:
+1. Company values mapped to 7 cylinders
+2. Employee assessments (if provided)
+3. Company strategy
+4. Cylinder distribution (enabling vs limiting values)
+
+Identify:
+- Value mappings to cylinders
+- Cylinder health scores
+- Cultural strengths and gaps
+- Strategy-culture alignment
+- Employee experience vs espoused culture
+
+Be data-driven and evidence-based in your analysis.`;
+    }
+    getReasoningSystemPrompt() {
+        return `You are the Reasoning Engine for Mizan's Culture Agent. Your role is to synthesize knowledge and data to provide actionable culture insights.
+
+Generate:
+1. Strategy-culture alignment score and assessment
+2. Cylinder health analysis
+3. Cultural accelerators and blockers
+4. Entropy score (limiting values percentage)
+5. Employee culture gap analysis (if applicable)
+6. Actionable recommendations (immediate, short-term, long-term)
+7. Triggers for other modules (if needed)
+
+Be specific, actionable, and focused on cultural transformation.`;
+    }
+    buildKnowledgePrompt(inputData, frameworks) {
+        return `Provide culture theory context for organizational analysis:
+
+Company Values: ${(inputData.companyValues || []).join(', ')}
+Strategy: ${inputData.strategy || 'Not provided'}
+Has Employee Assessments: ${inputData.employeeAssessments ? 'Yes' : 'No'}
+
+Mizan Framework: ${JSON.stringify(frameworks.mizanFramework, null, 2)}
+
+Based on culture theory and the Mizan framework:
+1. What do these company values indicate about cultural focus?
+2. How do these values map to the 7 cylinders?
+3. What culture type best describes this organization?
+4. What theories are most relevant for this culture?`;
+    }
+    buildDataPrompt(processedData, knowledgeOutput) {
+        return `Analyze culture data using Mizan 7-Cylinder Framework:
+
+Company Values: ${(processedData.companyValues || []).join(', ')}
+Strategy: ${processedData.strategy || 'Not provided'}
+Employee Assessments: ${processedData.employeeAssessments ? JSON.stringify(processedData.employeeAssessments.slice(0, 5)) : 'None'}
+
+Context from Knowledge Engine: ${JSON.stringify(knowledgeOutput)}
+
+Perform detailed analysis:
+1. Map each company value to a cylinder (1-7) and classify as enabling/limiting
+2. Calculate cylinder distribution
+3. Identify dominant cylinders
+4. Identify missing cylinders
+5. Calculate cultural entropy (% of limiting values)
+6. Analyze employee experience vs espoused culture (if assessments provided)
+
+CRITICAL: Return ONLY valid JSON matching this EXACT schema:
+{
+  "valueMapping": {
+    "mappings": [
+      {"value": "string", "cylinder": 1, "type": "enabling", "rationale": "string"},
+      {"value": "string", "cylinder": 2, "type": "limiting", "rationale": "string"}
+    ],
+    "cylinderDistribution": {"1": {"enabling": 0, "limiting": 0}, "2": {"enabling": 0, "limiting": 0}},
+    "dominantCylinders": [1, 2],
+    "missingCylinders": [6, 7]
+  },
+  "cylinderHealth": {
+    "1": {"status": "string", "score": 0, "enabling": 0, "limiting": 0},
+    "2": {"status": "string", "score": 0, "enabling": 0, "limiting": 0}
+  },
+  "entropyScore": 0,
+  "employeeCultureGap": {"alignmentScore": 0, "gaps": [], "insights": "string"},
+  "confidence": 0.8
+}
+
+VALIDATION RULES:
+- ALL JSON arrays MUST have commas between elements (no missing commas)
+- ALL property names MUST be in double quotes
+- ALL string values MUST be in double quotes
+- NO trailing commas after last array element or object property
+- Cylinder numbers must be 1-7 only
+- Type must be exactly "enabling" or "limiting"
+- Do NOT include any text before or after the JSON object
+- Do NOT wrap in markdown code blocks`;
+    }
+    buildReasoningPrompt(inputData, knowledgeOutput, dataOutput) {
+        return `Synthesize culture analysis and provide strategic recommendations:
+
+Data Analysis: ${JSON.stringify(dataOutput)}
+Theoretical Context: ${JSON.stringify(knowledgeOutput)}
+Strategy: ${inputData.strategy || 'Not provided'}
+
+Generate comprehensive output assessing:
+- Is this culture healthy to achieve the strategy?
+- What needs to change?
+- What can be leveraged?
+- What interventions are needed?
+
+CRITICAL: Return ONLY valid JSON matching this EXACT schema:
+{
+  "strategyAlignmentScore": 75,
+  "strategyAlignment": {
+    "cultureFit": "string describing overall fit",
+    "alignmentGaps": ["gap 1", "gap 2"],
+    "accelerators": ["strength 1", "strength 2"],
+    "blockers": ["blocker 1", "blocker 2"],
+    "recommendations": ["recommendation 1", "recommendation 2"]
+  },
+  "recommendations": {
+    "immediate": ["action 1", "action 2"],
+    "shortTerm": ["action 1", "action 2"],
+    "longTerm": ["action 1", "action 2"]
+  },
+  "triggers": [
+    {"module": "recognition", "reason": "string", "priority": "high"},
+    {"module": "engagement", "reason": "string", "priority": "medium"}
+  ],
+  "confidence": 0.85
+}
+
+VALIDATION RULES:
+- ALL JSON arrays MUST have commas between elements (no missing commas)
+- ALL property names MUST be in double quotes
+- ALL string values MUST be in double quotes
+- NO trailing commas after last array element or object property
+- strategyAlignmentScore must be 0-100
+- priority must be "high", "medium", or "low"
+- Do NOT include any text before or after the JSON object
+- Do NOT wrap in markdown code blocks
+- Be specific and actionable in all recommendations`;
+    }
+    parseKnowledgeOutput(response) {
+        try {
+            // Extract JSON from markdown code blocks if wrapped
+            const cleanJson = this.extractJsonFromResponse(response);
+            // Validate JSON structure before parsing
+            this.validateJsonStructure(cleanJson, 'Knowledge Engine');
+            return JSON.parse(cleanJson);
+        }
+        catch (error) {
+            console.error('❌ [KNOWLEDGE ENGINE] Failed to parse output:', error);
+            console.error('📄 [KNOWLEDGE ENGINE] Response preview:', response.substring(0, 500));
+            // Fallback: treat response as text context
+            return {
+                context: response,
+                frameworks: 'Culture theory applied',
+                source: 'knowledge_engine',
+                parseError: true
+            };
+        }
+    }
+    parseDataOutput(response) {
+        try {
+            // Extract JSON from markdown code blocks if wrapped
+            const cleanJson = this.extractJsonFromResponse(response);
+            // Validate JSON structure before parsing
+            this.validateJsonStructure(cleanJson, 'Data Engine');
+            return JSON.parse(cleanJson);
+        }
+        catch (error) {
+            console.error('❌ [DATA ENGINE] Failed to parse output:', error);
+            console.error('📄 [DATA ENGINE] Response preview:', response.substring(0, 500));
+            console.error('📄 [DATA ENGINE] Response length:', response.length);
+            // Return structured fallback that allows processing to continue
+            return {
+                valueMapping: {
+                    mappings: [],
+                    cylinderDistribution: {},
+                    dominantCylinders: [],
+                    missingCylinders: []
+                },
+                cylinderHealth: {},
+                entropyScore: 0,
+                confidence: 0.3,
+                parseError: true,
+                errorDetails: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+    parseReasoningOutput(response) {
+        try {
+            // Extract JSON from markdown code blocks if wrapped
+            const cleanJson = this.extractJsonFromResponse(response);
+            // Validate JSON structure before parsing
+            this.validateJsonStructure(cleanJson, 'Reasoning Engine');
+            return JSON.parse(cleanJson);
+        }
+        catch (error) {
+            console.error('❌ [REASONING ENGINE] Failed to parse output:', error);
+            console.error('📄 [REASONING ENGINE] Response preview:', response.substring(0, 500));
+            // Return structured fallback
+            return {
+                strategyAlignmentScore: 50,
+                strategyAlignment: {
+                    cultureFit: 'Unable to determine due to parsing error',
+                    alignmentGaps: [],
+                    accelerators: [],
+                    blockers: [],
+                    recommendations: []
+                },
+                recommendations: {
+                    immediate: [],
+                    shortTerm: [],
+                    longTerm: []
+                },
+                triggers: [],
+                error: 'Failed to parse reasoning output'
+            };
+        }
+    }
+    // ============================================================================
+    // HELPER METHODS
+    // ============================================================================
+    /**
+     * Extract JSON from response, handling markdown code blocks and other wrappers
+     */
+    extractJsonFromResponse(response) {
+        // Remove leading/trailing whitespace
+        let cleaned = response.trim();
+        // Check for markdown code blocks (```json ... ``` or ``` ... ```)
+        const markdownMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (markdownMatch) {
+            cleaned = markdownMatch[1].trim();
+        }
+        // Check for HTML pre tags
+        const preMatch = cleaned.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
+        if (preMatch) {
+            cleaned = preMatch[1].trim();
+        }
+        // Check for HTML code tags
+        const codeMatch = cleaned.match(/<code[^>]*>([\s\S]*?)<\/code>/);
+        if (codeMatch) {
+            cleaned = codeMatch[1].trim();
+        }
+        return cleaned;
+    }
+    /**
+     * Validate JSON structure before parsing to provide better error messages
+     */
+    validateJsonStructure(jsonStr, engineName) {
+        // Check if string is empty
+        if (!jsonStr || jsonStr.length === 0) {
+            throw new Error(`${engineName} returned empty response`);
+        }
+        // Check for JSON object wrapper
+        if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+            throw new Error(`${engineName} response doesn't start with { or [ - not valid JSON`);
+        }
+        if (!jsonStr.endsWith('}') && !jsonStr.endsWith(']')) {
+            throw new Error(`${engineName} response doesn't end with } or ] - not valid JSON`);
+        }
+        // Check for common JSON errors
+        if (jsonStr.includes(',,')) {
+            throw new Error(`${engineName} response contains double commas`);
+        }
+        if (jsonStr.match(/,\s*[}\]]/)) {
+            throw new Error(`${engineName} response contains trailing comma`);
+        }
+        // Check for reasonable length (prevent extremely large responses that might timeout)
+        if (jsonStr.length > 100000) {
+            console.warn(`⚠️ [${engineName}] Response is very large (${jsonStr.length} chars)`);
+        }
+    }
+    async getCompanyStrategy(companyId, tenantId) {
+        // Using tenantId as the primary identifier for multi-tenant architecture
+        // companyId is kept for future company-specific strategies within tenants
+        const tenantResult = await index_1.db.select().from(schema_1.tenants).where((0, drizzle_orm_1.eq)(schema_1.tenants.id, tenantId)).limit(1);
+        const tenant = tenantResult.length > 0 ? tenantResult[0] : null;
+        return tenant?.strategy || '';
+    }
+    async saveAnalysisResults(output) {
+        try {
+            // Save culture analysis report to database
+            await index_1.db.insert(schema_1.cultureReports).values({
+                tenantId: output.tenantId,
+                analysisId: output.companyId,
+                reportType: 'company_analysis',
+                reportData: {
+                    analysisDate: output.analysisDate,
+                    strategyAlignmentScore: output.strategyAlignmentScore,
+                    isHealthyForStrategy: output.isHealthyForStrategy,
+                    valueMapping: output.valueMapping,
+                    strategyAlignment: output.strategyAlignment,
+                    cylinderHealth: output.cylinderHealth,
+                    employeeCultureGap: output.employeeCultureGap,
+                    entropyScore: output.entropyScore,
+                    recommendations: output.recommendations,
+                    triggers: output.triggers,
+                    confidence: output.confidence,
+                    processingTime: output.processingTime
+                }
+            });
+            // Save cylinder scores if present
+            if (output.cylinderHealth) {
+                const cylinderData = {
+                    tenantId: output.tenantId,
+                    targetType: 'company',
+                    targetId: output.companyId,
+                    assessmentId: output.companyId,
+                    cylinder1Safety: output.cylinderHealth[1]?.score || 0,
+                    cylinder2Belonging: output.cylinderHealth[2]?.score || 0,
+                    cylinder3Growth: output.cylinderHealth[3]?.score || 0,
+                    cylinder4Meaning: output.cylinderHealth[4]?.score || 0,
+                    cylinder5Integrity: output.cylinderHealth[5]?.score || 0,
+                    cylinder6Wisdom: output.cylinderHealth[6]?.score || 0,
+                    cylinder7Transcendence: output.cylinderHealth[7]?.score || 0,
+                    enablingValues: {},
+                    limitingValues: {},
+                    overallScore: Math.round(output.strategyAlignmentScore),
+                    culturalMaturity: this.calculateCulturalMaturity(output.cylinderHealth),
+                    entropyScore: Math.round(output.entropyScore),
+                    assessedBy: 'culture_agent',
+                    metadata: { source: 'culture-agent-v2', confidence: output.confidence }
+                };
+                // Extract enabling and limiting values from valueMapping
+                if (output.valueMapping?.mappings) {
+                    for (const mapping of output.valueMapping.mappings) {
+                        if (mapping.type === 'enabling') {
+                            cylinderData.enablingValues[mapping.value] = mapping.strength;
+                        }
+                        else {
+                            cylinderData.limitingValues[mapping.value] = mapping.strength;
+                        }
+                    }
+                }
+                await index_1.db.insert(schema_1.cylinderScores).values(cylinderData);
+            }
+            console.log('Culture analysis results saved successfully for tenant:', output.tenantId);
+        }
+        catch (error) {
+            console.error('Failed to save culture analysis results:', error);
+            throw new Error(`Failed to save culture analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+    calculateCulturalMaturity(cylinderHealth) {
+        // Find the highest cylinder with a score >= 70
+        let maturity = 1;
+        for (let i = 7; i >= 1; i--) {
+            if (cylinderHealth[i]?.score >= 70) {
+                maturity = i;
+                break;
+            }
+        }
+        return maturity;
+    }
+    /**
+     * Map tenant values to cylinders - Used for value mapping functionality
+     * Implements Three-Engine Architecture for value analysis
+     */
+    async mapTenantValuesToCylinders(tenantValues) {
+        const input = {
+            companyValues: tenantValues,
+            tenantId: '',
+            companyId: ''
+        };
+        // Use three-engine to analyze values
+        const result = await this.analyze(input);
+        const valueMapping = result.finalOutput.valueMapping;
+        if (valueMapping?.mappings) {
+            return valueMapping.mappings.map(m => ({
+                value: m.value,
+                cylinder: m.cylinder,
+                type: m.type,
+                rationale: m.rationale
+            }));
+        }
+        // Fallback mapping if analysis fails
+        const mappings = [];
+        for (const value of tenantValues) {
+            const valueLower = value.toLowerCase();
+            let cylinder = 3; // Default to Growth
+            let type = 'enabling';
+            let rationale = 'Default mapping';
+            // Map based on keywords (simplified version)
+            if (valueLower.includes('safety') || valueLower.includes('security')) {
+                cylinder = 1;
+                rationale = 'Relates to safety and survival';
+            }
+            else if (valueLower.includes('team') || valueLower.includes('belonging')) {
+                cylinder = 2;
+                rationale = 'Relates to belonging and loyalty';
+            }
+            else if (valueLower.includes('growth') || valueLower.includes('achievement')) {
+                cylinder = 3;
+                rationale = 'Relates to growth and achievement';
+            }
+            else if (valueLower.includes('purpose') || valueLower.includes('meaning')) {
+                cylinder = 4;
+                rationale = 'Relates to meaning and contribution';
+            }
+            else if (valueLower.includes('integrity') || valueLower.includes('justice')) {
+                cylinder = 5;
+                rationale = 'Relates to integrity and justice';
+            }
+            else if (valueLower.includes('wisdom') || valueLower.includes('compassion')) {
+                cylinder = 6;
+                rationale = 'Relates to wisdom and compassion';
+            }
+            else if (valueLower.includes('unity') || valueLower.includes('harmony')) {
+                cylinder = 7;
+                rationale = 'Relates to transcendence and unity';
+            }
+            // Detect limiting values
+            if (valueLower.includes('fear') || valueLower.includes('control') ||
+                valueLower.includes('blame') || valueLower.includes('ego')) {
+                type = 'limiting';
+            }
+            mappings.push({ value, cylinder, type, rationale });
+        }
+        return mappings;
+    }
+    /**
+     * Analyze organization culture - Comprehensive organizational culture analysis
+     * Implements full Three-Engine Architecture analysis
+     */
+    async analyzeOrganizationCulture(tenantId, assessments) {
+        // Aggregate all values from assessments
+        const allPersonalValues = [];
+        const allCurrentValues = [];
+        const allDesiredValues = [];
+        let totalEngagement = 0;
+        let totalRecognition = 0;
+        let count = 0;
+        for (const assessment of assessments) {
+            allPersonalValues.push(...(assessment.personalValues || []));
+            allCurrentValues.push(...(assessment.currentExperienceValues || []));
+            allDesiredValues.push(...(assessment.desiredFutureValues || []));
+            if (assessment.engagementLevel) {
+                totalEngagement += assessment.engagementLevel;
+                count++;
+            }
+            if (assessment.recognitionLevel) {
+                totalRecognition += assessment.recognitionLevel;
+            }
+        }
+        const avgEngagement = count > 0 ? totalEngagement / count : 50;
+        const avgRecognition = count > 0 ? totalRecognition / count : 50;
+        // Perform culture analysis
+        const input = {
+            tenantId,
+            companyId: tenantId,
+            companyValues: [...new Set([...allPersonalValues, ...allCurrentValues])],
+            employeeAssessments: assessments.map((a, i) => ({
+                employeeId: `emp-${i}`,
+                personalValues: a.personalValues || [],
+                currentExperienceValues: a.currentExperienceValues || [],
+                desiredFutureValues: a.desiredFutureValues || [],
+                engagementLevel: a.engagementLevel || avgEngagement,
+                recognitionLevel: a.recognitionLevel || avgRecognition
+            }))
+        };
+        const analysis = await this.analyzeCulture(input);
+        // Calculate cylinder distribution
+        const cylinderDistribution = {};
+        for (let i = 1; i <= 7; i++) {
+            cylinderDistribution[i] = analysis.cylinderHealth[i]?.score || 0;
+        }
+        return {
+            overallHealth: analysis.strategyAlignmentScore,
+            cylinderDistribution,
+            recommendations: [
+                ...analysis.recommendations.immediate,
+                ...analysis.recommendations.shortTerm
+            ],
+            insights: analysis.employeeCultureGap?.insights || []
+        };
+    }
+    /**
+     * Analyze individual employee culture - Individual employee culture analysis
+     * Implements Three-Engine Architecture for individual assessment
+     */
+    async analyzeIndividualEmployee(employeeId, personalValues, currentExperienceValues, desiredFutureValues, engagementLevel, recognitionLevel) {
+        // OPTIMIZATION: Combine all values into single analysis to reduce from 9 to 3 engine calls
+        // Tag values by source to separate them after analysis
+        const taggedValues = [
+            ...personalValues.map(v => ({ value: v, source: 'personal' })),
+            ...currentExperienceValues.map(v => ({ value: v, source: 'current' })),
+            ...desiredFutureValues.map(v => ({ value: v, source: 'desired' }))
+        ];
+        // Single combined analysis (3 engine calls: Knowledge → Data → Reasoning)
+        const allValues = taggedValues.map(tv => tv.value);
+        const allMappings = await this.mapTenantValuesToCylinders(allValues);
+        // Separate mappings by source after analysis
+        const personalMapping = allMappings.filter((m, idx) => taggedValues[idx]?.source === 'personal');
+        const currentMapping = allMappings.filter((m, idx) => taggedValues[idx]?.source === 'current');
+        const desiredMapping = allMappings.filter((m, idx) => taggedValues[idx]?.source === 'desired');
+        console.log(`✅ [OPTIMIZATION] Reduced from 9 to 3 engine calls for employee ${employeeId}`);
+        // Calculate cylinder scores based on value distribution
+        const cylinderScores = {};
+        for (let i = 1; i <= 7; i++) {
+            const personalCount = personalMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+            const currentCount = currentMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+            const desiredCount = desiredMapping.filter(m => m.cylinder === i && m.type === 'enabling').length;
+            // Weight: 40% personal, 30% current, 30% desired
+            cylinderScores[i] = Math.round((personalCount * 0.4 + currentCount * 0.3 + desiredCount * 0.3) * 20);
+        }
+        // Calculate alignment score
+        let alignment = 0;
+        const gaps = [];
+        const strengths = [];
+        const recommendations = [];
+        // Analyze gaps between current and desired
+        const currentCylinders = new Set(currentMapping.map(m => m.cylinder));
+        const desiredCylinders = new Set(desiredMapping.map(m => m.cylinder));
+        for (const cylinder of desiredCylinders) {
+            if (!currentCylinders.has(cylinder)) {
+                const cylinderInfo = this.mizanFramework[cylinder - 1];
+                gaps.push(`Gap in ${cylinderInfo.name}: Desired but not experienced`);
+                recommendations.push(`Focus on developing ${cylinderInfo.name} through ${cylinderInfo.enablingValues.join(', ')}`);
+            }
+        }
+        // Identify strengths
+        for (const cylinder of currentCylinders) {
+            if (desiredCylinders.has(cylinder)) {
+                const cylinderInfo = this.mizanFramework[cylinder - 1];
+                strengths.push(`Strong alignment in ${cylinderInfo.name}`);
+                alignment += 10;
+            }
+        }
+        // Add engagement and recognition factors
+        if (engagementLevel && engagementLevel > 70) {
+            strengths.push('High engagement level');
+            alignment += 10;
+        }
+        else if (engagementLevel && engagementLevel < 40) {
+            gaps.push('Low engagement level');
+            recommendations.push('Improve engagement through recognition and meaningful work');
+        }
+        if (recognitionLevel && recognitionLevel > 70) {
+            strengths.push('Good recognition experience');
+            alignment += 10;
+        }
+        else if (recognitionLevel && recognitionLevel < 40) {
+            gaps.push('Insufficient recognition');
+            recommendations.push('Implement better recognition practices');
+        }
+        // Normalize alignment score
+        alignment = Math.min(100, Math.max(0, alignment + 50));
+        return {
+            alignment,
+            gaps,
+            strengths,
+            recommendations,
+            cylinderScores
+        };
+    }
+    /**
+     * Get agent domain for Three-Engine Architecture
+     */
+    getAgentDomain() {
+        return 'Organizational Culture Analysis using Mizan 7-Cylinder Framework';
+    }
+    /**
+     * Get knowledge base for Three-Engine Architecture
+     */
+    getKnowledgeBase() {
+        return {
+            mizanFramework: this.mizanFramework,
+            cultureTheories: {
+                schein: 'Three levels of culture',
+                cameronQuinn: 'Competing Values Framework',
+                denison: 'Culture effectiveness model'
+            },
+            valueCategories: {
+                enabling: 'Values that support growth and health',
+                limiting: 'Values that create dysfunction'
+            }
+        };
+    }
+    /**
+     * Public method to get the Mizan Framework cylinders
+     * Used by routes and other services to access framework data
+     */
+    getMizanFramework() {
+        return this.mizanFramework;
+    }
+    /**
+     * Public method to get culture frameworks and theories
+     * Provides access to all culture knowledge base
+     */
+    async getCultureFrameworks() {
+        const frameworks = await this.loadFrameworks();
+        return {
+            cylinders: this.mizanFramework,
+            theories: frameworks.cultureTheories,
+            valueCategories: frameworks.valueMapping
+        };
+    }
+}
+exports.CultureAgentV2 = CultureAgentV2;
+// ============================================================================
+// EXPORTS
+// ============================================================================
+// Create singleton instance with proper Three-Engine configuration
+const cultureConfig = {
+    knowledge: {
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+        model: 'claude-3-opus-20240229',
+        temperature: 0.2,
+        maxTokens: 4000
+    },
+    data: {
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 3000
+    },
+    reasoning: {
+        providers: ['anthropic', 'openai', 'gemini', 'mistral'],
+        model: 'claude-3-opus-20240229',
+        temperature: 0.4,
+        maxTokens: 4000
+    },
+    consensusThreshold: 0.8
+};
+const agent = new CultureAgentV2('culture', cultureConfig);
+exports.cultureAgent = agent;
+// Export the main analysis function for backward compatibility
+async function analyzeCulture(input) {
+    return agent.analyzeCulture(input);
+}
+//# sourceMappingURL=culture-agent.js.map

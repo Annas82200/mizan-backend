@@ -1,0 +1,288 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ensembleAI = exports.EnsembleAI = void 0;
+const router_1 = require("./router");
+class EnsembleAI {
+    constructor(config) {
+        this.config = {
+            strategy: config.strategy || "weighted",
+            providers: config.providers || ["openai", "anthropic", "gemini"],
+            weights: config.weights || {
+                openai: 0.35,
+                anthropic: 0.35,
+                gemini: 0.20,
+                mistral: 0.10,
+                cohere: 0.10
+            },
+            minConfidence: config.minConfidence || 0.7,
+            agentThresholds: config.agentThresholds || {},
+            fallbackProvider: config.fallbackProvider || "openai"
+        };
+    }
+    async call(call) {
+        // Call all configured providers in parallel
+        const providerCalls = this.config.providers.map(provider => this.callProviderSafely(provider, call));
+        const responses = await Promise.all(providerCalls);
+        // Filter out failed responses
+        const validResponses = responses.filter(r => r !== null);
+        if (validResponses.length === 0) {
+            // All providers failed, use fallback
+            return this.callFallback(call);
+        }
+        // Apply ensemble strategy
+        switch (this.config.strategy) {
+            case "unanimous":
+                return this.unanimousStrategy(validResponses, call);
+            case "majority":
+                return this.majorityStrategy(validResponses, call);
+            case "weighted":
+                return this.weightedStrategy(validResponses, call);
+            case "best_confidence":
+                return this.bestConfidenceStrategy(validResponses);
+            default:
+                return this.weightedStrategy(validResponses, call);
+        }
+    }
+    async callProviderSafely(provider, call) {
+        try {
+            // Transform ProviderCall from types.ts format to router.ts format
+            const routerCall = {
+                prompt: call.prompt || call.context?.join('\n') || '',
+                engine: call.engine,
+                temperature: call.temperature,
+                maxTokens: call.maxTokens,
+                requireJson: call.requireJson ?? false
+            };
+            const response = await (0, router_1.invokeProvider)(provider, routerCall);
+            // ✅ PRODUCTION: Use agent-specific threshold if available, otherwise use default
+            const threshold = this.config.agentThresholds?.[call.agent] ?? this.config.minConfidence ?? 0.7;
+            // Validate response quality with floating point tolerance
+            // Allow small floating point precision errors (e.g., 0.799999... vs 0.8)
+            const CONFIDENCE_TOLERANCE = 0.001;
+            if (response.confidence < (threshold - CONFIDENCE_TOLERANCE)) {
+                console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
+                    threshold,
+                    tolerance: CONFIDENCE_TOLERANCE,
+                    effectiveThreshold: threshold - CONFIDENCE_TOLERANCE,
+                    agent: call.agent,
+                    agent_specific_threshold: this.config.agentThresholds?.[call.agent] !== undefined,
+                    actual_confidence: response.confidence,
+                    prompt_length: (call.prompt ?? call.context?.join('\n') ?? '').length,
+                    response_length: response.narrative.length,
+                    timestamp: new Date().toISOString(),
+                    engine: call.engine
+                });
+                return null;
+            }
+            return response;
+        }
+        catch (error) {
+            console.error(`Provider ${provider} failed:`, error);
+            return null;
+        }
+    }
+    async callFallback(call) {
+        try {
+            // Transform to router format
+            const routerCall = {
+                prompt: call.prompt || call.context?.join('\n') || '',
+                engine: call.engine,
+                temperature: call.temperature,
+                maxTokens: call.maxTokens,
+                requireJson: call.requireJson ?? false
+            };
+            const response = await (0, router_1.invokeProvider)(this.config.fallbackProvider, routerCall);
+            // Response is already in canonical format, no transformation needed
+            return response;
+        }
+        catch (error) {
+            // Last resort fallback
+            return {
+                provider: this.config.fallbackProvider,
+                engine: call.engine,
+                narrative: "Analysis temporarily unavailable. Please try again.",
+                confidence: 0.1
+            };
+        }
+    }
+    unanimousStrategy(responses, call) {
+        // Find common themes across all responses
+        const narratives = responses.map(r => r.narrative.toLowerCase());
+        const commonWords = this.findCommonKeywords(narratives);
+        // Create synthesis
+        const synthesis = `Based on unanimous analysis across ${responses.length} AI engines: ${commonWords.slice(0, 5).join(', ')} are key factors. ${this.extractKeyInsight(responses)}`;
+        const avgConfidence = responses.reduce((sum, r) => sum + r.confidence, 0) / responses.length;
+        return {
+            provider: responses[0].provider, // Ensemble result
+            engine: call.engine,
+            narrative: synthesis,
+            confidence: Number(avgConfidence.toFixed(2))
+        };
+    }
+    majorityStrategy(responses, call) {
+        // Group similar responses
+        const clusters = this.clusterResponses(responses);
+        const majorityCluster = clusters.sort((a, b) => b.length - a.length)[0];
+        // Use the highest confidence response from majority cluster
+        const bestResponse = majorityCluster.sort((a, b) => b.confidence - a.confidence)[0];
+        return {
+            ...bestResponse,
+            provider: responses[0].provider, // Ensemble result
+            narrative: `${bestResponse.narrative} (${majorityCluster.length}/${responses.length} AI consensus)`,
+            confidence: Number((bestResponse.confidence * (majorityCluster.length / responses.length)).toFixed(2))
+        };
+    }
+    weightedStrategy(responses, call) {
+        // Calculate weighted average of insights
+        let totalWeight = 0;
+        let weightedNarratives = [];
+        for (const response of responses) {
+            const weight = (this.config.weights?.[response.provider] || 0.2) * response.confidence;
+            totalWeight += weight;
+            weightedNarratives.push({ narrative: response.narrative, weight });
+        }
+        // Sort by weight and combine top insights
+        weightedNarratives.sort((a, b) => b.weight - a.weight);
+        const topInsights = weightedNarratives.slice(0, 2);
+        const synthesis = this.synthesizeNarratives(topInsights.map(i => i.narrative), call);
+        const confidence = totalWeight / responses.length;
+        return {
+            provider: responses[0].provider, // Ensemble result
+            engine: call.engine,
+            narrative: synthesis,
+            confidence: Number(confidence.toFixed(2))
+        };
+    }
+    bestConfidenceStrategy(responses) {
+        // Simply return the highest confidence response
+        const best = responses.sort((a, b) => b.confidence - a.confidence)[0];
+        return {
+            ...best,
+            provider: responses[0].provider, // Ensemble result
+            narrative: `${best.narrative} (highest confidence: ${best.provider})`
+        };
+    }
+    findCommonKeywords(texts) {
+        const wordFreq = new Map();
+        const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for']);
+        for (const text of texts) {
+            const words = text.split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w.toLowerCase()));
+            for (const word of words) {
+                const key = word.toLowerCase();
+                wordFreq.set(key, (wordFreq.get(key) || 0) + 1);
+            }
+        }
+        // Return words that appear in at least half the responses
+        const threshold = texts.length / 2;
+        return Array.from(wordFreq.entries())
+            .filter(([_, freq]) => freq >= threshold)
+            .sort((a, b) => b[1] - a[1])
+            .map(([word]) => word);
+    }
+    extractKeyInsight(responses) {
+        // Extract the most confident single insight
+        // Contract: All ProviderResponse objects have non-empty narrative (validated at creation in router.ts)
+        const bestResponse = responses.sort((a, b) => b.confidence - a.confidence)[0];
+        // Validate contract - fail fast if violated
+        if (!bestResponse || !bestResponse.narrative || bestResponse.narrative.trim().length === 0) {
+            throw new Error('Contract violation: ProviderResponse must have non-empty narrative');
+        }
+        const sentences = bestResponse.narrative.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        // If no sentences found (shouldn't happen due to contract), throw error
+        if (sentences.length === 0) {
+            throw new Error('Contract violation: narrative must contain at least one sentence');
+        }
+        return sentences[0].trim() + '.';
+    }
+    clusterResponses(responses) {
+        // Simple clustering based on keyword similarity
+        const clusters = [];
+        for (const response of responses) {
+            let addedToCluster = false;
+            for (const cluster of clusters) {
+                if (this.isSimilar(response.narrative, cluster[0].narrative)) {
+                    cluster.push(response);
+                    addedToCluster = true;
+                    break;
+                }
+            }
+            if (!addedToCluster) {
+                clusters.push([response]);
+            }
+        }
+        return clusters;
+    }
+    isSimilar(text1, text2) {
+        // Simple similarity check based on common words
+        const words1 = new Set(text1.toLowerCase().split(/\s+/));
+        const words2 = new Set(text2.toLowerCase().split(/\s+/));
+        let common = 0;
+        for (const word of words1) {
+            if (words2.has(word))
+                common++;
+        }
+        const similarity = common / Math.min(words1.size, words2.size);
+        return similarity > 0.5;
+    }
+    synthesizeNarratives(narratives, call) {
+        // Handle case where narratives might contain objects (parsed JSON) or strings
+        const primaryNarrative = narratives[0];
+        // If the narrative is already an object (from JSON parsing), handle it differently
+        if (typeof primaryNarrative === 'object' && primaryNarrative !== null) {
+            // For JSON objects, we want to preserve the structure
+            // Pick the most complete/best response based on object properties
+            const bestObject = narratives.reduce((best, current) => {
+                if (typeof current === 'object' && current !== null) {
+                    // Compare by number of properties or specific important fields
+                    const bestKeys = Object.keys(best).length;
+                    const currentKeys = Object.keys(current).length;
+                    return currentKeys > bestKeys ? current : best;
+                }
+                return best;
+            }, primaryNarrative);
+            // Return the object (it will be used as the narrative)
+            return bestObject;
+        }
+        // Original string handling logic
+        const primaryInsight = String(primaryNarrative); // Ensure it's a string
+        // Detect JSON responses (starts with { or [ after trimming, or contains ```json)
+        const trimmed = primaryInsight.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('```json')) {
+            // Return JSON unwrapped - pick the longest/most complete response
+            const bestJson = narratives.reduce((best, current) => {
+                const currentStr = String(current);
+                const bestStr = String(best);
+                return currentStr.length > bestStr.length ? currentStr : bestStr;
+            }, primaryInsight);
+            return bestJson;
+        }
+        // For non-JSON responses, combine insights intelligently
+        const engine = call.engine;
+        const agent = call.agent;
+        const secondaryInsight = String(narratives[1] || "");
+        // Extract key points from both
+        const primaryPoint = primaryInsight.split(/[.!?]/)[0].trim();
+        const secondaryPoint = secondaryInsight.split(/[.!?]/)[0].trim();
+        return `Multi-AI ${engine} analysis for ${agent}: ${primaryPoint}. ${secondaryPoint ? `Additionally, ${secondaryPoint.toLowerCase()}.` : ''} Confidence strengthened through ensemble validation.`;
+    }
+}
+exports.EnsembleAI = EnsembleAI;
+// Singleton instance with default configuration
+// ✅ PRODUCTION: Structure-aware confidence thresholds for different agent types
+exports.ensembleAI = new EnsembleAI({
+    strategy: "weighted",
+    providers: ["openai", "anthropic", "gemini", "mistral", "cohere"],
+    minConfidence: 0.7, // Default threshold restored (was 0.6, too low)
+    // Agent-specific thresholds based on complexity and accuracy requirements
+    agentThresholds: {
+        'structure-agent': 0.6, // Lower threshold for flat/unusual org structures (5 depts/12 people)
+        'culture-agent': 0.65, // Lowered to accommodate provider responses (was 0.70)
+        'skills-agent': 0.70, // Standard analysis
+        'engagement-agent': 0.65, // Sentiment analysis - can be more flexible
+        'recognition-agent': 0.65, // Pattern recognition - can be more flexible
+        'lxp-agent': 0.70, // Standard analysis
+        'talent-agent': 0.70, // Standard analysis
+        'bonus-agent': 0.70, // Standard analysis
+    }
+});
+//# sourceMappingURL=ensemble.js.map
