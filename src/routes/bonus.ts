@@ -22,7 +22,7 @@ router.post('/trigger', authenticate, authorize(['system', 'superadmin', 'client
         });
 
     } catch (error: unknown) {
-        console.error('Bonus trigger error:', error);
+        logger.error('Bonus trigger error:', error);
 
         if (error instanceof z.ZodError) {
             return res.status(400).json({ success: false, error: 'Invalid input data', details: error.errors });

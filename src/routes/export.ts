@@ -85,7 +85,7 @@ async function validateAnalysisOwnership(
 
     return analysis.length > 0;
   } catch (error) {
-    console.error('Error validating analysis ownership:', error);
+    logger.error('Error validating analysis ownership:', error);
     return false;
   }
 }
@@ -836,7 +836,7 @@ router.post('/structure', async (req: Request, res: Response) => {
     if (analysisId) {
       const isOwner = await validateAnalysisOwnership(analysisId, tenantId);
       if (!isOwner) {
-        console.warn(`Unauthorized export attempt: User ${userId} tried to export analysis ${analysisId} from tenant ${tenantId}`);
+        logger.warn(`Unauthorized export attempt: User ${userId} tried to export analysis ${analysisId} from tenant ${tenantId}`);
         return res.status(403).json({ 
           error: 'Access denied: Analysis does not belong to your organization',
           code: 'FORBIDDEN_ANALYSIS_ACCESS'
@@ -861,7 +861,7 @@ router.post('/structure', async (req: Request, res: Response) => {
 
     return res.send(html);
   } catch (error) {
-    console.error('Export error:', error);
+    logger.error('Export error:', error);
     return res.status(500).json({
       error: 'Failed to generate export',
       code: 'EXPORT_GENERATION_ERROR'

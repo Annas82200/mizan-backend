@@ -106,7 +106,7 @@ router.post('/generate', authenticate, async (req: AuthenticatedRequest, res: Re
       }
     });
   } catch (error) {
-    console.error('Content generation error:', error);
+    logger.error('Content generation error:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'Invalid request data', details: error.errors });
     }
@@ -168,7 +168,7 @@ router.post('/generate-batch', authenticate, async (req: AuthenticatedRequest, r
       }
     });
   } catch (error) {
-    console.error('Batch generation error:', error);
+    logger.error('Batch generation error:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'Invalid request data', details: error.errors });
     }
@@ -205,7 +205,7 @@ router.get('/templates', authenticate, async (req: AuthenticatedRequest, res: Re
 
     res.json({ success: true, data: templates });
   } catch (error) {
-    console.error('Templates retrieval error:', error);
+    logger.error('Templates retrieval error:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve templates' });
   }
 });
@@ -244,7 +244,7 @@ router.get('/strategy', authenticate, async (req: AuthenticatedRequest, res: Res
 
     res.json({ success: true, data: strategy });
   } catch (error) {
-    console.error('Strategy retrieval error:', error);
+    logger.error('Strategy retrieval error:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve strategy' });
   }
 });
@@ -265,7 +265,7 @@ router.get('/posts', authenticate, async (req: AuthenticatedRequest, res: Respon
 
     res.json({ success: true, data: posts });
   } catch (error) {
-    console.error('Posts retrieval error:', error);
+    logger.error('Posts retrieval error:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve posts' });
   }
 });
@@ -350,7 +350,7 @@ router.post('/posts/:postId/publish', authenticate, async (req: AuthenticatedReq
       }
     });
   } catch (error) {
-    console.error('Post publishing error:', error);
+    logger.error('Post publishing error:', error);
     res.status(500).json({ success: false, error: 'Failed to publish post' });
   }
 });
@@ -377,7 +377,7 @@ router.delete('/posts/:postId', authenticate, async (req: AuthenticatedRequest, 
 
     res.json({ success: true, message: 'Post deleted successfully' });
   } catch (error) {
-    console.error('Post deletion error:', error);
+    logger.error('Post deletion error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete post' });
   }
 });
@@ -444,7 +444,7 @@ router.post('/posts/:postId/metrics', authenticate, async (req: AuthenticatedReq
       }
     });
   } catch (error) {
-    console.error('Metrics recording error:', error);
+    logger.error('Metrics recording error:', error);
     res.status(500).json({ success: false, error: 'Failed to record metrics' });
   }
 });

@@ -4,6 +4,7 @@ import { authenticate, requireRole, validateTenantAccess } from '../middleware/a
 import { db } from '../../db/index';
 import { tenants as tenantsTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.get('/test-ai', async (req: Request, res: Response) => {
       .limit(1);
 
     if (!tenant || tenant.length === 0) {
-      console.error(`🔒 SECURITY - Invalid tenant access attempt: ${tenantId}`);
+      logger.error(`🔒 SECURITY - Invalid tenant access attempt: ${tenantId}`);
       return res.status(403).json({
         success: false,
         error: 'Unauthorized tenant access'
@@ -33,15 +34,15 @@ router.get('/test-ai', async (req: Request, res: Response) => {
 
     // Verify user has access to this tenant
     if (req.user!.tenantId !== tenantId) {
-      console.error(`🔒 SECURITY - Tenant isolation violation: user ${userId} accessing tenant ${tenantId}`);
+      logger.error(`🔒 SECURITY - Tenant isolation violation: user ${userId} accessing tenant ${tenantId}`);
       return res.status(403).json({
         success: false,
         error: 'Tenant access denied'
       });
     }
 
-    console.log(`🧪 TEST - Starting AI test for superadmin (tenant: ${tenantId}, user: ${userId})...`);
-    console.log(`🔒 SECURITY - Tenant validation passed for: ${tenant[0].name}`);
+    logger.info(`🧪 TEST - Starting AI test for superadmin (tenant: ${tenantId}, user: ${userId})...`);
+    logger.info(`🔒 SECURITY - Tenant validation passed for: ${tenant[0].name}`);
 
     const agent = new CultureAgent('culture', {
       knowledge: {
@@ -78,8 +79,8 @@ router.get('/test-ai', async (req: Request, res: Response) => {
       }
     });
     
-    console.log('🧪 TEST - Response:', JSON.stringify(response, null, 2));
-    console.log(`🔒 SECURITY - Response generated for tenant: ${tenantId}`);
+    logger.info('🧪 TEST - Response:', JSON.stringify(response, null, 2));
+    logger.info(`🔒 SECURITY - Response generated for tenant: ${tenantId}`);
     
     return res.json({
       success: true,
@@ -90,13 +91,13 @@ router.get('/test-ai', async (req: Request, res: Response) => {
       securityValidation: 'passed'
     });
   } catch (error) {
-    console.error('🧪 TEST - Error:', error);
+    logger.error('🧪 TEST - Error:', error);
     
     // Enhanced error handling with tenant context
     if (error instanceof Error) {
       // Log security-related errors separately
       if (error.message.includes('tenant') || error.message.includes('unauthorized')) {
-        console.error(`🔒 SECURITY ERROR - Tenant: ${req.user?.tenantId}, User: ${req.user?.id}, Error: ${error.message}`);
+        logger.error(`🔒 SECURITY ERROR - Tenant: ${req.user?.tenantId}, User: ${req.user?.id}, Error: ${error.message}`);
         return res.status(403).json({
           success: false,
           error: 'Access denied',

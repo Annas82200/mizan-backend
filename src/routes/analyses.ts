@@ -78,7 +78,7 @@ async function validateAndExtractTenant(req: AuthenticatedRequest, res: Response
 
     return { tenantId: user.tenantId, user };
   } catch (error) {
-    console.error('Tenant validation error:', error);
+    logger.error('Tenant validation error:', error);
     res.status(500).json({ error: 'Internal server error during tenant validation' });
     return null;
   }
@@ -173,7 +173,7 @@ router.post("/structure", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(combinedResult);
   } catch (error: unknown) {
-    console.error("Structure analysis error:", error);
+    logger.error("Structure analysis error:", error);
     if (error instanceof Error) {
         return res.status(500).json({ error: error.message });
     }
@@ -227,7 +227,7 @@ router.post("/culture", async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(secureResult);
   } catch (error: unknown) {
-    console.error('Culture analysis error:', error);
+    logger.error('Culture analysis error:', error);
     if (error instanceof Error) {
         return res.status(500).json({ error: error.message });
     }
@@ -373,7 +373,7 @@ router.post("/performance", async (req: AuthenticatedRequest, res: Response) => 
       }
     });
   } catch (error: unknown) {
-    console.error('Performance analysis error:', error);
+    logger.error('Performance analysis error:', error);
     if (error instanceof Error) {
         res.status(500).json({ error: error.message });
     } else {
@@ -431,7 +431,7 @@ router.post("/hiring", async (req: AuthenticatedRequest, res: Response) => {
       }
     });
   } catch (error: unknown) {
-    console.error('Hiring analysis error:', error);
+    logger.error('Hiring analysis error:', error);
     if (error instanceof Error) {
         res.status(500).json({ error: error.message });
     } else {
@@ -476,7 +476,7 @@ router.post("/lxp", async (req: AuthenticatedRequest, res: Response) => {
       }
     });
   } catch (error: unknown) {
-    console.error('LXP analysis error:', error);
+    logger.error('LXP analysis error:', error);
     if (error instanceof Error) {
         res.status(500).json({ error: error.message });
     } else {
@@ -554,7 +554,7 @@ router.post("/skills", async (req: AuthenticatedRequest, res: Response) => {
       }
     });
   } catch (error: unknown) {
-    console.error('Skills analysis error:', error);
+    logger.error('Skills analysis error:', error);
     if (error instanceof Error) {
         res.status(500).json({ error: error.message });
     } else {

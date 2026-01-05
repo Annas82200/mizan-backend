@@ -246,7 +246,7 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
 
     } catch (aiError) {
       const e = aiError as Error;
-      console.error('AI analysis error (public endpoint):', e.message);
+      logger.error('AI analysis error (public endpoint):', e.message);
       // Fall back to basic analysis if AI fails
       richAnalysis = null;
     }
@@ -291,7 +291,7 @@ router.post('/analyze', publicAnalysisLimit, upload.single('file'), async (req: 
 
   } catch (error) {
     const e = error as Error;
-    console.error('Public structure analysis error:', e.message);
+    logger.error('Public structure analysis error:', e.message);
     
     // Don't expose internal error details in public endpoint
     return res.status(500).json({

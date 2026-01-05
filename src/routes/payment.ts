@@ -130,7 +130,7 @@ router.post('/create-checkout-session', authenticate, async (req: Request, res: 
 
   } catch (error) {
     const e = error as Error;
-    console.error('Create checkout session error:', {
+    logger.error('Create checkout session error:', {
       error: e.message,
       stack: e.stack,
       userId: req.user?.id,
@@ -197,7 +197,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get session error:', {
+    logger.error('Get session error:', {
       error: e.message,
       stack: e.stack,
       sessionId: req.params.sessionId
@@ -249,7 +249,7 @@ router.get('/subscriptions', authenticate, validateTenantAccess, async (req: Req
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get subscriptions error:', {
+    logger.error('Get subscriptions error:', {
       error: e.message,
       stack: e.stack,
       userId: req.user?.id,
@@ -323,7 +323,7 @@ router.get('/subscription/:subscriptionId', authenticate, validateTenantAccess, 
 
   } catch (error) {
     const e = error as Error;
-    console.error('Get subscription error:', {
+    logger.error('Get subscription error:', {
       error: e.message,
       stack: e.stack,
       userId: req.user?.id,
@@ -366,7 +366,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('Webhook processing error:', {
+    logger.error('Webhook processing error:', {
       error: e.message,
       stack: e.stack,
       headers: req.headers
@@ -471,7 +471,7 @@ router.put('/subscription/:subscriptionId/cancel', authenticate, validateTenantA
 
   } catch (error) {
     const e = error as Error;
-    console.error('Cancel subscription error:', {
+    logger.error('Cancel subscription error:', {
       error: e.message,
       stack: e.stack,
       userId: req.user?.id,

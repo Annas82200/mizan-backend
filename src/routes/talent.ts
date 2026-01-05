@@ -47,7 +47,7 @@ router.post('/trigger',
             });
 
         } catch (error: unknown) {
-            console.error('Talent trigger error:', error);
+            logger.error('Talent trigger error:', error);
 
             if (error instanceof z.ZodError) {
                 return res.status(400).json({ 
@@ -119,7 +119,7 @@ router.get('/nine-box/:tenantId',
             });
 
         } catch (error: unknown) {
-            console.error('Nine-box retrieval error:', error);
+            logger.error('Nine-box retrieval error:', error);
             
             if (error instanceof Error) {
                 if (error.message.includes('Unauthorized') || error.message.includes('tenant')) {
@@ -182,7 +182,7 @@ router.get('/succession-plans/:tenantId',
             });
 
         } catch (error: unknown) {
-            console.error('Succession plans retrieval error:', error);
+            logger.error('Succession plans retrieval error:', error);
             
             if (error instanceof Error) {
                 if (error.message.includes('Unauthorized') || error.message.includes('tenant')) {
@@ -245,7 +245,7 @@ router.get('/development-plans/:tenantId',
             });
 
         } catch (error: unknown) {
-            console.error('Development plans retrieval error:', error);
+            logger.error('Development plans retrieval error:', error);
             
             if (error instanceof Error) {
                 if (error.message.includes('Unauthorized') || error.message.includes('tenant')) {
@@ -320,7 +320,7 @@ router.post('/update-nine-box-config/:tenantId',
             });
 
         } catch (error: unknown) {
-            console.error('9-box config update error:', error);
+            logger.error('9-box config update error:', error);
 
             if (error instanceof z.ZodError) {
                 return res.status(400).json({ 

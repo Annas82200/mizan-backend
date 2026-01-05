@@ -69,7 +69,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
     return res.json({ received: true });
   } catch (error) {
     const e = error as Error;
-    console.error("Webhook error:", e);
+    logger.error("Webhook error:", e);
     return res.status(400).json({ error: e.message || "Webhook processing failed" });
   }
 });
@@ -123,7 +123,7 @@ router.get("/subscription", requireTenant, async (req, res) => {
       trialEndsAt: subscription.trialEndsAt,
     });
   } catch (error) {
-    console.error('Get subscription error:', error);
+    logger.error('Get subscription error:', error);
     return res.status(500).json({ error: "Failed to get subscription details" });
   }
 });
@@ -232,7 +232,7 @@ router.post("/checkout", authorize(['clientAdmin']), requireTenant, async (req, 
 
     return res.json({ url: session.url });
   } catch (error) {
-    console.error('Checkout session creation error:', error);
+    logger.error('Checkout session creation error:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid request data', details: error.errors });
     }
@@ -271,7 +271,7 @@ router.post("/portal", authorize(['clientAdmin']), requireTenant, async (req, re
 
     return res.json({ url: portalSession.url });
   } catch (error) {
-    console.error('Portal session creation error:', error);
+    logger.error('Portal session creation error:', error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid request data' });
     }
@@ -322,7 +322,7 @@ router.post("/cancel", authorize(['clientAdmin']), requireTenant, async (req, re
       periodEnd: subscription.currentPeriodEnd
     });
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    logger.error('Cancel subscription error:', error);
     return res.status(500).json({ error: "Failed to cancel subscription" });
   }
 });
@@ -378,7 +378,7 @@ router.post("/reactivate", authorize(['clientAdmin']), requireTenant, async (req
       }
     });
   } catch (error) {
-    console.error('Reactivate subscription error:', error);
+    logger.error('Reactivate subscription error:', error);
     return res.status(500).json({ error: "Failed to reactivate subscription" });
   }
 });
@@ -402,7 +402,7 @@ router.get("/payments", authorize(['clientAdmin']), requireTenant, async (req, r
 
     res.json({ payments: paymentHistory });
   } catch (error) {
-    console.error('Get payment history error:', error);
+    logger.error('Get payment history error:', error);
     res.status(500).json({ error: "Failed to get payment history" });
   }
 });

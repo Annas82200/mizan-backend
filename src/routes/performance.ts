@@ -126,7 +126,7 @@ router.get('/metrics', authenticate, async (req: Request, res: Response) => {
       calibration
     });
   } catch (error) {
-    console.error('Error fetching performance metrics:', error);
+    logger.error('Error fetching performance metrics:', error);
     res.status(500).json({ error: 'Failed to fetch performance metrics' });
   }
 });
@@ -200,7 +200,7 @@ router.get('/activity', authenticate, async (req: Request, res: Response) => {
 
     res.json(activities.slice(0, 10));
   } catch (error) {
-    console.error('Error fetching activity:', error);
+    logger.error('Error fetching activity:', error);
     res.status(500).json({ error: 'Failed to fetch activity' });
   }
 });
@@ -225,7 +225,7 @@ router.get('/goals', authenticate, async (req: Request, res: Response) => {
 
     res.json(goals);
   } catch (error) {
-    console.error('Error fetching goals:', error);
+    logger.error('Error fetching goals:', error);
     res.status(500).json({ error: 'Failed to fetch goals' });
   }
 });
@@ -273,7 +273,7 @@ router.post('/goals', authenticate, async (req: Request, res: Response) => {
 
     res.status(201).json(newGoal[0]);
   } catch (error) {
-    console.error('Error creating goal:', error);
+    logger.error('Error creating goal:', error);
     res.status(500).json({ error: 'Failed to create goal' });
   }
 });
@@ -314,7 +314,7 @@ router.put('/goals/:id', authenticate, async (req: Request, res: Response) => {
 
     res.json(updatedGoal[0]);
   } catch (error) {
-    console.error('Error updating goal:', error);
+    logger.error('Error updating goal:', error);
     res.status(500).json({ error: 'Failed to update goal' });
   }
 });
@@ -348,7 +348,7 @@ router.delete('/goals/:id', authenticate, async (req: Request, res: Response) =>
 
     res.json({ message: 'Goal deleted successfully' });
   } catch (error) {
-    console.error('Error deleting goal:', error);
+    logger.error('Error deleting goal:', error);
     res.status(500).json({ error: 'Failed to delete goal' });
   }
 });
@@ -381,7 +381,7 @@ router.post('/bot/query', authenticate, async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error('Error handling bot query:', error);
+    logger.error('Error handling bot query:', error);
     res.status(500).json({
       error: 'Failed to process bot query',
       answer: 'I apologize, but I encountered an error. Please try again.',
@@ -416,7 +416,7 @@ router.get('/bot/analytics/:employeeId', authenticate, async (req: Request, res:
 
     res.json(analytics);
   } catch (error) {
-    console.error('Error fetching employee analytics:', error);
+    logger.error('Error fetching employee analytics:', error);
     res.status(500).json({ error: 'Failed to fetch employee analytics' });
   }
 });

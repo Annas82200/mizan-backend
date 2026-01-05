@@ -109,7 +109,7 @@ router.get('/dashboard', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Dashboard error:', error);
+    logger.error('Dashboard error:', error);
     return res.status(500).json({ 
       error: 'Failed to load dashboard',
       message: 'Internal server error occurred while loading dashboard data'
@@ -192,7 +192,7 @@ router.post('/assessment/culture', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Assessment submission error:', error);
+    logger.error('Assessment submission error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -253,7 +253,7 @@ router.get('/assessment/:id/results', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Results fetch error:', error);
+    logger.error('Results fetch error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -353,7 +353,7 @@ router.put('/profile', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Profile update error:', error);
+    logger.error('Profile update error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -412,7 +412,7 @@ router.get('/learning', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Learning fetch error:', error);
+    logger.error('Learning fetch error:', error);
     return res.status(500).json({ 
       error: 'Failed to fetch learning modules',
       message: 'Internal server error occurred while fetching learning data'
@@ -443,7 +443,7 @@ router.get('/assessments', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Assessments fetch error:', error);
+    logger.error('Assessments fetch error:', error);
     return res.status(500).json({ 
       error: 'Failed to fetch assessments',
       message: 'Internal server error occurred while fetching assessments'

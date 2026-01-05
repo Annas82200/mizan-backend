@@ -38,7 +38,7 @@ router.get('/performance', async (req, res) => {
     return res.json(reviews);
 
   } catch (error) {
-    console.error('Performance fetch error:', error);
+    logger.error('Performance fetch error:', error);
     
     // Check for tenant isolation violations
     if (error instanceof Error && error.message.includes('tenant')) {
@@ -85,7 +85,7 @@ router.post('/execute', authorize(['clientAdmin', 'superadmin']), async (req, re
     //   updatedAt: new Date()
     // });
 
-    console.log(`Module execution: ${validatedData.module}.${validatedData.action} by user ${userId} (tenant: ${tenantId})`);
+    logger.info(`Module execution: ${validatedData.module}.${validatedData.action} by user ${userId} (tenant: ${tenantId})`);
 
     return res.json({
       success: true,
@@ -96,7 +96,7 @@ router.post('/execute', authorize(['clientAdmin', 'superadmin']), async (req, re
     });
 
   } catch (error) {
-    console.error('Module execution error:', error);
+    logger.error('Module execution error:', error);
     
     // Handle validation errors
     if (error instanceof z.ZodError) {
