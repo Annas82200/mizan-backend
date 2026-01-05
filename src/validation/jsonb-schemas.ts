@@ -272,7 +272,7 @@ export function parseJsonbOptional<T>(
   try {
     return schema.parse(data);
   } catch (error) {
-    console.warn(`Optional JSONB field ${fieldName} validation failed, returning undefined:`, error);
+    logger.warn(`Optional JSONB field ${fieldName} validation failed, returning undefined:`, error);
     return undefined;
   }
 }

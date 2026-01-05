@@ -35,7 +35,7 @@ export function validate(schema: ZodSchema, target: 'body' | 'query' | 'params' 
       }
 
       // Unexpected error
-      console.error('Validation middleware error:', error);
+      logger.error('Validation middleware error:', error);
       return res.status(500).json({
         success: false,
         error: 'Internal validation error'
@@ -105,7 +105,7 @@ export function validateRequest(schemas: {
         });
       }
 
-      console.error('Request validation error:', error);
+      logger.error('Request validation error:', error);
       return res.status(500).json({
         success: false,
         error: 'Internal validation error'

@@ -81,7 +81,7 @@ export async function checkModuleAccess(
       canAccessModule: true
     };
   } catch (error) {
-    console.error('Error checking module access:', error);
+    logger.error('Error checking module access:', error);
     return {
       canAccessModule: false,
       reason: 'Error checking module access'
@@ -120,7 +120,7 @@ export async function getAccessibleModules(tenantId: string): Promise<ModuleName
     const tenantPlan = tenant.plan || 'trial';
     return MODULE_ACCESS_RULES[tenantPlan] || [];
   } catch (error) {
-    console.error('Error getting accessible modules:', error);
+    logger.error('Error getting accessible modules:', error);
     return [];
   }
 }

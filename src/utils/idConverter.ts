@@ -69,7 +69,7 @@ export function getTenantNumericId(uuid: string | null | undefined, fallback: nu
     const result = uuidToNumber(uuid);
     return result > 0 ? result : (fallback > 0 ? fallback : 1); // Always return positive number
   } catch (error) {
-    console.error('Failed to convert tenant UUID to number:', error);
+    logger.error('Failed to convert tenant UUID to number:', error);
     return fallback > 0 ? fallback : 1;
   }
 }

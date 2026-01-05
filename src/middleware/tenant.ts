@@ -45,7 +45,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
         req.tenant = tenantResult[0];
         next();
     } catch (error: unknown) {
-        console.error('Error in tenant middleware:', error);
+        logger.error('Error in tenant middleware:', error);
         if (error instanceof Error) {
             return res.status(500).json({ error: `Internal server error: ${error.message}` });
         }
@@ -154,7 +154,7 @@ export const checkResourceOwnership = (resourceIdParam: string = 'id') => {
       // with actual resource ownership validation
       return next();
     } catch (error) {
-      console.error('Resource ownership check error:', error);
+      logger.error('Resource ownership check error:', error);
       return res.status(500).json({
         error: 'Internal server error',
         code: 'OWNERSHIP_CHECK_ERROR'
@@ -170,7 +170,7 @@ export const logTenantActivity = (action: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.tenant) {
       // Log tenant activity - in production, this would go to a logging service
-      console.log(`[TENANT_ACTIVITY] ${req.tenant.id} - ${action} - ${req.method} ${req.path}`, {
+      logger.info(`[TENANT_ACTIVITY] ${req.tenant.id} - ${action} - ${req.method} ${req.path}`, {
         tenantId: req.tenant.id,
         tenantName: req.tenant.name,
         action,
@@ -318,7 +318,7 @@ export const checkUsageLimits = (resource: string) => {
       // Multi-tenant isolation ensures accurate usage tracking
       next();
     } catch (error) {
-      console.error('Usage limit check error:', error);
+      logger.error('Usage limit check error:', error);
       res.status(500).json({
         error: 'Internal server error',
         code: 'USAGE_LIMIT_CHECK_ERROR'
