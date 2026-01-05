@@ -5,6 +5,7 @@ import { db } from '../../db/index';
 import { tenants as tenantsTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ async function validateTenant(tenantId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Tenant validation failed:', error);
+    logger.error('Tenant validation failed:', error);
     throw error;
   }
 }
@@ -69,7 +70,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
   const signature = req.headers['stripe-signature'] as string;
 
   if (!signature) {
-    console.error('❌ Missing stripe-signature header');
+    logger.error('❌ Missing stripe-signature header');
     return res.status(400).json({
       success: false,
       error: 'Missing stripe-signature header'
@@ -83,16 +84,16 @@ router.post('/stripe', async (req: Request, res: Response) => {
       signature
     );
 
-    console.log(`📩 Stripe webhook received: ${event.type}`);
+    logger.info(`📩 Stripe webhook received: ${event.type}`);
 
     // Extract tenantId for security validation
     let tenantId: string;
     
     try {
       tenantId = extractTenantId(event.data.object);
-      console.log(`🔐 Extracted tenantId: ${tenantId} for webhook ${event.type}`);
+      logger.info(`🔐 Extracted tenantId: ${tenantId} for webhook ${event.type}`);
     } catch (error) {
-      console.error('❌ Failed to extract tenantId from webhook:', error);
+      logger.error('❌ Failed to extract tenantId from webhook:', error);
       return res.status(400).json({
         success: false,
         error: 'Invalid webhook data: missing tenant information'
@@ -102,9 +103,9 @@ router.post('/stripe', async (req: Request, res: Response) => {
     // Validate tenant exists and is active (SECURITY CHECK)
     try {
       await validateTenant(tenantId);
-      console.log(`✅ Tenant validated: ${tenantId}`);
+      logger.info(`✅ Tenant validated: ${tenantId}`);
     } catch (error) {
-      console.error('❌ Tenant validation failed:', error);
+      logger.error('❌ Tenant validation failed:', error);
       return res.status(403).json({
         success: false,
         error: 'Unauthorized: invalid tenant'
@@ -115,59 +116,59 @@ router.post('/stripe', async (req: Request, res: Response) => {
     // Each handler will use tenantId for database operations
     switch (event.type) {
       case 'checkout.session.completed':
-        console.log(`💳 Processing checkout completion for tenant: ${tenantId}`);
+        logger.info(`💳 Processing checkout completion for tenant: ${tenantId}`);
         await stripeService.handleCheckoutComplete(
           event.data.object as Stripe.Checkout.Session
         );
         break;
 
       case 'customer.subscription.updated':
-        console.log(`🔄 Processing subscription update for tenant: ${tenantId}`);
+        logger.info(`🔄 Processing subscription update for tenant: ${tenantId}`);
         await stripeService.handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription
         );
         break;
 
       case 'customer.subscription.deleted':
-        console.log(`❌ Processing subscription cancellation for tenant: ${tenantId}`);
+        logger.info(`❌ Processing subscription cancellation for tenant: ${tenantId}`);
         await stripeService.handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription
         );
         break;
 
       case 'invoice.payment_failed':
-        console.log(`💸 Processing payment failure for tenant: ${tenantId}`);
+        logger.info(`💸 Processing payment failure for tenant: ${tenantId}`);
         await stripeService.handleInvoicePaymentFailed(
           event.data.object as Stripe.Invoice
         );
         break;
 
       case 'invoice.payment_succeeded':
-        console.log(`✅ Payment succeeded for tenant: ${tenantId}, invoice: ${(event.data.object as Stripe.Invoice).id}`);
+        logger.info(`✅ Payment succeeded for tenant: ${tenantId}, invoice: ${(event.data.object as Stripe.Invoice).id}`);
         await stripeService.handleInvoicePaymentSucceeded(
           event.data.object as Stripe.Invoice
         );
         break;
 
       case 'customer.created':
-        console.log(`👤 Processing customer creation for tenant: ${tenantId}`);
+        logger.info(`👤 Processing customer creation for tenant: ${tenantId}`);
         await stripeService.handleCustomerCreated(
           event.data.object as Stripe.Customer
         );
         break;
 
       case 'customer.updated':
-        console.log(`👤 Processing customer update for tenant: ${tenantId}`);
+        logger.info(`👤 Processing customer update for tenant: ${tenantId}`);
         await stripeService.handleCustomerUpdated(
           event.data.object as Stripe.Customer
         );
         break;
 
       default:
-        console.log(`⚠️ Unhandled webhook event type: ${event.type} for tenant: ${tenantId}`);
+        logger.info(`⚠️ Unhandled webhook event type: ${event.type} for tenant: ${tenantId}`);
     }
 
-    console.log(`✅ Webhook ${event.type} processed successfully for tenant: ${tenantId}`);
+    logger.info(`✅ Webhook ${event.type} processed successfully for tenant: ${tenantId}`);
 
     // Return success to Stripe
     return res.status(200).json({
@@ -179,7 +180,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
   } catch (error) {
     const e = error as Error;
-    console.error('❌ Webhook processing error:', {
+    logger.error('❌ Webhook processing error:', {
       message: e.message,
       stack: e.stack,
       eventType: req.body?.type
@@ -224,7 +225,7 @@ router.get('/health', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Webhook health check failed:', error);
+    logger.error('Webhook health check failed:', error);
     return res.status(503).json({
       success: false,
       service: 'webhooks',
