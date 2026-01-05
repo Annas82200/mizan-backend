@@ -250,7 +250,7 @@ export class StructureAgentV2 extends ThreeEngineAgent {
     try {
       return JSON.parse(output) as DataEngineOutput;
     } catch (error) {
-      console.error('Failed to parse Data Engine output:', error);
+      logger.error('Failed to parse Data Engine output:', error);
       return {
         spanOfControl: {},
         structureType: 'unknown',
@@ -268,7 +268,7 @@ export class StructureAgentV2 extends ThreeEngineAgent {
     try {
       return JSON.parse(output) as ReasoningEngineOutput;
     } catch (error) {
-      console.error('Failed to parse Reasoning Engine output:', error);
+      logger.error('Failed to parse Reasoning Engine output:', error);
       return {
         isOptimalForStrategy: false,
         structureType: 'unknown',
@@ -517,7 +517,7 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
       n.urgency === 'critical' || n.urgency === 'high'
     );
 
-    console.log(`Creating ${urgentNeeds.length} hiring triggers for ${hiringNeeds.length} total positions`);
+    logger.info(`Creating ${urgentNeeds.length} hiring triggers for ${hiringNeeds.length} total positions`);
 
     for (const need of urgentNeeds) {
       await db.insert(triggers).values({
@@ -544,12 +544,12 @@ Return structured JSON with: isOptimalForStrategy, structureType, healthScore, s
       });
     }
 
-    console.log(`Created ${urgentNeeds.length} hiring triggers`);
+    logger.info(`Created ${urgentNeeds.length} hiring triggers`);
   }
   
   private async saveStructureAnalysis(analysis: StructureAnalysisResult, input: StructureAnalysisInput): Promise<void> {
     // Save to database
-    console.log('Saving structure analysis results');
+    logger.info('Saving structure analysis results');
     // Implementation would save to appropriate tables
   }
 }
@@ -604,10 +604,10 @@ async function demonstrateStructureAnalysis() {
     strategy: 'Achieve market leadership through product innovation and customer experience'
   });
   
-  console.log('Structure Analysis Results:');
-  console.log('- Optimal for strategy?', analysis.isOptimalForStrategy);
-  console.log('- Structure type:', analysis.structureType);
-  console.log('- Health score:', analysis.healthScore);
-  console.log('- Critical gaps:', analysis.gaps.filter(g => g.impact === 'high'));
-  console.log('- Hiring needs:', analysis.hiringNeeds);
+  logger.info('Structure Analysis Results:');
+  logger.info('- Optimal for strategy?', analysis.isOptimalForStrategy);
+  logger.info('- Structure type:', analysis.structureType);
+  logger.info('- Health score:', analysis.healthScore);
+  logger.info('- Critical gaps:', analysis.gaps.filter(g => g.impact === 'high'));
+  logger.info('- Hiring needs:', analysis.hiringNeeds);
 }

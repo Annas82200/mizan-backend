@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     // Framework configuration is global but logged for audit purposes
-    console.log(`Framework config accessed by tenant: ${tenantId}, user: ${userId}`);
+    logger.info(`Framework config accessed by tenant: ${tenantId}, user: ${userId}`);
 
     // Get the most recent active framework config
     // Framework is global but we log tenant access for security auditing
@@ -53,7 +53,7 @@ router.get('/', async (req: Request, res: Response) => {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework configuration';
-    console.error('Get framework error:', {
+    logger.error('Get framework error:', {
       error,
       tenantId: req.user?.tenantId,
       userId: req.user?.id
@@ -77,7 +77,7 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
       return res.status(403).json({ error: 'Tenant and user identification required' });
     }
 
-    console.log(`Framework config update attempted by superadmin (tenant: ${tenantId}, user: ${userId})`);
+    logger.info(`Framework config update attempted by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     if (!cylinders || !Array.isArray(cylinders) || cylinders.length !== 7) {
       return res.status(400).json({ 
@@ -124,7 +124,7 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
     }).returning();
 
     // Log successful update with tenant information
-    console.log(`Framework config updated successfully by superadmin (tenant: ${tenantId}, user: ${userId}, version: ${newVersion})`);
+    logger.info(`Framework config updated successfully by superadmin (tenant: ${tenantId}, user: ${userId}, version: ${newVersion})`);
 
     return res.json({
       success: true,
@@ -135,7 +135,7 @@ router.put('/', requireRole('superadmin'), async (req: Request, res: Response) =
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update framework configuration';
-    console.error('Update framework error:', {
+    logger.error('Update framework error:', {
       error,
       tenantId: req.user?.tenantId,
       userId: req.user?.id
@@ -162,7 +162,7 @@ router.get('/history', requireRole('superadmin'), async (req: Request, res: Resp
       return res.status(403).json({ error: 'Tenant access required' });
     }
 
-    console.log(`Framework history accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+    logger.info(`Framework history accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     // Framework history is global but we audit the access per tenant
     const configs = await db.select()
@@ -185,7 +185,7 @@ router.get('/history', requireRole('superadmin'), async (req: Request, res: Resp
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework history';
-    console.error('Get framework history error:', {
+    logger.error('Get framework history error:', {
       error,
       tenantId: req.user?.tenantId,
       userId: req.user?.id
@@ -219,7 +219,7 @@ router.get('/version/:version', requireRole('superadmin'), async (req: Request, 
       });
     }
 
-    console.log(`Framework version ${version} accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+    logger.info(`Framework version ${version} accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     const configs = await db.select()
       .from(frameworkConfig)
@@ -246,7 +246,7 @@ router.get('/version/:version', requireRole('superadmin'), async (req: Request, 
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework version';
-    console.error('Get framework version error:', {
+    logger.error('Get framework version error:', {
       error,
       tenantId: req.user?.tenantId,
       userId: req.user?.id,
@@ -273,7 +273,7 @@ router.get('/audit', requireRole('superadmin'), async (req: Request, res: Respon
       return res.status(403).json({ error: 'Tenant access required' });
     }
 
-    console.log(`Framework audit accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
+    logger.info(`Framework audit accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
     // In a full implementation, this would query an audit log table
     // For now, we return a placeholder that shows the pattern
@@ -286,7 +286,7 @@ router.get('/audit', requireRole('superadmin'), async (req: Request, res: Respon
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework audit';
-    console.error('Get framework audit error:', {
+    logger.error('Get framework audit error:', {
       error,
       tenantId: req.user?.tenantId,
       userId: req.user?.id

@@ -426,8 +426,8 @@ VALIDATION RULES:
 
       return JSON.parse(cleanJson) as Record<string, unknown>;
     } catch (error) {
-      console.error('❌ [KNOWLEDGE ENGINE] Failed to parse output:', error);
-      console.error('📄 [KNOWLEDGE ENGINE] Response preview:', response.substring(0, 500));
+      logger.error('❌ [KNOWLEDGE ENGINE] Failed to parse output:', error);
+      logger.error('📄 [KNOWLEDGE ENGINE] Response preview:', response.substring(0, 500));
 
       // Fallback: treat response as text context
       return {
@@ -449,9 +449,9 @@ VALIDATION RULES:
 
       return JSON.parse(cleanJson) as Record<string, unknown>;
     } catch (error) {
-      console.error('❌ [DATA ENGINE] Failed to parse output:', error);
-      console.error('📄 [DATA ENGINE] Response preview:', response.substring(0, 500));
-      console.error('📄 [DATA ENGINE] Response length:', response.length);
+      logger.error('❌ [DATA ENGINE] Failed to parse output:', error);
+      logger.error('📄 [DATA ENGINE] Response preview:', response.substring(0, 500));
+      logger.error('📄 [DATA ENGINE] Response length:', response.length);
 
       // Return structured fallback that allows processing to continue
       return {
@@ -480,8 +480,8 @@ VALIDATION RULES:
 
       return JSON.parse(cleanJson) as Record<string, unknown>;
     } catch (error) {
-      console.error('❌ [REASONING ENGINE] Failed to parse output:', error);
-      console.error('📄 [REASONING ENGINE] Response preview:', response.substring(0, 500));
+      logger.error('❌ [REASONING ENGINE] Failed to parse output:', error);
+      logger.error('📄 [REASONING ENGINE] Response preview:', response.substring(0, 500));
 
       // Return structured fallback
       return {
@@ -565,7 +565,7 @@ VALIDATION RULES:
 
     // Check for reasonable length (prevent extremely large responses that might timeout)
     if (jsonStr.length > 100000) {
-      console.warn(`⚠️ [${engineName}] Response is very large (${jsonStr.length} chars)`);
+      logger.warn(`⚠️ [${engineName}] Response is very large (${jsonStr.length} chars)`);
     }
   }
 
@@ -637,9 +637,9 @@ VALIDATION RULES:
         await db.insert(cylinderScores).values(cylinderData);
       }
 
-      console.log('Culture analysis results saved successfully for tenant:', output.tenantId);
+      logger.info('Culture analysis results saved successfully for tenant:', output.tenantId);
     } catch (error) {
-      console.error('Failed to save culture analysis results:', error);
+      logger.error('Failed to save culture analysis results:', error);
       throw new Error(`Failed to save culture analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -846,7 +846,7 @@ VALIDATION RULES:
       taggedValues[idx]?.source === 'desired'
     );
 
-    console.log(`✅ [OPTIMIZATION] Reduced from 9 to 3 engine calls for employee ${employeeId}`);
+    logger.info(`✅ [OPTIMIZATION] Reduced from 9 to 3 engine calls for employee ${employeeId}`);
 
     // Calculate cylinder scores based on value distribution
     const cylinderScores: Record<number, number> = {};
