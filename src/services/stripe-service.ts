@@ -4,6 +4,7 @@ import { db } from '../../db/index';
 import { subscriptions, payments, demoRequests } from '../../db/schema/payments';
 import { eq } from 'drizzle-orm';
 import { emailService } from './email';
+import { logger } from './logger';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
@@ -143,7 +144,7 @@ export class StripeService {
       };
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Stripe checkout session creation failed:', error);
+        logger.error('Stripe checkout session creation failed:', error);
         throw new Error(error.message || 'Failed to create checkout session');
       }
       throw new Error('Failed to create checkout session');
@@ -184,7 +185,7 @@ export class StripeService {
 
       // Enterprise plan doesn't have standard pricing
       if (plan === 'enterprise' || !('annual' in planConfig) || !('monthly' in planConfig)) {
-        console.error('Enterprise plan should not go through standard checkout');
+        logger.error('Enterprise plan should not go through standard checkout');
         return;
       }
 
@@ -243,16 +244,16 @@ export class StripeService {
         });
       } catch (emailError: unknown) {
         if (emailError instanceof Error) {
-          console.error('Failed to send payment success email:', emailError);
+          logger.error('Failed to send payment success email:', emailError);
         } else {
-          console.error('Failed to send payment success email:', emailError);
+          logger.error('Failed to send payment success email:', emailError);
         }
       }
 
-      console.log(`✅ Checkout complete: Demo ${demoRequestId} → Tenant ${tenantId}`);
+      logger.info(`✅ Checkout complete: Demo ${demoRequestId} → Tenant ${tenantId}`);
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Checkout completion handling failed:', error);
+        logger.error('Checkout completion handling failed:', error);
         throw error;
       }
       throw new Error('Checkout completion handling failed');
@@ -271,7 +272,7 @@ export class StripeService {
         .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
       if (!existingSub) {
-        console.log(`Subscription ${subscription.id} not found in database, skipping update`);
+        logger.info(`Subscription ${subscription.id} not found in database, skipping update`);
         return;
       }
 
@@ -286,10 +287,10 @@ export class StripeService {
         })
         .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
-      console.log(`✅ Subscription ${subscription.id} updated to status: ${subscription.status}`);
+      logger.info(`✅ Subscription ${subscription.id} updated to status: ${subscription.status}`);
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Subscription update handling failed:', error);
+        logger.error('Subscription update handling failed:', error);
         throw error;
       }
       throw new Error('Subscription update handling failed');
@@ -304,7 +305,7 @@ export class StripeService {
       const subscriptionId = invoice.subscription as string;
 
       if (!subscriptionId) {
-        console.log('Invoice has no subscription, skipping');
+        logger.info('Invoice has no subscription, skipping');
         return;
       }
 
@@ -315,7 +316,7 @@ export class StripeService {
         .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
 
       if (!sub) {
-        console.log(`Subscription ${subscriptionId} not found`);
+        logger.info(`Subscription ${subscriptionId} not found`);
         return;
       }
 
@@ -346,16 +347,16 @@ export class StripeService {
         }
       } catch (emailError: unknown) {
         if (emailError instanceof Error) {
-          console.error('Failed to send payment failed email:', emailError);
+          logger.error('Failed to send payment failed email:', emailError);
         } else {
-          console.error('Failed to send payment failed email:', emailError);
+          logger.error('Failed to send payment failed email:', emailError);
         }
       }
 
-      console.log(`⚠️ Payment failed for subscription ${subscriptionId}`);
+      logger.info(`⚠️ Payment failed for subscription ${subscriptionId}`);
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Invoice payment failure handling failed:', error);
+        logger.error('Invoice payment failure handling failed:', error);
         throw error;
       }
       throw new Error('Invoice payment failure handling failed');
@@ -391,7 +392,7 @@ export class StripeService {
       return session;
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Failed to retrieve checkout session:', error);
+        logger.error('Failed to retrieve checkout session:', error);
         throw new Error('Failed to retrieve checkout session');
       }
       throw new Error('Failed to retrieve checkout session');
@@ -431,7 +432,7 @@ export class StripeService {
       return stripeSubscription;
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Failed to cancel subscription:', error);
+        logger.error('Failed to cancel subscription:', error);
         throw new Error('Failed to cancel subscription');
       }
       throw new Error('Failed to cancel subscription');
@@ -443,7 +444,7 @@ export class StripeService {
    */
   async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     try {
-      console.log(`✅ Invoice payment succeeded: ${invoice.id}`);
+      logger.info(`✅ Invoice payment succeeded: ${invoice.id}`);
 
       // Update subscription status if needed
       if (invoice.subscription) {
@@ -469,12 +470,12 @@ export class StripeService {
             }
           });
         } catch (emailError: unknown) {
-          console.error('Failed to send payment receipt email:', emailError);
+          logger.error('Failed to send payment receipt email:', emailError);
         }
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Failed to handle invoice payment succeeded:', error);
+        logger.error('Failed to handle invoice payment succeeded:', error);
         throw error;
       }
       throw new Error('Failed to handle invoice payment succeeded');
@@ -486,16 +487,16 @@ export class StripeService {
    */
   async handleCustomerCreated(customer: Stripe.Customer): Promise<void> {
     try {
-      console.log(`👤 New customer created: ${customer.id}`);
+      logger.info(`👤 New customer created: ${customer.id}`);
       // Log customer creation for audit
-      console.info('Stripe customer created', {
+      logger.info('Stripe customer created', {
         customerId: customer.id,
         email: customer.email,
         name: customer.name,
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Failed to handle customer created:', error);
+        logger.error('Failed to handle customer created:', error);
         throw error;
       }
       throw new Error('Failed to handle customer created');
@@ -507,16 +508,16 @@ export class StripeService {
    */
   async handleCustomerUpdated(customer: Stripe.Customer): Promise<void> {
     try {
-      console.log(`👤 Customer updated: ${customer.id}`);
+      logger.info(`👤 Customer updated: ${customer.id}`);
       // Log customer update for audit
-      console.info('Stripe customer updated', {
+      logger.info('Stripe customer updated', {
         customerId: customer.id,
         email: customer.email,
         name: customer.name,
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Failed to handle customer updated:', error);
+        logger.error('Failed to handle customer updated:', error);
         throw error;
       }
       throw new Error('Failed to handle customer updated');
@@ -527,7 +528,7 @@ export class StripeService {
    * Main webhook handler - Routes events to specific handlers
    */
   async handleWebhook(event: Stripe.Event): Promise<void> {
-    console.log(`📥 Received webhook: ${event.type}`);
+    logger.info(`📥 Received webhook: ${event.type}`);
 
     try {
       switch (event.type) {
@@ -548,15 +549,15 @@ export class StripeService {
           break;
 
         case 'invoice.payment_succeeded':
-          console.log(`✅ Invoice payment succeeded: ${(event.data.object as Stripe.Invoice).id}`);
+          logger.info(`✅ Invoice payment succeeded: ${(event.data.object as Stripe.Invoice).id}`);
           break;
 
         default:
-          console.log(`ℹ️ Unhandled webhook event type: ${event.type}`);
+          logger.info(`ℹ️ Unhandled webhook event type: ${event.type}`);
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error(`❌ Webhook handler error for ${event.type}:`, error);
+        logger.error(`❌ Webhook handler error for ${event.type}:`, error);
         throw error;
       }
       throw new Error('Webhook handler error');
