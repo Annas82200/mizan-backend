@@ -11,6 +11,7 @@ import { ThreeEngineAgent, ThreeEngineConfig } from '../base/three-engine-agent'
 import { db } from '../../../../db/index';
 import { tenants, cultureReports, cylinderScores } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../../logger';
 
 // ============================================================================
 // INTERFACES

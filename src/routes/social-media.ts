@@ -1,10 +1,17 @@
 import { Router, Response } from 'express';
+
 import { z } from 'zod';
+
 import { db } from '../../db/index';
+
 import { socialMediaPosts, socialMediaCampaigns, socialMediaAccounts } from '../../db/schema/social-media';
+
 import { eq, and, desc } from 'drizzle-orm';
+
 import { authenticate } from '../middleware/auth';
+
 import { Request } from 'express';
+
 
 // Define AuthenticatedRequest interface - matches AuthenticatedUser from middleware
 interface AuthenticatedRequest extends Request {
@@ -19,8 +26,12 @@ interface AuthenticatedRequest extends Request {
   };
 }
 import { randomUUID } from 'crypto';
+
 import { LinkedInService } from '../services/linkedin-service';
+
 import { SocialMediaContentGenerator } from '../services/social-media/content-generator';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 

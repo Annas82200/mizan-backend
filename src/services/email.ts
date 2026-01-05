@@ -1,6 +1,7 @@
 // server/services/email.ts
 
 import sgMail from '@sendgrid/mail';
+import { logger } from './logger';
 
 // Initialize SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);

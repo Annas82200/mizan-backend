@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db/index';
 import { tenants } from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../services/logger';
 
 export interface ModuleAccess {
   canAccessModule: boolean;

@@ -1,8 +1,14 @@
 import { Router } from 'express';
+
 import { talentAgent, TalentTriggerSchema } from '../services/agents/talent/talent-agent';
+
 import { authenticate, authorize } from '../middleware/auth';
+
 import { validateTenantAccess } from '../middleware/tenant';
+
 import { z } from 'zod';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 

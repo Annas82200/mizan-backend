@@ -16,6 +16,7 @@ import { users } from '../../db/schema/core';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { SkillsAgent } from '../agents/skills/skills-agent';
+import { logger } from '../logger';
 
 // Define BotResponse type
 interface BotResponse {

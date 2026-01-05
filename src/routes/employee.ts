@@ -1,10 +1,15 @@
 // backend/src/routes/employee.ts
 
 import { Router } from 'express';
+
 import { z } from 'zod';
+
 import { authenticate } from '../middleware/auth';
+
 import { requireTenant } from '../middleware/tenant';
+
 import { db } from '../../db/index';
+
 import {
   cultureAssessments,
   employeeProfiles,
@@ -13,6 +18,8 @@ import {
   departments
 } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { logger } from '../services/logger';
+
 
 // Mizan Production-Ready Types
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Strict TypeScript types

@@ -4,6 +4,7 @@ import { db } from '../../../db/index';
 import { automatedFlows, flowExecutions } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { logger } from '../logger';
 
 interface FlowStepConfig {
   triggerType?: string;

@@ -1,9 +1,15 @@
 import { Router, Request, Response } from 'express';
+
 import { authenticate } from '../middleware/auth';
+
 // import { validateTenantAccess } from '../middleware/tenant';
 import { db } from '../../db/index';
+
 import { orgStructures } from '../db/schema/core';
+
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 router.use(authenticate);

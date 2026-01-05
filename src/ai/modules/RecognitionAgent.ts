@@ -1,4 +1,5 @@
 import { ThreeEngineAgent, ThreeEngineConfig } from '../../services/agents/base/three-engine-agent';
+import { logger } from '../../services/logger';
 
 // ============================================================================
 // RECOGNITION AGENT - Analyzes employee recognition needs and patterns

@@ -17,6 +17,7 @@ import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { Assessment } from '../../../types/agent-types';
 // ✅ PRODUCTION (Phase 4): Import JSONB validation schemas
 import { LearningDesignSchema, LXPStatusSchema, type LearningDesign, type LXPStatus } from '../../../validation/jsonb-schemas';
+import { logger } from '../../logger';
 
 // Strict TypeScript Interfaces
 interface SkillsGapTriggerData {

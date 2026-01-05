@@ -7,6 +7,7 @@ import { DataEngine } from '../../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../../ai/engines/ReasoningEngine';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { logger } from '../../logger';
 
 // Zod schemas for Talent Agent
 export const TalentTriggerSchema = z.object({

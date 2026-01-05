@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod';
+import { logger } from '../services/logger';
 
 // ============================================================================
 // 1. ORGANIZATION STRUCTURE SCHEMAS

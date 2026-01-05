@@ -1,6 +1,7 @@
 // server/services/results/unified-results.ts
 
 import { ArchitectAIResult } from '../orchestrator/architect-ai';
+import { logger } from '../logger';
 
 export interface UnifiedResults {
   overall_health_score: number;

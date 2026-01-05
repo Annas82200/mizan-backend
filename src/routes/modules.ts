@@ -1,12 +1,20 @@
 // backend/src/routes/modules.ts
 
 import { Router } from 'express';
+
 import { z } from 'zod';
+
 import { authenticate, authorize } from '../middleware/auth';
+
 import { validateTenantAccess } from '../middleware/tenant';
+
 import { db } from '../../db/index';
+
 import { performanceReviews } from '../../db/schema';
+
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 

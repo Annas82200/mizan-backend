@@ -1,4 +1,5 @@
 import { ThreeEngineAgent, ThreeEngineConfig, AnalysisResult } from '../base/three-engine-agent';
+import { logger } from '../../logger';
 
 // ============================================================================
 // ENGAGEMENT AGENT - Analyzes employee engagement levels and factors

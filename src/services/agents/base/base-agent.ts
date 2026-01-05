@@ -4,6 +4,7 @@ import { OpenAI } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
+import { logger } from '../../logger';
 
 interface AnalysisResult {
   provider: string;

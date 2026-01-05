@@ -6,6 +6,8 @@
  * while maintaining UUID relationships in the database
  */
 
+import { logger } from '../services/logger';
+
 /**
  * Convert a UUID string to a consistent numeric ID
  * Uses a hash function to ensure the same UUID always produces the same number

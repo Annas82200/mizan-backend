@@ -3,6 +3,7 @@ import axios from 'axios';
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2';
 
+import { logger } from './logger';
 export interface LinkedInProfile {
   id: string;
   firstName: string;

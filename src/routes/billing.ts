@@ -10,6 +10,7 @@ import { tenants } from "../../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { stripeService } from "../services/stripe-service";
 import Stripe from 'stripe';
+import { logger } from '../services/logger';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',

@@ -8,6 +8,7 @@ import { KnowledgeEngine, DomainContext } from '../../ai/engines/KnowledgeEngine
 import { db } from '../../../db';
 import { frameworkConfig, socialMediaPosts } from '../../db/schema';
 import { eq, desc, and, gte } from 'drizzle-orm';
+import { logger } from '../logger';
 
 interface SocialMediaContext extends DomainContext {
   platformBestPractices: PlatformPractices;

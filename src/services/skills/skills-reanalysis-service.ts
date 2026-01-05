@@ -15,6 +15,7 @@ import {
 import { eq, and, gt, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
+import { logger } from '../logger';
 
 interface ReAnalysisTriggerConfig {
   enabled: boolean;

@@ -6,6 +6,7 @@
 
 import { EnsembleAI } from '../ai-providers/ensemble';
 import { ProviderCall, ProviderResponse } from '../ai-providers/types';
+import { logger } from '../logger';
 
 export interface GenerationOptions {
   temperature?: number;

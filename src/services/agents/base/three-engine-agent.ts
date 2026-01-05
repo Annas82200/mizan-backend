@@ -1,5 +1,6 @@
 import { EnsembleAI } from '../../ai-providers/ensemble';
 import { ProviderCall, ProviderResponse, EnsembleConfig, EngineType } from '../../ai-providers/types';
+import { logger } from '../../logger';
 
 export type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'claude' | 'gpt-4' | 'cohere' | string;
 

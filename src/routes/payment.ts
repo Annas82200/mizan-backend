@@ -1,11 +1,19 @@
 // backend/src/routes/payment.ts
 import { Router, Request, Response } from 'express';
+
 import { stripeService } from '../services/stripe-service';
+
 import { authenticate } from '../middleware/auth';
+
 import { validateTenantAccess } from '../middleware/tenant';
+
 import { db } from '../../db/index';
+
 import { demoRequests, subscriptions, paymentSessions } from '../../db/schema/payments';
+
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 

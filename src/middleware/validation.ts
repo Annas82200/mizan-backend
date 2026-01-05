@@ -6,6 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodError, ZodSchema } from 'zod';
+import { logger } from '../services/logger';
 
 /**
  * Generic validation middleware factory

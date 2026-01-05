@@ -1,6 +1,7 @@
 import { SocialKnowledgeEngine, PostMetrics } from './social-knowledge-engine';
 import { DataEngine } from '../../ai/engines/DataEngine';
 import { ReasoningEngine } from '../../ai/engines/ReasoningEngine';
+import { logger } from '../logger';
 
 interface ContentGenerationRequest {
   platform: 'linkedin' | 'twitter' | 'facebook' | 'instagram';

@@ -2,6 +2,7 @@
 type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'mistral';
 import { EngineType, ProviderCall, ProviderResponse, EnsembleConfig } from "./types";
 import { invokeProvider } from "./router";
+import { logger } from '../logger';
 
 export class EnsembleAI {
   private config: EnsembleConfig;

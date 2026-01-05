@@ -2,6 +2,7 @@
 
 import { OpenAI } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { logger } from '../logger';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import MistralClient from "@mistralai/mistralai";
 import { ProviderResponse, AIProviderKey, EngineType } from './types';

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db/index';
 import { tenants, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../services/logger';
 
 // Extend Request interface to include tenant information
 declare global {

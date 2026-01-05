@@ -15,6 +15,7 @@ import {
   type LXPTrigger,
   type Recommendation,
 } from '../../validation/jsonb-schemas';
+import { logger } from '../logger';
 
 interface OrgChartData {
   employees?: Array<{

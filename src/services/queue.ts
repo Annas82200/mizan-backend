@@ -1,6 +1,7 @@
 // server/services/queue.ts
 // BullMQ v5 implementation with separate Queue (producer) and Worker (consumer) instances
 
+import { logger } from './logger';
 import { Queue, Worker, Job } from 'bullmq';
 import { db } from '../../db/index';
 import { analyses, triggerExecutions } from '../../db/schema';

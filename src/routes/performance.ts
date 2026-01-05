@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
+
 import { authenticate } from '../middleware/auth';
+
 import { db } from '../../db/index';
+
 import {
   performanceGoals,
   performanceReviews,
@@ -9,6 +12,8 @@ import {
   performanceCalibrations
 } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { logger } from '../services/logger';
+
 
 const router = Router();
 

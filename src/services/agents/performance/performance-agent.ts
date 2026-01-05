@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import { cultureAgent } from '../culture/culture-agent';
 import { skillsAgent, type SkillsAnalysisResult, type SkillCategoryAnalysis, type SkillsAnalysisInput } from '../skills/skills-agent';
 import { performanceGoalsPersistenceService } from '../../performance/performance-goals-persistence';
+import { logger } from '../../logger';
 
 // Zod schemas for validation, derived from db/schema/performance.ts and AGENT_CONTEXT_ULTIMATE.md
 // This ensures type safety and compliance.

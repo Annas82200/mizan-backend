@@ -6,6 +6,7 @@ import { users, sessions, tenants } from "../db/schema";
 import { z } from "zod";
 import crypto from 'crypto';
 import { config } from '../config';
+import { logger } from './logger';
 
 // ✅ PRODUCTION: Use validated config, no fallback secrets
 const JWT_SECRET = config.JWT_SECRET;

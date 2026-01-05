@@ -7,6 +7,7 @@ import { db } from '../../../db/index';
 import { agentAnalyses, triggers, cultureAssessments as cultureAssessmentsTable } from '../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { MizanAgent } from '../../types/agent-types';
+import { logger } from '../logger';
 
 // Unified agent output type
 interface UnifiedAgentOutput {

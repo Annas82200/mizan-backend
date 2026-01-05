@@ -8,6 +8,7 @@ import { cultureReports, cultureAssessments, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { CultureAgentV2 } from '../services/agents/culture/culture-agent';
+import { logger } from '../services/logger';
 
 /**
  * Type definitions for culture helpers - production-ready typed interfaces
