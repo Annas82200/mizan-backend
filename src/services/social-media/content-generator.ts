@@ -114,7 +114,7 @@ export class SocialMediaContentGenerator {
         visualSuggestions
       };
     } catch (error) {
-      console.error('Content generation error:', error);
+      logger.error('Content generation error:', error);
       throw new Error('Failed to generate content using AI engines');
     }
   }

@@ -73,7 +73,7 @@ export class EnsembleAI {
       // Allow small floating point precision errors (e.g., 0.799999... vs 0.8)
       const CONFIDENCE_TOLERANCE = 0.001;
       if (response.confidence < (threshold - CONFIDENCE_TOLERANCE)) {
-        console.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
+        logger.warn(`Provider ${provider} confidence too low: ${response.confidence}`, {
           threshold,
           tolerance: CONFIDENCE_TOLERANCE,
           effectiveThreshold: threshold - CONFIDENCE_TOLERANCE,
@@ -90,7 +90,7 @@ export class EnsembleAI {
 
       return response;
     } catch (error) {
-      console.error(`Provider ${provider} failed:`, error);
+      logger.error(`Provider ${provider} failed:`, error);
       return null;
     }
   }

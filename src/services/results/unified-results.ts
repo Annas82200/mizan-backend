@@ -57,7 +57,7 @@ export interface ActionItem {
 }
 
 export async function buildUnifiedResults(architectResult: ArchitectAIResult): Promise<UnifiedResults> {
-  console.log('Building unified results from Architect AI output');
+  logger.info('Building unified results from Architect AI output');
   
   try {
     // Calculate overall health score
@@ -101,12 +101,12 @@ export async function buildUnifiedResults(architectResult: ArchitectAIResult): P
       confidence_score: architectResult.confidence
     };
     
-    console.log(`Unified results built with health score: ${overall_health_score}`);
+    logger.info(`Unified results built with health score: ${overall_health_score}`);
     
     return unifiedResults;
     
   } catch (error) {
-    console.error('Failed to build unified results:', error);
+    logger.error('Failed to build unified results:', error);
     throw error;
   }
 }

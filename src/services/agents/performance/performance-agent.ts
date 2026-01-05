@@ -294,7 +294,7 @@ class PerformanceAgent {
             // Extract and return high-priority recommendations or goals from the analysis
             return cultureAnalysis;
         } catch (error) {
-            console.error('Error getting culture priorities:', error);
+            logger.error('Error getting culture priorities:', error);
             return { recommendations: { immediate: [] } };
         }
     }
@@ -311,7 +311,7 @@ class PerformanceAgent {
             const skillsAnalysis = await skillsAgent.analyzeSkills(skillsInput);
             return skillsAnalysis;
         } catch (error) {
-            console.error('Error getting skills gaps:', error);
+            logger.error('Error getting skills gaps:', error);
             // Return a default/empty result that matches the type
             const defaultSkillCategory: SkillCategoryAnalysis = {
                 score: 0,
@@ -601,7 +601,7 @@ Respond in JSON format:
             };
 
         } catch (error) {
-            console.error('Error handling performance bot query:', error);
+            logger.error('Error handling performance bot query:', error);
             return {
                 answer: 'I apologize, but I encountered an error processing your query. Please try rephrasing or contact support.',
                 intent: 'error',
@@ -670,7 +670,7 @@ Respond in JSON format:
                 } : null
             };
         } catch (error) {
-            console.error('Error fetching bot context:', error);
+            logger.error('Error fetching bot context:', error);
             return {
                 activeGoalsCount: 0,
                 completedGoalsCount: 0,
@@ -771,7 +771,7 @@ Respond in JSON format:
                 recommendations
             };
         } catch (error) {
-            console.error('Error fetching employee performance analytics:', error);
+            logger.error('Error fetching employee performance analytics:', error);
             throw error;
         }
     }

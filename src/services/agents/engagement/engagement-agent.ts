@@ -471,7 +471,7 @@ Return ONLY valid JSON with these exact fields. Be empathetic and specific.`;
     try {
       return JSON.parse(response) as Record<string, unknown>;
     } catch (error) {
-      console.error('Failed to parse Data Engine output:', error);
+      logger.error('Failed to parse Data Engine output:', error);
       return {
         factors: [],
         drivers: [],
@@ -486,7 +486,7 @@ Return ONLY valid JSON with these exact fields. Be empathetic and specific.`;
     try {
       return JSON.parse(response);
     } catch (error) {
-      console.error('Failed to parse Reasoning Engine output:', error);
+      logger.error('Failed to parse Reasoning Engine output:', error);
       return {
         interpretation: 'Engagement analysis completed but formatting error occurred.',
         factors: [],

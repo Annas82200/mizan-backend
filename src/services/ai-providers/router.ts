@@ -152,7 +152,7 @@ class AIProviderRouter {
         } : undefined
       };
     } catch (error) {
-      console.error('OpenAI invocation failed:', error);
+      logger.error('OpenAI invocation failed:', error);
       throw error;
     }
   }
@@ -188,7 +188,7 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Anthropic invocation failed:', error);
+      logger.error('Anthropic invocation failed:', error);
       throw error;
     }
   }
@@ -236,7 +236,7 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Gemini invocation failed:', error);
+      logger.error('Gemini invocation failed:', error);
       throw error;
     }
   }
@@ -283,7 +283,7 @@ class AIProviderRouter {
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Mistral invocation failed:', error);
+      logger.error('Mistral invocation failed:', error);
       throw error;
     }
   }

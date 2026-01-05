@@ -38,9 +38,9 @@ export class EmailService {
       };
 
       await sgMail.send(msg);
-      console.log(`Email sent successfully to ${emailData.to}`);
+      logger.info(`Email sent successfully to ${emailData.to}`);
     } catch (error) {
-      console.error('Email sending failed:', error);
+      logger.error('Email sending failed:', error);
       throw error;
     }
   }

@@ -91,7 +91,7 @@ export abstract class ThreeEngineAgent {
         totalProcessingTime
       };
     } catch (error) {
-      console.error(`${this.agentType} analysis failed:`, error);
+      logger.error(`${this.agentType} analysis failed:`, error);
       throw error;
     }
   }

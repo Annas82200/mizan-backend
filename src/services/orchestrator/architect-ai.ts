@@ -188,7 +188,7 @@ export interface ArchitectAIResult {
 }
 
 export async function runArchitectAI(input: ArchitectAIInput): Promise<ArchitectAIResult> {
-  console.log(`Running Architect AI for tenant ${input.tenantId}, company ${input.companyId}`);
+  logger.info(`Running Architect AI for tenant ${input.tenantId}, company ${input.companyId}`);
   
   try {
     // Get company data if not provided
@@ -262,12 +262,12 @@ export async function runArchitectAI(input: ArchitectAIInput): Promise<Architect
       confidence
     };
     
-    console.log(`Architect AI completed with health score: ${overall_health_score}`);
+    logger.info(`Architect AI completed with health score: ${overall_health_score}`);
     
     return result;
     
   } catch (error) {
-    console.error('Architect AI failed:', error);
+    logger.error('Architect AI failed:', error);
     throw error;
   }
 }
@@ -358,7 +358,7 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
       }))
     };
   } catch (error) {
-    console.error('Structure analysis failed:', error);
+    logger.error('Structure analysis failed:', error);
     return null;
   }
 }
@@ -390,7 +390,7 @@ async function runCultureAnalysis(agent: CultureAgentV2, input: ArchitectAIInput
       }))
     };
   } catch (error) {
-    console.error('Culture analysis failed:', error);
+    logger.error('Culture analysis failed:', error);
     return null;
   }
 }
@@ -467,7 +467,7 @@ async function runSkillsAnalysis(agent: SkillsAgent, input: ArchitectAIInput): P
       }) || []
     };
   } catch (error) {
-    console.error('Skills analysis failed:', error);
+    logger.error('Skills analysis failed:', error);
     return null;
   }
 }

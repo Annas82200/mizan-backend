@@ -108,7 +108,7 @@ export async function comparePasswords(password: string, hash: string): Promise<
     try {
         return await bcrypt.compare(password, hash);
     } catch (error: unknown) {
-        console.error('Password comparison error:', error);
+        logger.error('Password comparison error:', error);
         return false;
     }
 }
@@ -161,13 +161,13 @@ export function verifyToken(token: string): { userId: string; tenantId?: string;
     }
 
     // Payload validation failed
-    console.error('Token verification failed - invalid payload structure:', {
+    logger.error('Token verification failed - invalid payload structure:', {
       modernErrors: modernResult.error.errors,
       legacyErrors: legacyResult.error.errors
     });
     return null;
   } catch (error) {
-    console.error('Token verification failed - JWT error:', error instanceof Error ? error.message : 'Unknown error');
+    logger.error('Token verification failed - JWT error:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }

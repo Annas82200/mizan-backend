@@ -207,7 +207,7 @@ export class SkillsReAnalysisService {
       .limit(1);
 
     if (existingPending.length > 0) {
-      console.log(`[Skills Re-Analysis] Pending request already exists for employee ${employeeId}, skipping`);
+      logger.info(`[Skills Re-Analysis] Pending request already exists for employee ${employeeId}, skipping`);
       return;
     }
 
@@ -232,7 +232,7 @@ export class SkillsReAnalysisService {
       reason
     });
 
-    console.log(`[Skills Re-Analysis] Queued re-analysis for employee ${employeeId}, reason: ${reason}`);
+    logger.info(`[Skills Re-Analysis] Queued re-analysis for employee ${employeeId}, reason: ${reason}`);
   }
 
   private async getLastAnalysis(employeeId: string, tenantId: string) {

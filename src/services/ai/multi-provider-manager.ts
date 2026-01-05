@@ -101,7 +101,7 @@ export class MultiProviderManager {
           return response.narrative;
         }
       } catch (error) {
-        console.warn(`Provider ${provider} failed, trying next provider:`, error);
+        logger.warn(`Provider ${provider} failed, trying next provider:`, error);
         // Continue to next provider
       }
     }

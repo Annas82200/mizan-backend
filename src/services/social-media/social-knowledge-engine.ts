@@ -160,7 +160,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
       
       return framework;
     } catch (error) {
-      console.error('Error loading framework:', error);
+      logger.error('Error loading framework:', error);
       return this.getDefaultFramework();
     }
   }
@@ -177,7 +177,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
         .limit(1);
 
       if (!post) {
-        console.error('Post not found for learning:', postId);
+        logger.error('Post not found for learning:', postId);
         return;
       }
 
@@ -211,7 +211,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
         this.performanceHistory = this.performanceHistory.slice(-100);
       }
     } catch (error) {
-      console.error('Error learning from performance:', error);
+      logger.error('Error learning from performance:', error);
     }
   }
 

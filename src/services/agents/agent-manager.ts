@@ -242,7 +242,7 @@ export class AgentManager {
       };
 
     } catch (error) {
-      console.error(`Agent analysis failed for ${request.agentType}:`, error);
+      logger.error(`Agent analysis failed for ${request.agentType}:`, error);
       
       // Store failed analysis
       await db.insert(agentAnalyses).values({
@@ -439,7 +439,7 @@ export class AgentManager {
     // Recommendations persistence - Production ready
     // Note: Returns empty array until recommendations table schema is migrated
     // Compliant with AGENT_CONTEXT_ULTIMATE.md - NO TODO comments
-    console.log(`Generated ${recommendationRecords.length} recommendations from ${agentType} agent`);
+    logger.info(`Generated ${recommendationRecords.length} recommendations from ${agentType} agent`);
     return [];
   }
 }

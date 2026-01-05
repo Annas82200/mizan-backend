@@ -121,7 +121,7 @@ Your response must be:
         confidence: this.extractConfidence(response.choices[0].message.content!)
       };
     } catch (error) {
-      console.error('OpenAI analysis failed:', error);
+      logger.error('OpenAI analysis failed:', error);
       throw error;
     }
   }
@@ -153,7 +153,7 @@ Your response must be:
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Anthropic analysis failed:', error);
+      logger.error('Anthropic analysis failed:', error);
       throw error;
     }
   }
@@ -179,7 +179,7 @@ Your response must be:
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Gemini analysis failed:', error);
+      logger.error('Gemini analysis failed:', error);
       throw error;
     }
   }
@@ -203,7 +203,7 @@ Your response must be:
         confidence: this.extractConfidence(content)
       };
     } catch (error) {
-      console.error('Mistral analysis failed:', error);
+      logger.error('Mistral analysis failed:', error);
       throw error;
     }
   }
@@ -391,7 +391,7 @@ export abstract class MizanAgent extends BaseAgent {
     analysisPrompt: string
   ): Promise<Record<string, unknown>> {
     // Log the analysis for audit
-    console.log(`Executing ${analysisName} for tenant ${this.tenantId}`);
+    logger.info(`Executing ${analysisName} for tenant ${this.tenantId}`);
     
     // Validate input data
     if (!data || Object.keys(data).length === 0) {
@@ -405,7 +405,7 @@ export abstract class MizanAgent extends BaseAgent {
     if (typeof data !== 'string' && typeof consensus.finalResult !== 'string') {
       const dataRecord = data as Record<string, unknown>;
       if (!this.validateFactBased(consensus.finalResult, dataRecord)) {
-        console.warn(`Analysis may contain assumptions: ${analysisName}`);
+        logger.warn(`Analysis may contain assumptions: ${analysisName}`);
       }
     }
     

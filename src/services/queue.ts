@@ -144,15 +144,15 @@ const workers = [analysisWorker, hiringWorker, socialMediaWorker, emailWorker, n
 
 workers.forEach(worker => {
   worker.on('completed', (job) => {
-    console.log(`Job ${job.id} completed successfully`);
+    logger.info(`Job ${job.id} completed successfully`);
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err);
+    logger.error(`Job ${job?.id} failed:`, err);
   });
 
   worker.on('error', (err) => {
-    console.error('Worker error:', err);
+    logger.error('Worker error:', err);
   });
 });
 
@@ -248,7 +248,7 @@ export async function addNotificationJob(data: NotificationJobData) {
 
 // Graceful shutdown
 export async function shutdownQueues() {
-  console.log('Shutting down queues and workers...');
+  logger.info('Shutting down queues and workers...');
 
   await Promise.all([
     // Close workers
@@ -265,5 +265,5 @@ export async function shutdownQueues() {
     queues.notifications.close(),
   ]);
 
-  console.log('All queues and workers shut down');
+  logger.info('All queues and workers shut down');
 }

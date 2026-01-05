@@ -29,7 +29,7 @@ export class LinkedInService {
     this.accessToken = accessToken || process.env.LINKEDIN_ACCESS_TOKEN || '';
 
     if (!this.accessToken) {
-      console.warn('⚠️  LINKEDIN_ACCESS_TOKEN not configured');
+      logger.warn('⚠️  LINKEDIN_ACCESS_TOKEN not configured');
     }
   }
 
@@ -88,7 +88,7 @@ export class LinkedInService {
       };
     } catch (error) {
       const e = error as { response?: { data?: { error_description?: string; message?: string } }; message?: string };
-      console.error('LinkedIn token exchange error:', e.response?.data || e.message);
+      logger.error('LinkedIn token exchange error:', e.response?.data || e.message);
       throw new Error(`Failed to get LinkedIn access token: ${e.response?.data?.error_description || e.message}`);
     }
   }
@@ -117,7 +117,7 @@ export class LinkedInService {
       };
     } catch (error) {
       const e = error as { response?: { data?: { message?: string } }; message?: string };
-      console.error('LinkedIn getProfile error:', e.response?.data || e.message);
+      logger.error('LinkedIn getProfile error:', e.response?.data || e.message);
       throw new Error(`Failed to fetch LinkedIn profile: ${e.response?.data?.message || e.message}`);
     }
   }
@@ -173,7 +173,7 @@ export class LinkedInService {
       };
     } catch (error) {
       const e = error as { response?: { data?: { message?: string } }; message?: string };
-      console.error('LinkedIn createPost error:', e.response?.data || e.message);
+      logger.error('LinkedIn createPost error:', e.response?.data || e.message);
       throw new Error(`Failed to create LinkedIn post: ${e.response?.data?.message || e.message}`);
     }
   }
@@ -202,7 +202,7 @@ export class LinkedInService {
       return response.data;
     } catch (error) {
       const e = error as { response?: { data?: { message?: string } }; message?: string };
-      console.error('LinkedIn getPostStats error:', e.response?.data || e.message);
+      logger.error('LinkedIn getPostStats error:', e.response?.data || e.message);
       throw new Error(`Failed to fetch post stats: ${e.response?.data?.message || e.message}`);
     }
   }

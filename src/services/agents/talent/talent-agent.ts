@@ -112,14 +112,14 @@ class TalentAgent {
         // Succession planning implementation
         // Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 2189-2463 (Talent Module complete workflow)
         // Integrated with Structure Agent for position criticality analysis
-        console.log(`Initiating succession planning for high-potential employee: ${employeeId}`);
+        logger.info(`Initiating succession planning for high-potential employee: ${employeeId}`);
 
         // Identify potential future roles based on talent analysis
         const potentialRoles = analysis.potentialRoles || ['Senior Leader'];
 
         // Succession plan creation is handled by the Talent Module workflow
         // See AGENT_CONTEXT_ULTIMATE.md Lines 2308-2388 for succession planning details
-        console.log(`Potential future roles for ${employeeId}: ${potentialRoles.join(', ')}`);
+        logger.info(`Potential future roles for ${employeeId}: ${potentialRoles.join(', ')}`);
     }
 
     /**

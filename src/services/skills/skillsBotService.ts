@@ -225,7 +225,7 @@ export class SkillsBotService {
 
       return response;
     } catch (error) {
-      console.error('Error handling bot query:', error);
+      logger.error('Error handling bot query:', error);
       return {
         response: "I apologize, but I'm experiencing some technical difficulties. Please try again or contact support for assistance.",
         suggestions: ['Try rephrasing your question', 'Contact support', 'Browse available resources']
@@ -301,7 +301,7 @@ export class SkillsBotService {
         nextSteps: ['Complete skills assessment', 'Review skill gaps', 'Set development goals']
       };
     } catch (error) {
-      console.error('Error assisting resume upload:', error);
+      logger.error('Error assisting resume upload:', error);
       throw new Error('Failed to process resume upload');
     }
   }
@@ -344,7 +344,7 @@ export class SkillsBotService {
         nextSteps: ['Review suggested improvements', 'Add missing information', 'Submit for skills extraction']
       };
     } catch (error) {
-      console.error('Error assisting resume building:', error);
+      logger.error('Error assisting resume building:', error);
       throw new Error('Failed to assist resume building');
     }
   }
@@ -390,7 +390,7 @@ export class SkillsBotService {
         nextSteps: ['Prioritize skill gaps', 'Create learning plan', 'Track progress']
       };
     } catch (error) {
-      console.error('Error explaining skills gap:', error);
+      logger.error('Error explaining skills gap:', error);
       throw new Error('Failed to explain skills gap');
     }
   }
@@ -432,7 +432,7 @@ export class SkillsBotService {
         nextSteps: ['Review team analysis', 'Plan development activities', 'Schedule team meetings']
       };
     } catch (error) {
-      console.error('Error assisting supervisor team overview:', error);
+      logger.error('Error assisting supervisor team overview:', error);
       throw new Error('Failed to assist supervisor team overview');
     }
   }
@@ -473,7 +473,7 @@ export class SkillsBotService {
         nextSteps: ['Review strategic assessment', 'Plan investments', 'Monitor progress']
       };
     } catch (error) {
-      console.error('Error assisting admin organization insights:', error);
+      logger.error('Error assisting admin organization insights:', error);
       throw new Error('Failed to assist admin organization insights');
     }
   }
