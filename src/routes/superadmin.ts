@@ -7,6 +7,7 @@ import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { parse } from 'csv-parse/sync';
+import { logger } from '../services/logger';
 // UUID conversion removed - using actual UUIDs for consistent tenant identification
 // import { uuidToNumber, getTenantNumericId } from '../utils/idConverter';
 
@@ -19,7 +20,7 @@ const router = Router();
 const handleDatabaseError = (error: any, res: Response, operation: string) => {
   // Specific PostgreSQL error codes
   if (error?.code === 'ECONNREFUSED' || error?.message?.includes('ECONNREFUSED')) {
-    console.error(`[${operation}] Database connection refused:`, error.message);
+    logger.error(`[${operation}] Database connection refused:`, { error: error.message });
     return res.status(503).json({
       error: 'Database connection failed',
       message: 'PostgreSQL server is not accessible. Please ensure the database is running.',
@@ -28,7 +29,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
   }
 
   if (error?.code === '28P01' || error?.message?.includes('password authentication failed')) {
-    console.error(`[${operation}] Database authentication failed:`, error.message);
+    logger.error(`[${operation}] Database authentication failed:`, { error: error.message });
     return res.status(503).json({
       error: 'Database authentication failed',
       message: 'Invalid database credentials. Check DATABASE_URL configuration.',
@@ -37,7 +38,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
   }
 
   if (error?.code === '3D000' || error?.message?.includes('database') && error?.message?.includes('does not exist')) {
-    console.error(`[${operation}] Database does not exist:`, error.message);
+    logger.error(`[${operation}] Database does not exist:`, { error: error.message });
     return res.status(503).json({
       error: 'Database not found',
       message: 'Database "mizan" does not exist. Please create it first.',
@@ -46,7 +47,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
   }
 
   if (error?.code === '42P01' || error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
-    console.error(`[${operation}] Table does not exist:`, error.message);
+    logger.error(`[${operation}] Table does not exist:`, { error: error.message });
     return res.status(503).json({
       error: 'Database schema issue',
       message: 'Required database tables do not exist. Run migrations: npm run db:migrate',
@@ -55,7 +56,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
   }
 
   if (error?.code === '42703') {
-    console.error(`[${operation}] Column does not exist:`, error.message);
+    logger.error(`[${operation}] Column does not exist:`, { error: error.message });
     return res.status(503).json({
       error: 'Database schema mismatch',
       message: 'Database schema is out of sync. Please run migrations.',
@@ -65,7 +66,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
 
   // Connection timeout
   if (error?.code === '57P03' || error?.message?.includes('timeout')) {
-    console.error(`[${operation}] Database timeout:`, error.message);
+    logger.error(`[${operation}] Database timeout:`, { error: error.message });
     return res.status(504).json({
       error: 'Database timeout',
       message: 'Database query timed out. Please try again.',
@@ -81,7 +82,7 @@ const handleDatabaseError = (error: any, res: Response, operation: string) => {
     stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
   };
 
-  console.error(`[${operation}] Database error:`, errorDetails);
+  logger.error(`[${operation}] Database error:`, errorDetails);
 
   return res.status(500).json({
     error: 'Database operation failed',
@@ -157,9 +158,9 @@ const validateTenantAccess = async (req: AuthenticatedRequest, res: Response, ne
     return res.status(403).json({ 
       error: 'Access denied. Superadmin privileges required.' 
     });
-    
+
   } catch (error) {
-    console.error('Tenant validation error:', error);
+    logger.error('Tenant validation error:', { error });
     return res.status(500).json({ error: 'Access validation failed' });
   }
 };
@@ -170,7 +171,7 @@ const validateTenantExists = async (tenantId: string): Promise<boolean> => {
     const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
     return tenant.length > 0;
   } catch (error) {
-    console.error('Tenant existence validation error:', error);
+    logger.error('Tenant existence validation error:', { error });
     return false;
   }
 };
@@ -185,18 +186,18 @@ router.use(validateTenantAccess);
  */
 router.get('/health/database', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log('Testing database connection...');
-    
+    logger.info('Testing database connection...');
+
     // Test basic connection
     await db.select().from(tenants).limit(1);
-    console.log('Basic connection test passed');
-    
+    logger.info('Basic connection test passed');
+
     // Test table access
     const tenantCount = await db.select().from(tenants);
     const userCount = await db.select().from(users);
-    
-    console.log('Table access test passed');
-    
+
+    logger.info('Table access test passed');
+
     return res.json({
       status: 'healthy',
       database: 'connected',
@@ -205,7 +206,7 @@ router.get('/health/database', async (req: AuthenticatedRequest, res: Response) 
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Database health check failed:', error);
+    logger.error('Database health check failed:', { error });
     return res.status(500).json({
       status: 'unhealthy',
       database: 'disconnected',
@@ -286,7 +287,7 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
             employeesCreated++;
           } catch (err) {
             // Skip duplicate emails
-            console.error(`Skipped user ${Email}:`, err);
+            logger.error(`Skipped user ${Email}:`, err);
           }
         }
 
@@ -299,7 +300,7 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
         await fs.unlink(req.file.path);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error processing CSV';
-        console.error('CSV processing error:', err);
+        logger.error('CSV processing error:', err);
         return res.status(400).json({ error: 'Failed to process CSV file: ' + errorMessage });
       }
     }
@@ -313,7 +314,7 @@ router.post('/clients', upload.single('structureFile'), async (req: Request, res
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to create client';
-    console.error('Client creation error:', error);
+    logger.error('Client creation error:', error);
     return res.status(500).json({ error: 'Failed to create client: ' + errorMessage });
   }
 });
@@ -326,14 +327,14 @@ router.get('/tenants', async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const user = authReq.user;
 
-    console.log('Fetching tenants for user:', user?.id);
+    logger.info('Fetching tenants for user:', user?.id);
 
     // Test database connection first
     try {
       await db.select().from(tenants).limit(1);
-      console.log('Database connection verified for tenants');
+      logger.info('Database connection verified for tenants');
     } catch (dbError) {
-      console.error('Database connection failed for tenants:', dbError);
+      logger.error('Database connection failed for tenants:', dbError);
       return res.status(500).json({ error: 'Database connection failed' });
     }
 
@@ -351,9 +352,9 @@ router.get('/tenants', async (req: Request, res: Response) => {
       
       // Get paginated tenants
       allTenants = await db.select().from(tenants).limit(limit).offset(offset);
-      console.log('Fetched tenants:', allTenants.length);
+      logger.info('Fetched tenants:', allTenants.length);
     } catch (tenantError) {
-      console.error('Error fetching tenants:', tenantError);
+      logger.error('Error fetching tenants:', tenantError);
       return res.status(500).json({ error: 'Failed to fetch tenants data' });
     }
 
@@ -448,7 +449,7 @@ router.get('/tenants/:tenantId', async (req: Request, res: Response) => {
     return res.json(tenant);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch tenant';
-    console.error('Tenant fetch error:', error);
+    logger.error('Tenant fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -498,7 +499,7 @@ router.patch('/tenants/:tenantId', async (req: AuthenticatedRequest, res: Respon
     return res.json(updatedTenant);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update tenant';
-    console.error('Tenant update error:', error);
+    logger.error('Tenant update error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -519,7 +520,7 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch users';
-    console.error('Users fetch error:', error);
+    logger.error('Users fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -559,7 +560,7 @@ router.patch('/users/:userId', async (req: AuthenticatedRequest, res: Response) 
     return res.json(updatedUser);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
-    console.error('User update error:', error);
+    logger.error('User update error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -603,7 +604,7 @@ router.get('/health/database', async (req: Request, res: Response) => {
 
       schemaStatus = 'valid';
     } catch (schemaError: any) {
-      console.error('Schema validation error:', schemaError.message);
+      logger.error('Schema validation error:', schemaError.message);
       schemaStatus = schemaError.message.includes('does not exist') ? 'missing_tables' : 'error';
 
       if (schemaStatus === 'missing_tables') {
@@ -647,7 +648,7 @@ router.get('/health/database', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Health check critical error:', error);
+    logger.error('Health check critical error:', error);
 
     // Determine error type for better diagnostics
     let errorType = 'unknown';
@@ -694,14 +695,14 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user;
 
-    console.log('Fetching superadmin stats for user:', user?.id);
+    logger.info('Fetching superadmin stats for user:', user?.id);
 
     // Test database connection first
     try {
       await db.select().from(tenants).limit(1);
-      console.log('Database connection verified');
+      logger.info('Database connection verified');
     } catch (dbError) {
-      console.error('Database connection failed:', dbError);
+      logger.error('Database connection failed:', dbError);
       return res.status(500).json({ error: 'Database connection failed' });
     }
 
@@ -710,17 +711,17 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
 
     try {
       allTenants = await db.select().from(tenants);
-      console.log('Fetched tenants:', allTenants.length);
+      logger.info('Fetched tenants:', allTenants.length);
     } catch (tenantError) {
-      console.error('Error fetching tenants:', tenantError);
+      logger.error('Error fetching tenants:', tenantError);
       return res.status(500).json({ error: 'Failed to fetch tenants data' });
     }
 
     try {
       allUsers = await db.select().from(users);
-      console.log('Fetched users:', allUsers.length);
+      logger.info('Fetched users:', allUsers.length);
     } catch (userError) {
-      console.error('Error fetching users:', userError);
+      logger.error('Error fetching users:', userError);
       return res.status(500).json({ error: 'Failed to fetch users data' });
     }
 
@@ -754,7 +755,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       totalAnalyses: totalAnalyses
     };
 
-    console.log('Stats calculated successfully:', stats);
+    logger.info('Stats calculated successfully:', stats);
     return res.json(stats);
   } catch (error: unknown) {
     return handleDatabaseError(error, res, 'fetch platform statistics');
@@ -768,14 +769,14 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user;
 
-    console.log('Fetching revenue data for user:', user?.id);
+    logger.info('Fetching revenue data for user:', user?.id);
 
     // Test database connection first
     try {
       await db.select().from(tenants).limit(1);
-      console.log('Database connection verified for revenue');
+      logger.info('Database connection verified for revenue');
     } catch (dbError) {
-      console.error('Database connection failed for revenue:', dbError);
+      logger.error('Database connection failed for revenue:', dbError);
       return res.status(500).json({ error: 'Database connection failed' });
     }
 
@@ -783,9 +784,9 @@ router.get('/revenue', async (req: AuthenticatedRequest, res: Response) => {
     let allTenants;
     try {
       allTenants = await db.select().from(tenants);
-      console.log('Fetched all tenants:', allTenants.length);
+      logger.info('Fetched all tenants:', allTenants.length);
     } catch (tenantError) {
-      console.error('Error fetching tenants:', tenantError);
+      logger.error('Error fetching tenants:', tenantError);
       return res.status(500).json({ error: 'Failed to fetch tenants data' });
     }
 
@@ -872,14 +873,14 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user;
     const limit = parseInt(req.query.limit as string) || 10;
 
-    console.log('Fetching activity data for user:', user?.id);
+    logger.info('Fetching activity data for user:', user?.id);
 
     // Test database connection first
     try {
       await db.select().from(tenants).limit(1);
-      console.log('Database connection verified for activity');
+      logger.info('Database connection verified for activity');
     } catch (dbError) {
-      console.error('Database connection failed for activity:', dbError);
+      logger.error('Database connection failed for activity:', dbError);
       return res.status(500).json({ error: 'Database connection failed' });
     }
 
@@ -888,24 +889,24 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
     
     try {
       recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(Math.min(limit, 5));
-      console.log('Fetched recent tenants:', recentTenants.length);
+      logger.info('Fetched recent tenants:', recentTenants.length);
     } catch (tenantError) {
-      console.error('Error fetching recent tenants:', tenantError);
+      logger.error('Error fetching recent tenants:', tenantError);
       return res.status(500).json({ error: 'Failed to fetch tenants data' });
     }
     
     try {
       recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(Math.min(limit, 5));
-      console.log('Fetched recent users:', recentUsers.length);
+      logger.info('Fetched recent users:', recentUsers.length);
     } catch (userError) {
-      console.error('Error fetching recent users:', userError);
+      logger.error('Error fetching recent users:', userError);
       return res.status(500).json({ error: 'Failed to fetch users data' });
     }
     
     // Combine and format activities with correct field names and enum values
     const activities = [
       ...recentTenants.map((tenant) => {
-        console.log(`Activity: Tenant ${tenant.name} ID: ${tenant.id}`);
+        logger.info(`Activity: Tenant ${tenant.name} ID: ${tenant.id}`);
         return {
           id: crypto.randomUUID(), // ✅ Generate UUID for activity items
           type: 'tenant_created' as const,
@@ -916,7 +917,7 @@ router.get('/activity', async (req: AuthenticatedRequest, res: Response) => {
         };
       }),
       ...recentUsers.map((user) => {
-        console.log(`Activity: User ${user.email} TenantID: ${user.tenantId}`);
+        logger.info(`Activity: User ${user.email} TenantID: ${user.tenantId}`);
         return {
           id: crypto.randomUUID(), // ✅ Generate UUID for activity items
           type: 'user_registered' as const,
@@ -986,7 +987,7 @@ router.get('/analytics/usage', async (req: AuthenticatedRequest, res: Response) 
     return res.json(stats);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch usage stats';
-    console.error('Usage stats fetch error:', error);
+    logger.error('Usage stats fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -1068,7 +1069,7 @@ router.get('/analytics/api', async (req: AuthenticatedRequest, res: Response) =>
     return res.json(stats);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch API stats';
-    console.error('API stats fetch error:', error);
+    logger.error('API stats fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -1109,7 +1110,7 @@ router.get('/analytics/agents', async (req: AuthenticatedRequest, res: Response)
     return res.json(agentStats);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch agent stats';
-    console.error('Agent stats fetch error:', error);
+    logger.error('Agent stats fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
@@ -1150,7 +1151,7 @@ router.get('/analytics/performance', async (req: AuthenticatedRequest, res: Resp
     return res.json(performanceData);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch performance metrics';
-    console.error('Performance metrics fetch error:', error);
+    logger.error('Performance metrics fetch error:', error);
     return res.status(500).json({ error: errorMessage });
   }
 });
