@@ -15,6 +15,7 @@ import type {
   SpanMetrics,
   LayerMetrics
 } from '../../types/structure-types';
+import { logger } from '../logger';
 
 export interface StructureAnalysisInput extends Record<string, unknown> {
   tenantId: string;
@@ -158,7 +159,7 @@ export class StructureAgent extends ThreeEngineAgent {
 
       return calculateStructureThreshold(industry, employeeCount);
     } catch (error) {
-      console.error('Error calculating contextual threshold:', error);
+      logger.error('Error calculating contextual threshold:', error);
       return this.config.consensusThreshold;
     }
   }
@@ -354,7 +355,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
     // Parse JSON with fallback handling
     // Enhanced logging for debugging
-    console.log('[Structure Analysis] Response received:', {
+    logger.info('[Structure Analysis] Response received:', {
       provider: response.provider,
       confidence: response.confidence,
       narrativeType: typeof response.narrative,
@@ -375,17 +376,17 @@ Return ONLY a valid JSON object with NO markdown formatting:
       const missingFields = requiredFields.filter(field => !(field in analysis));
 
       if (missingFields.length > 0) {
-        console.error('[Structure Analysis] Missing required fields:', missingFields);
-        console.error('[Structure Analysis] Received fields:', Object.keys(analysis));
+        logger.error('[Structure Analysis] Missing required fields:', missingFields);
+        logger.error('[Structure Analysis] Received fields:', Object.keys(analysis));
         throw new Error(`Analysis missing required fields: ${missingFields.join(', ')}`);
       }
 
-      console.log('[Structure Analysis] Successfully parsed with fields:', Object.keys(analysis));
+      logger.info('[Structure Analysis] Successfully parsed with fields:', Object.keys(analysis));
       return analysis;
     } catch (error) {
-      console.error('[Structure Analysis] Failed to parse:', error);
-      console.error('[Structure Analysis] Raw response type:', typeof response.narrative);
-      console.error('[Structure Analysis] Raw response preview:', typeof response.narrative === 'string' ? response.narrative.substring(0, 500) : JSON.stringify(response.narrative).substring(0, 500));
+      logger.error('[Structure Analysis] Failed to parse:', error);
+      logger.error('[Structure Analysis] Raw response type:', typeof response.narrative);
+      logger.error('[Structure Analysis] Raw response preview:', typeof response.narrative === 'string' ? response.narrative.substring(0, 500) : JSON.stringify(response.narrative).substring(0, 500));
       // Return structured fallback
       return {
         overallScore: 50,
@@ -505,7 +506,7 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
     // If structure data is provided directly, use it instead of fetching from DB
     if (inputData.structureData) {
-      console.log('📊 Using provided structure data for analysis');
+      logger.info('📊 Using provided structure data for analysis');
       const structureData = inputData.structureData as StructureData;
 
       // Get strategy if available
@@ -527,8 +528,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
       };
     }
 
-    console.log('✅ Database connection established');
-    console.log(`📊 Fetching organization structure for tenant: ${tenantId}`);
+    logger.info('✅ Database connection established');
+    logger.info(`📊 Fetching organization structure for tenant: ${tenantId}`);
 
     // Get organization structure (get the most recent one)
     const structure = await db
@@ -556,18 +557,18 @@ Return ONLY a valid JSON object with NO markdown formatting:
     // Enhanced error handling with detailed logging
     // Compliant with AGENT_CONTEXT_ULTIMATE.md - Complete error handling
     if (structure.length === 0) {
-      console.error('❌ No organization structure found for tenant:', tenantId);
-      console.error('💡 User action required: Upload an organization chart before running structure analysis');
+      logger.error('❌ No organization structure found for tenant:', tenantId);
+      logger.error('💡 User action required: Upload an organization chart before running structure analysis');
       throw new Error('No organization structure found for tenant. Please upload an organization chart first.');
     }
 
-    console.log(`✅ Organization structure found for tenant: ${tenantId}`);
+    logger.info(`✅ Organization structure found for tenant: ${tenantId}`);
 
     const rawStructureData = structure[0].structureData as Record<string, unknown>;
 
     // LOG DATA QUALITY for debugging - Enhanced logging for root cause analysis
     // Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready error handling
-    console.log('📊 Data Quality Check:', {
+    logger.info('📊 Data Quality Check:', {
       hasDepartments: !!(rawStructureData.departments),
       // ✅ PRODUCTION: Use Array.isArray() type guard instead of 'as any'
       departmentCount: Array.isArray(rawStructureData.departments) ? rawStructureData.departments.length : 0,
@@ -592,8 +593,8 @@ Return ONLY a valid JSON object with NO markdown formatting:
 
     // VALIDATE we have actual data - prevents AI from analyzing empty structures
     if (structureData.roles.length === 0 && structureData.departments.length === 0) {
-      console.error('❌ Data quality issue: Structure has no roles or departments');
-      console.error('💡 This indicates a parser problem - check parseOrgTextToStructure()');
+      logger.error('❌ Data quality issue: Structure has no roles or departments');
+      logger.error('💡 This indicates a parser problem - check parseOrgTextToStructure()');
       throw new Error('Organization structure data is empty or malformed. Please re-upload with valid data.');
     }
 
@@ -946,7 +947,7 @@ Ensure recommendations are practical and theory-based.`;
    * Used as fallback when initial parsing fails
    */
   private repairMalformedJson(jsonString: string, error: Error): string {
-    console.log('🔧 Attempting JSON repair for malformed response...');
+    logger.info('🔧 Attempting JSON repair for malformed response...');
 
     let repaired = jsonString;
     const errorMessage = error.message;
@@ -956,7 +957,7 @@ Ensure recommendations are practical and theory-based.`;
     if (posMatch) {
       const errorPos = parseInt(posMatch[1], 10);
       const context = repaired.substring(Math.max(0, errorPos - 50), Math.min(repaired.length, errorPos + 50));
-      console.log(`❌ Error at position ${errorPos}, context: ${context}`);
+      logger.info(`❌ Error at position ${errorPos}, context: ${context}`);
 
       // Check for common errors at this position
       const charAtError = repaired.charAt(errorPos);
@@ -965,13 +966,13 @@ Ensure recommendations are practical and theory-based.`;
       // Fix: Missing comma between properties
       if (charAtError === '"' && charBefore === '}') {
         repaired = repaired.substring(0, errorPos) + ',' + repaired.substring(errorPos);
-        console.log('✅ Fixed: Added missing comma before property');
+        logger.info('✅ Fixed: Added missing comma before property');
       }
 
       // Fix: Missing comma between array elements
       if (charAtError === '{' && charBefore === '}') {
         repaired = repaired.substring(0, errorPos) + ',' + repaired.substring(errorPos);
-        console.log('✅ Fixed: Added missing comma between array elements');
+        logger.info('✅ Fixed: Added missing comma between array elements');
       }
 
       // Fix: Missing comma after array element (more comprehensive check)
@@ -989,7 +990,7 @@ Ensure recommendations are practical and theory-based.`;
           if (commaMatch) {
             const insertPos = errorPos - beforeContext.length + beforeContext.lastIndexOf(commaMatch[1]) + 1;
             repaired = repaired.substring(0, insertPos) + ',' + repaired.substring(insertPos);
-            console.log(`✅ Fixed: Added missing comma between array/object elements at position ${insertPos}`);
+            logger.info(`✅ Fixed: Added missing comma between array/object elements at position ${insertPos}`);
           }
         }
       }
@@ -1003,7 +1004,7 @@ Ensure recommendations are practical and theory-based.`;
         }
         const unquotedKey = repaired.substring(errorPos, endPos);
         repaired = repaired.substring(0, errorPos) + '"' + unquotedKey + '"' + repaired.substring(endPos);
-        console.log(`✅ Fixed: Quoted unquoted key: ${unquotedKey}`);
+        logger.info(`✅ Fixed: Quoted unquoted key: ${unquotedKey}`);
       }
     }
 
@@ -1016,17 +1017,17 @@ Ensure recommendations are practical and theory-based.`;
       return JSON.parse(cleaned);
     } catch (firstError) {
       // First parse attempt failed - try repair
-      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+      logger.warn('⚠️  Initial JSON parse failed, attempting repair...');
 
       try {
         const cleaned = this.cleanJsonResponse(response);
         const repaired = this.repairMalformedJson(cleaned, firstError as Error);
         const parsed = JSON.parse(repaired);
-        console.log('✅ JSON repair successful!');
+        logger.info('✅ JSON repair successful!');
         return parsed;
       } catch (secondError) {
         // Both attempts failed - log error but return clean defaults
-        console.error('❌ Failed to parse knowledge output after repair:', {
+        logger.error('❌ Failed to parse knowledge output after repair:', {
           error: secondError instanceof Error ? secondError.message : 'Unknown error',
           rawResponsePreview: response.substring(0, 500),
           cleanedResponsePreview: this.cleanJsonResponse(response).substring(0, 500)
@@ -1050,17 +1051,17 @@ Ensure recommendations are practical and theory-based.`;
       return JSON.parse(cleaned);
     } catch (firstError) {
       // First parse attempt failed - try repair
-      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+      logger.warn('⚠️  Initial JSON parse failed, attempting repair...');
 
       try {
         const cleaned = this.cleanJsonResponse(response);
         const repaired = this.repairMalformedJson(cleaned, firstError as Error);
         const parsed = JSON.parse(repaired);
-        console.log('✅ JSON repair successful!');
+        logger.info('✅ JSON repair successful!');
         return parsed;
       } catch (secondError) {
         // Both attempts failed - log error but return clean defaults
-        console.error('❌ Failed to parse data output after repair:', {
+        logger.error('❌ Failed to parse data output after repair:', {
           error: secondError instanceof Error ? secondError.message : 'Unknown error',
           rawResponsePreview: response.substring(0, 500),
           cleanedResponsePreview: this.cleanJsonResponse(response).substring(0, 500)
@@ -1085,17 +1086,17 @@ Ensure recommendations are practical and theory-based.`;
       return JSON.parse(cleaned);
     } catch (firstError) {
       // First parse attempt failed - try repair
-      console.warn('⚠️  Initial JSON parse failed, attempting repair...');
+      logger.warn('⚠️  Initial JSON parse failed, attempting repair...');
 
       try {
         const cleaned = this.cleanJsonResponse(response);
         const repaired = this.repairMalformedJson(cleaned, firstError as Error);
         const parsed = JSON.parse(repaired);
-        console.log('✅ JSON repair successful!');
+        logger.info('✅ JSON repair successful!');
         return parsed;
       } catch (secondError) {
         // Both attempts failed - log error but return clean defaults
-        console.error('❌ Failed to parse reasoning output after repair:', {
+        logger.error('❌ Failed to parse reasoning output after repair:', {
           error: secondError instanceof Error ? secondError.message : 'Unknown error',
           rawResponsePreview: response.substring(0, 500),
           cleanedResponsePreview: this.cleanJsonResponse(response).substring(0, 500)
