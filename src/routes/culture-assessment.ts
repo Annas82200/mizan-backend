@@ -18,6 +18,7 @@ import { RecognitionAgent } from '../services/agents/recognition/recognition-age
 import { authenticate, authorize } from '../middleware/auth';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { logger } from '../services/logger';
 
 // Type definitions for culture assessment
 interface CylinderValue {
@@ -262,7 +263,7 @@ const validateTenantAccess = async (req: Request, res: Response, next: Function)
 
     next();
   } catch (error) {
-    console.error('Tenant validation error:', error);
+    logger.error('Tenant validation error:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to validate tenant access'
@@ -404,7 +405,7 @@ router.get('/values/:tenantId', authenticate, validateTenantAccess, async (req: 
     });
 
   } catch (error) {
-    console.error('Error fetching Mizan values:', error);
+    logger.error('Error fetching Mizan values:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch values'
@@ -429,8 +430,8 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
     const { campaignName, expiryDays } = schema.parse(req.body);
     const tenantId = req.user!.tenantId;
 
-    console.log('[Culture Survey] Distributing for tenantId:', tenantId);
-    console.log('[Culture Survey] Requested by user:', req.user!.email, 'role:', req.user!.role);
+    logger.info('[Culture Survey] Distributing for tenantId:', tenantId);
+    logger.info('[Culture Survey] Requested by user:', req.user!.email, 'role:', req.user!.role);
 
     // Get all active employees from tenant (tenant isolation)
     const employees = await db.select({
@@ -445,9 +446,9 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
       eq(users.isActive, true)
     ));
 
-    console.log('[Culture Survey] Found employees:', employees.length);
+    logger.info('[Culture Survey] Found employees:', employees.length);
     if (employees.length > 0) {
-      console.log('[Culture Survey] Sample employee:', employees[0]);
+      logger.info('[Culture Survey] Sample employee:', employees[0]);
     }
 
     if (employees.length === 0) {
@@ -462,8 +463,8 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
       .from(users)
       .where(eq(users.tenantId, tenantId));
 
-      console.log('[Culture Survey] Total users for tenant:', allUsers.length);
-      console.log('[Culture Survey] All users:', allUsers);
+      logger.info('[Culture Survey] Total users for tenant:', allUsers.length);
+      logger.info('[Culture Survey] All users:', allUsers);
 
       return res.status(400).json({
         error: 'No active employees found',
@@ -517,7 +518,7 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
         eq(cultureSurveyInvitations.tenantId, tenantId)
       ));
 
-    console.log(`Successfully distributed culture survey to ${invitations.length} employees`);
+    logger.info(`Successfully distributed culture survey to ${invitations.length} employees`);
 
     return res.json({
       success: true,
@@ -534,7 +535,7 @@ router.post('/distribute', authenticate, authorize(['clientAdmin', 'superadmin']
     });
 
   } catch (error) {
-    console.error('Survey distribution error:', error);
+    logger.error('Survey distribution error:', error);
     return res.status(500).json({
       error: 'Failed to distribute survey'
     });
@@ -592,7 +593,7 @@ router.get('/employees', authenticate, validateTenantAccess, async (req: Request
     });
 
   } catch (error) {
-    console.error('Error fetching employees:', error);
+    logger.error('Error fetching employees:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch employees'
@@ -650,7 +651,7 @@ router.get('/campaign/:campaignId/status', authenticate, authorize(['clientAdmin
     });
 
   } catch (error) {
-    console.error('Campaign status error:', error);
+    logger.error('Campaign status error:', error);
     return res.status(500).json({
       error: 'Failed to fetch campaign status'
     });
@@ -722,7 +723,7 @@ router.get('/survey/validate-token', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Survey token validation error:', error);
+    logger.error('Survey token validation error:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to validate survey token'
@@ -807,7 +808,7 @@ router.post('/submit', async (req: Request, res: Response) => {
         eq(cultureReports.reportType, 'company')
       ));
 
-    console.log(`Deleted company reports for tenant ${invitationData.tenantId} to trigger regeneration`);
+    logger.info(`Deleted company reports for tenant ${invitationData.tenantId} to trigger regeneration`);
 
     return res.json({
       success: true,
@@ -816,7 +817,7 @@ router.post('/submit', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error submitting assessment:', error);
+    logger.error('Error submitting assessment:', error);
 
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -872,7 +873,7 @@ router.post('/map-values', authenticate, authorize(['clientAdmin', 'superadmin']
     });
 
   } catch (error) {
-    console.error('Values mapping error:', error);
+    logger.error('Values mapping error:', error);
 
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -928,7 +929,7 @@ router.get('/status/:userId', authenticate, validateTenantAccess, async (req: Re
     });
 
   } catch (error) {
-    console.error('Error checking assessment status:', error);
+    logger.error('Error checking assessment status:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to check status'
@@ -980,7 +981,7 @@ router.get('/report/survey/:surveyToken', async (req: Request, res: Response) =>
       assessment: assessment[0]
     });
   } catch (error) {
-    console.error('Error fetching assessment:', error);
+    logger.error('Error fetching assessment:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch assessment'
@@ -998,7 +999,7 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     // Allow superadmin to query any tenant, otherwise use user's tenant
     const tenantId = (req.query.tenantId as string) || req.user!.tenantId;
 
-    console.log('🎯 COMPANY REPORT - Endpoint hit for tenant:', tenantId);
+    logger.info('🎯 COMPANY REPORT - Endpoint hit for tenant:', tenantId);
 
     // Check if report already exists
     const existingReport = await db.query.cultureReports.findFirst({
@@ -1010,14 +1011,14 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     });
 
     if (existingReport) {
-      console.log('🎯 COMPANY REPORT - Returning cached report from:', existingReport.createdAt);
+      logger.info('🎯 COMPANY REPORT - Returning cached report from:', existingReport.createdAt);
       return res.json({
         success: true,
         report: existingReport.reportData
       });
     }
 
-    console.log('🎯 COMPANY REPORT - No cache, generating new report...');
+    logger.info('🎯 COMPANY REPORT - No cache, generating new report...');
 
     // Generate new company report using Culture Agent
     const assessments = await db.query.cultureAssessments.findMany({
@@ -1042,11 +1043,11 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     const companyName = tenant?.name || 'Your Organization';
     const tenantValues = (tenant?.values as string[]) || [];
 
-    console.log('🎯 COMPANY REPORT - Tenant:', companyName, 'Values:', tenantValues.length, 'Assessments:', assessments.length);
+    logger.info('🎯 COMPANY REPORT - Tenant:', companyName, 'Values:', tenantValues.length, 'Assessments:', assessments.length);
 
     // Use Culture Agent's AI analysis method
     const cultureAgent = new CultureAgent('culture', getDefaultAgentConfig());
-    console.log('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
+    logger.info('🎯 COMPANY REPORT - Calling Culture Agent analyzeOrganizationCulture...');
     const report = await cultureAgent.analyzeOrganizationCulture(
       tenantId,
       assessments.map(a => ({
@@ -1058,8 +1059,8 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
       }))
     );
 
-    console.log('🎯 COMPANY REPORT - Culture Agent returned report');
-    console.log('🎯 COMPANY REPORT - Report keys:', Object.keys(report));
+    logger.info('🎯 COMPANY REPORT - Culture Agent returned report');
+    logger.info('🎯 COMPANY REPORT - Report keys:', Object.keys(report));
 
     // Store the report in database for caching
     await db.insert(cultureReports).values({
@@ -1077,7 +1078,7 @@ router.get('/report/company', authenticate, authorize(['clientAdmin', 'superadmi
     });
 
   } catch (error) {
-    console.error('Error generating company report:', error);
+    logger.error('Error generating company report:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to generate company report'
@@ -1165,7 +1166,7 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
     try {
       // Call AI-powered report generation (async but don't wait - fire and forget)
       generateEmployeeReport(assessment.id, userId, employeeUser.tenantId).catch(genError => {
-        console.error(`❌ [ROUTE] Report generation failed for ${userId}:`, genError);
+        logger.error(`❌ [ROUTE] Report generation failed for ${userId}:`, genError);
       });
 
       return res.status(202).json({
@@ -1174,7 +1175,7 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
         status: 'generating'
       });
     } catch (genError) {
-      console.error(`❌ [ROUTE] Error triggering report generation for ${userId}:`, genError);
+      logger.error(`❌ [ROUTE] Error triggering report generation for ${userId}:`, genError);
       return res.status(500).json({
         success: false,
         error: 'Failed to trigger report generation',
@@ -1183,7 +1184,7 @@ router.get('/report/employee/:userId', authenticate, async (req: Request, res: R
     }
 
   } catch (error) {
-    console.error('Error fetching employee report:', error);
+    logger.error('Error fetching employee report:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch report'
@@ -1252,7 +1253,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
       });
     }
 
-    console.log('🔄 Regenerating employee report for:', userId);
+    logger.info('🔄 Regenerating employee report for:', userId);
 
     // Delete old report if exists
     await db.delete(cultureReports)
@@ -1264,7 +1265,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
     // Trigger AI-powered regeneration using EMPLOYEE's tenantId
     try {
       generateEmployeeReport(assessment.id, userId, employeeUser.tenantId).catch(genError => {
-        console.error(`❌ [ROUTE] Report regeneration failed for ${userId}:`, genError);
+        logger.error(`❌ [ROUTE] Report regeneration failed for ${userId}:`, genError);
       });
 
       return res.json({
@@ -1272,7 +1273,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
         message: 'AI-powered employee report regeneration triggered. Report will be ready in 10-15 seconds.'
       });
     } catch (genError) {
-      console.error(`❌ [ROUTE] Error triggering report regeneration for ${userId}:`, genError);
+      logger.error(`❌ [ROUTE] Error triggering report regeneration for ${userId}:`, genError);
       return res.status(500).json({
         success: false,
         error: 'Failed to trigger report regeneration',
@@ -1281,7 +1282,7 @@ router.post('/report/employee/:userId/regenerate', authenticate, async (req: Req
     }
 
   } catch (error) {
-    console.error('Error regenerating employee report:', error);
+    logger.error('Error regenerating employee report:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to regenerate report'
