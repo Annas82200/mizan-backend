@@ -194,7 +194,7 @@ export class LXPAgentService {
       return learningExperience;
 
     } catch (error) {
-      console.error('Error processing skills gap trigger:', error);
+      logger.error('Error processing skills gap trigger:', error);
       throw new Error(`Failed to process skills gap trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -250,7 +250,7 @@ export class LXPAgentService {
       return learningExperience;
 
     } catch (error) {
-      console.error('Error creating learning experience:', error);
+      logger.error('Error creating learning experience:', error);
       throw new Error(`Failed to create learning experience: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -285,7 +285,7 @@ export class LXPAgentService {
       await this.initializeProgressTracking(learningExp);
 
     } catch (error) {
-      console.error('Error deploying learning experience:', error);
+      logger.error('Error deploying learning experience:', error);
       throw new Error(`Failed to deploy learning experience: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -318,7 +318,7 @@ export class LXPAgentService {
       });
 
     } catch (error) {
-      console.error('Error enabling goal integration:', error);
+      logger.error('Error enabling goal integration:', error);
       throw new Error(`Failed to enable goal integration: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -355,7 +355,7 @@ export class LXPAgentService {
       return updatedProgress;
 
     } catch (error) {
-      console.error('Error updating learning progress:', error);
+      logger.error('Error updating learning progress:', error);
       throw new Error(`Failed to update learning progress: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -426,7 +426,7 @@ export class LXPAgentService {
       }
 
     } catch (error) {
-      console.error('Error assessing behavior change:', error);
+      logger.error('Error assessing behavior change:', error);
       // Non-critical error, don't throw
     }
   }
@@ -473,7 +473,7 @@ export class LXPAgentService {
       return validatedOutcome;
 
     } catch (error) {
-      console.error('Error completing learning experience:', error);
+      logger.error('Error completing learning experience:', error);
       throw new Error(`Failed to complete learning experience: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -500,7 +500,7 @@ export class LXPAgentService {
         status: 'pending'
       });
     } catch (error) {
-      console.error('Error triggering skills profile update:', error);
+      logger.error('Error triggering skills profile update:', error);
       throw error;
     }
   }
@@ -526,7 +526,7 @@ export class LXPAgentService {
         status: 'pending'
       });
     } catch (error) {
-      console.error('Error triggering performance goal update:', error);
+      logger.error('Error triggering performance goal update:', error);
       throw error;
     }
   }
@@ -547,7 +547,7 @@ export class LXPAgentService {
           throw new Error('Invalid analytics scope');
       }
     } catch (error) {
-      console.error('Error getting learning analytics:', error);
+      logger.error('Error getting learning analytics:', error);
       throw new Error(`Failed to get learning analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -600,7 +600,7 @@ export class LXPAgentService {
         updatedAt: row.updatedAt
       };
     } catch (error) {
-      console.error('Error getting learning experience:', error);
+      logger.error('Error getting learning experience:', error);
       return null;
     }
   }
@@ -683,7 +683,7 @@ export class LXPAgentService {
         }))
       };
     } catch (error) {
-      console.error('Error getting employee progress:', error);
+      logger.error('Error getting employee progress:', error);
       return null;
     }
   }

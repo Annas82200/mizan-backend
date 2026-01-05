@@ -95,18 +95,18 @@ export class AutomatedFlowService {
         updatedAt: new Date()
       });
       
-      console.log(`Created automated flow: ${name} (${flowId})`);
+      logger.info(`Created automated flow: ${name} (${flowId})`);
       
       return flowId;
     } catch (error) {
-      console.error('Failed to create automated flow:', error);
+      logger.error('Failed to create automated flow:', error);
       throw error;
     }
   }
 
   async executeFlow(flowId: string, tenantId: string, context: FlowContext): Promise<FlowExecution> {
     try {
-      console.log(`Executing flow ${flowId} for tenant ${tenantId}`);
+      logger.info(`Executing flow ${flowId} for tenant ${tenantId}`);
       
       const flow = await db.query.automatedFlows.findFirst({
         where: and(
@@ -149,7 +149,7 @@ export class AutomatedFlowService {
       
       return execution;
     } catch (error) {
-      console.error('Failed to execute flow:', error);
+      logger.error('Failed to execute flow:', error);
       throw error;
     }
   }
@@ -164,7 +164,7 @@ export class AutomatedFlowService {
           throw new Error(`Step ${currentStepId} not found`);
         }
         
-        console.log(`Executing step: ${step.name} (${step.type})`);
+        logger.info(`Executing step: ${step.name} (${step.type})`);
         
         const result = await this.executeStep(step, execution);
         execution.context = { ...execution.context, ...result };
@@ -195,10 +195,10 @@ export class AutomatedFlowService {
         })
         .where(eq(flowExecutions.id, execution.id));
       
-      console.log(`Flow execution ${execution.id} completed successfully`);
+      logger.info(`Flow execution ${execution.id} completed successfully`);
       
     } catch (error) {
-      console.error('Failed to execute flow steps:', error);
+      logger.error('Failed to execute flow steps:', error);
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       execution.status = 'failed';
@@ -234,7 +234,7 @@ export class AutomatedFlowService {
   }
 
   private async executeTriggerStep(step: FlowStep, execution: FlowExecution): Promise<TriggerStepResult> {
-    console.log('Executing trigger step:', step.config.triggerType);
+    logger.info('Executing trigger step:', step.config.triggerType);
     return { 
       triggerExecuted: true,
       triggerType: step.config.triggerType || 'default',
@@ -243,7 +243,7 @@ export class AutomatedFlowService {
   }
 
   private async executeActionStep(step: FlowStep, execution: FlowExecution): Promise<ActionStepResult> {
-    console.log('Executing action step:', step.config.actionType);
+    logger.info('Executing action step:', step.config.actionType);
     return { 
       actionExecuted: true,
       actionType: step.config.actionType || 'default',
@@ -252,7 +252,7 @@ export class AutomatedFlowService {
   }
 
   private async executeConditionStep(step: FlowStep, execution: FlowExecution): Promise<ConditionStepResult> {
-    console.log('Executing condition step:', step.config.condition);
+    logger.info('Executing condition step:', step.config.condition);
     return { 
       conditionMet: true,
       conditionType: step.config.condition,
@@ -262,7 +262,7 @@ export class AutomatedFlowService {
 
   private async executeDelayStep(step: FlowStep, execution: FlowExecution): Promise<DelayStepResult> {
     const delayDuration = step.config.delayDuration || 1000;
-    console.log('Executing delay step:', delayDuration, 'ms');
+    logger.info('Executing delay step:', delayDuration, 'ms');
     await new Promise(resolve => setTimeout(resolve, delayDuration));
     return { 
       delayCompleted: true,

@@ -70,7 +70,7 @@ router.post('/analyze', authenticate, authorize(['admin', 'manager']), validateT
       data: result
     });
   } catch (error) {
-    console.error('Agent analysis error:', error);
+    logger.error('Agent analysis error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -125,7 +125,7 @@ router.post('/analyze/multi', authenticate, authorize(['admin']), validateTenant
       data: results
     });
   } catch (error) {
-    console.error('Multi-agent analysis error:', error);
+    logger.error('Multi-agent analysis error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -189,7 +189,7 @@ router.get('/history', authenticate, validateTenantAccess, async (req, res) => {
       data: history
     });
   } catch (error) {
-    console.error('Get history error:', error);
+    logger.error('Get history error:', error);
     return res.status(500).json({
       error: 'Failed to get analysis history',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -222,7 +222,7 @@ router.get('/recommendations', authenticate, validateTenantAccess, async (req, r
       data: recommendations
     });
   } catch (error) {
-    console.error('Get recommendations error:', error);
+    logger.error('Get recommendations error:', error);
     return res.status(500).json({
       error: 'Failed to get recommendations',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -255,7 +255,7 @@ router.get('/triggers', authenticate, authorize(['admin']), validateTenantAccess
       data: triggers
     });
   } catch (error) {
-    console.error('Get triggers error:', error);
+    logger.error('Get triggers error:', error);
     return res.status(500).json({
       error: 'Failed to get triggers',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -314,7 +314,7 @@ router.post('/culture/assess', authenticate, validateTenantAccess, async (req, r
       data: result
     });
   } catch (error) {
-    console.error('Culture analysis error:', error);
+    logger.error('Culture analysis error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -377,7 +377,7 @@ router.post('/structure/analyze', authenticate, authorize(['admin', 'manager']),
       data: result
     });
   } catch (error) {
-    console.error('Structure analysis error:', error);
+    logger.error('Structure analysis error:', error);
     
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -411,7 +411,7 @@ async function validateDataAccess(tenantId: string, dataId: string, agentType: s
     
     return analysis.length > 0;
   } catch (error) {
-    console.error('Error validating data access:', error);
+    logger.error('Error validating data access:', error);
     return false;
   }
 }
@@ -423,7 +423,7 @@ async function validateTargetAccess(tenantId: string, targetId: string, targetTy
     // For now, we'll assume all targets are valid if they exist
     return true; // Implement based on your target data structure
   } catch (error) {
-    console.error('Error validating target access:', error);
+    logger.error('Error validating target access:', error);
     return false;
   }
 }
@@ -434,7 +434,7 @@ async function validateAssessmentAccess(tenantId: string, assessmentIds: string[
     // This would check your assessments table
     return true; // Implement based on your assessment data structure
   } catch (error) {
-    console.error('Error validating assessment access:', error);
+    logger.error('Error validating assessment access:', error);
     return false;
   }
 }
@@ -445,7 +445,7 @@ async function validateStructureAccess(tenantId: string, structureId: string): P
     // This would check your structure table
     return true; // Implement based on your structure data structure
   } catch (error) {
-    console.error('Error validating structure access:', error);
+    logger.error('Error validating structure access:', error);
     return false;
   }
 }
@@ -456,7 +456,7 @@ async function validateStrategyAccess(tenantId: string, strategyId: string): Pro
     // This would check your strategy table
     return true; // Implement based on your strategy data structure
   } catch (error) {
-    console.error('Error validating strategy access:', error);
+    logger.error('Error validating strategy access:', error);
     return false;
   }
 }
