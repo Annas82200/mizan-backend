@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import lxpModule from '../modules/lxp/lxp-module';
 import * as hiringModule from '../modules/hiring/hiring-module';
 import { TriggerConfig, TriggerResultData } from '../../types/trigger-types';
+import { logger } from '../logger';
 
 // Mizan Production-Ready Hiring Recommendation Type
 // Compliant with AGENT_CONTEXT_ULTIMATE.md - Hiring Module Lines 1865-1972
@@ -45,7 +46,7 @@ export interface TriggerResult {
 }
 
 export async function runTriggers(unifiedResults: UnifiedResults & { tenantId: string }): Promise<TriggerResult[]> {
-  console.log('Running trigger engine for unified results');
+  logger.info('Running trigger engine for unified results');
 
   try {
     // Initialize LXP module if needed
@@ -81,16 +82,16 @@ export async function runTriggers(unifiedResults: UnifiedResults & { tenantId: s
           await logTriggeredAction(trigger, result, unifiedResults);
         }
       } catch (error) {
-        console.error(`Trigger ${trigger.id} failed:`, error);
+        logger.error(`Trigger ${trigger.id} failed:`, error);
       }
     }
     
-    console.log(`Trigger engine completed. ${triggerResults.length} triggers executed.`);
+    logger.info(`Trigger engine completed. ${triggerResults.length} triggers executed.`);
     
     return triggerResults;
     
   } catch (error) {
-    console.error('Trigger engine failed:', error);
+    logger.error('Trigger engine failed:', error);
     throw error;
   }
 }
@@ -100,35 +101,35 @@ export async function runTriggers(unifiedResults: UnifiedResults & { tenantId: s
  */
 async function initializeModules(tenantId: string): Promise<void> {
   try {
-    console.log('[Trigger Engine] Initializing modules...');
+    logger.info('[Trigger Engine] Initializing modules...');
 
     // Initialize LXP module
     const lxpHealth = await lxpModule.checkHealth();
     if (!lxpHealth.healthy) {
-      console.log('[Trigger Engine] Initializing LXP module...');
+      logger.info('[Trigger Engine] Initializing LXP module...');
       await lxpModule.initialize();
     } else {
-      console.log('[Trigger Engine] LXP module already initialized');
+      logger.info('[Trigger Engine] LXP module already initialized');
     }
 
     // Initialize Hiring module
     const hiringHealth = await hiringModule.checkHealth();
     if (!hiringHealth.healthy) {
-      console.log('[Trigger Engine] Initializing Hiring module...');
+      logger.info('[Trigger Engine] Initializing Hiring module...');
       await hiringModule.initialize({
         tenantId: tenantId || 'default-tenant',
         moduleId: 'hiring-module',
         enabled: true
       });
     } else {
-      console.log('[Trigger Engine] Hiring module already initialized');
+      logger.info('[Trigger Engine] Hiring module already initialized');
     }
 
     // Add other module initializations here as they are implemented
 
-    console.log('[Trigger Engine] All modules initialized successfully');
+    logger.info('[Trigger Engine] All modules initialized successfully');
   } catch (error) {
-    console.error('[Trigger Engine] Error initializing modules:', error);
+    logger.error('[Trigger Engine] Error initializing modules:', error);
     // Don't throw error - allow trigger engine to continue with fallback processing
   }
 }
@@ -190,7 +191,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
     const hasAccess = await checkModuleAccess(trigger.tenantId, 'hiring');
 
     if (!hasAccess) {
-      console.log(`[Trigger Engine] Tenant ${trigger.tenantId} does not have access to Hiring module`);
+      logger.info(`[Trigger Engine] Tenant ${trigger.tenantId} does not have access to Hiring module`);
       return {
         id: randomUUID(),
         triggerId: trigger.id,
@@ -209,7 +210,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
 
   if (lxpTriggerTypes.includes(type)) {
     try {
-      console.log(`[Trigger Engine] Routing trigger ${type} to LXP module`);
+      logger.info(`[Trigger Engine] Routing trigger ${type} to LXP module`);
       
       // Initialize LXP module with tenant isolation - Production-Ready
       // Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1992-2188 (LXP Module)
@@ -242,14 +243,14 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       
       return triggerResult;
     } catch (error) {
-      console.error(`[Trigger Engine] Error processing trigger ${type} through LXP module:`, error);
+      logger.error(`[Trigger Engine] Error processing trigger ${type} through LXP module:`, error);
       // Fall back to original processing
     }
   }
 
   if (hiringTriggerTypes.includes(type)) {
     try {
-      console.log(`[Trigger Engine] Routing trigger ${type} to Hiring module`);
+      logger.info(`[Trigger Engine] Routing trigger ${type} to Hiring module`);
       
       // Initialize Hiring module with tenant isolation - Production-Ready
       // Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1865-1972 (Hiring Module)
@@ -293,7 +294,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       
       return triggerResult;
     } catch (error) {
-      console.error(`[Trigger Engine] Error processing trigger ${type} through Hiring module:`, error);
+      logger.error(`[Trigger Engine] Error processing trigger ${type} through Hiring module:`, error);
       // Fall back to original processing
     }
   }
@@ -303,12 +304,12 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
   // ============================================================================
   if (performanceTriggerTypes.includes(type)) {
     try {
-      console.log(`[Trigger Engine] Routing trigger ${type} to Performance module`);
+      logger.info(`[Trigger Engine] Routing trigger ${type} to Performance module`);
 
       // Log performance trigger for processing by Performance module
       // Performance module handler is production-ready
       // Compliant with AGENT_CONTEXT_ULTIMATE.md Lines 1665-1863 (Performance Module)
-      console.log(`[Trigger Engine] Performance trigger ${type} created:`, config);
+      logger.info(`[Trigger Engine] Performance trigger ${type} created:`, config);
 
       // Return a success result
       const triggerResult: TriggerResult = {
@@ -332,7 +333,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       return triggerResult;
 
     } catch (error) {
-      console.error(`[Trigger Engine] Error processing trigger ${type} for Performance module:`, error);
+      logger.error(`[Trigger Engine] Error processing trigger ${type} for Performance module:`, error);
       // Fall back to original processing
     }
   }
@@ -423,7 +424,7 @@ async function processTrigger(trigger: Trigger, unifiedResults: UnifiedResults):
       return processLeadershipGapPredictionTrigger(trigger, unifiedResults, config);
     
     default:
-      console.warn(`Unknown trigger type: ${type}`);
+      logger.warn(`Unknown trigger type: ${type}`);
       return null;
   }
 }
@@ -4205,9 +4206,9 @@ async function logTriggeredAction(trigger: Trigger, result: TriggerResult, unifi
       }
     });
 
-    console.log(`Logged triggered action: ${result.action} for trigger ${trigger.name}`);
+    logger.info(`Logged triggered action: ${result.action} for trigger ${trigger.name}`);
   } catch (error) {
-    console.error('Failed to log triggered action:', error);
+    logger.error('Failed to log triggered action:', error);
   }
 }
 
@@ -4638,8 +4639,8 @@ export async function createDefaultTriggers(tenantId: string): Promise<void> {
       } as typeof triggers.$inferInsert);
     }
 
-    console.log(`Created ${defaultTriggers.length} default triggers for tenant ${tenantId}`);
+    logger.info(`Created ${defaultTriggers.length} default triggers for tenant ${tenantId}`);
   } catch (error) {
-    console.error('Failed to create default triggers:', error);
+    logger.error('Failed to create default triggers:', error);
   }
 }
