@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '../../db/index';
 import { agentAnalysesTable, triggersTable, recommendationsTable } from '../../db/schema';
 import { eq, and, desc, limit as limitQuery } from 'drizzle-orm';
+import { logger } from '../services/logger';
 
 const router = Router();
 const agentManager = new AgentManager();

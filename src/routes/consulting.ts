@@ -7,6 +7,7 @@ import { db } from '../../db/index';
 import { consultingRequests, consultants } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { emailService } from '../services/email';
+import { logger } from '../services/logger';
 
 const router = Router();
 

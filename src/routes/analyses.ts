@@ -16,6 +16,7 @@ import { hiringAgent } from '../services/agents/hiring/hiring-agent';
 import lxpAgent from '../services/agents/lxp/lxp-agent';
 import { validateTenantAccess } from '../middleware/tenant';
 import { Request, Response } from 'express';
+import { logger } from '../services/logger';
 
 const router = Router();
 

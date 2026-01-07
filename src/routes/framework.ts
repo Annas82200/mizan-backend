@@ -3,6 +3,7 @@ import { db } from '../../db/index';
 import { frameworkConfig } from '../../db/schema/core';
 import { eq, desc, and } from 'drizzle-orm';
 import { authenticate, requireRole, validateTenantAccess } from '../middleware/auth';
+import { logger } from '../services/logger';
 
 const router = Router();
 
