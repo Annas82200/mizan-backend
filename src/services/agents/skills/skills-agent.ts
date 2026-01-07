@@ -658,7 +658,8 @@ export class SkillsAgent extends ThreeEngineAgent {
   async createStrategicSkillsFramework(
     tenantId: string,
     strategy: string,
-    industry: string
+    industry: string,
+    userId: string
   ): Promise<SkillsFramework> {
     try {
       // Use Knowledge Engine to generate strategic skills framework
@@ -757,7 +758,7 @@ Consider:
         technicalSkills: technicalSkillsList as unknown as Record<string, unknown>[],
         softSkills: softSkillsList as unknown as Record<string, unknown>[],
         prioritization: framework.criticalSkills as unknown as Record<string, unknown>[],
-        createdBy: tenantId, // Using tenantId as placeholder - should be actual user ID
+        createdBy: userId,
         createdAt: new Date(),
         updatedAt: new Date()
       });

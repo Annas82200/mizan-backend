@@ -463,7 +463,7 @@ router.post('/framework', authenticate, authorize(['superadmin', 'clientAdmin'])
             });
         }
 
-        const framework = await skillsAgent.createStrategicSkillsFramework(tenantId, strategy, industry);
+        const framework = await skillsAgent.createStrategicSkillsFramework(tenantId, strategy, industry, req.user!.id);
         res.json({ success: true, framework });
 
     } catch (error: unknown) {
