@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
-import { frameworkConfig } from '../../db/schema/core';
+import { frameworkConfig, auditLogs } from '../../db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { authenticate, requireRole, validateTenantAccess } from '../middleware/auth';
 import { logger } from '../services/logger';
@@ -276,14 +276,34 @@ router.get('/audit', requireRole('superadmin'), async (req: Request, res: Respon
 
     logger.info(`Framework audit accessed by superadmin (tenant: ${tenantId}, user: ${userId})`);
 
-    // In a full implementation, this would query an audit log table
-    // For now, we return a placeholder that shows the pattern
+    // Query audit logs for framework-related actions
+    const frameworkAuditLogs = await db.select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.resource, 'framework')
+        )
+      )
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(100); // Last 100 audit entries
+
     return res.json({
-      message: 'Framework audit trail',
+      success: true,
       tenantId: tenantId,
       auditedBy: userId,
       auditedAt: new Date(),
-      note: 'Full audit logging would be implemented with dedicated audit tables'
+      totalEntries: frameworkAuditLogs.length,
+      auditLogs: frameworkAuditLogs.map(log => ({
+        id: log.id,
+        action: log.action,
+        userId: log.userId,
+        resourceId: log.resourceId,
+        status: log.status,
+        ipAddress: log.ipAddress,
+        metadata: log.metadata,
+        createdAt: log.createdAt
+      }))
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch framework audit';
