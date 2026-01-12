@@ -62,6 +62,19 @@ export interface SkillsGap {
   businessImpact: string;
 }
 
+// Frontend-formatted skill gap for employee gap analysis
+export interface FrontendSkillGap {
+  id: string;
+  skillName: string;
+  category: string;
+  requiredLevel: string;
+  currentLevel: string;
+  gapSeverity: 'critical' | 'high' | 'medium' | 'low';
+  affectedEmployees: number;
+  recommendations: string[];
+  estimatedTrainingTime: string;
+}
+
 export interface SkillsFramework {
   tenantId: string;
   strategicSkills: Skill[];
@@ -69,6 +82,15 @@ export interface SkillsFramework {
   criticalSkills: Skill[];
   emergingSkills: Skill[];
   obsoleteSkills: Skill[];
+}
+
+// Type for raw AI-generated framework response (before normalization)
+interface RawAIFrameworkResponse {
+  strategicSkills?: Array<Record<string, unknown>>;
+  industryBenchmarks?: Array<Record<string, unknown>>;
+  criticalSkills?: Array<Record<string, unknown>>;
+  emergingSkills?: Array<Record<string, unknown>>;
+  obsoleteSkills?: Array<{ name: string; reason: string }>;
 }
 
 export interface SkillsAnalysisResult {
@@ -892,7 +914,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       logger.info(`[Auto-Generate Framework] Received response from ${response.provider} with confidence ${response.confidence}`);
 
       // Step 5.5: Safe JSON parsing with comprehensive error handling
-      let parsedResponse: any;
+      let parsedResponse: RawAIFrameworkResponse;
       try {
         if (typeof response.narrative === 'string') {
           // Log raw response for debugging (first 500 chars to avoid log overflow)
@@ -962,7 +984,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         industryBenchmarks: this.normalizeSkillList(parsedResponse.industryBenchmarks || []),
         criticalSkills: this.normalizeSkillList(parsedResponse.criticalSkills || []),
         emergingSkills: this.normalizeSkillList(parsedResponse.emergingSkills || []),
-        obsoleteSkills: parsedResponse.obsoleteSkills || []
+        obsoleteSkills: this.normalizeObsoleteSkillList(parsedResponse.obsoleteSkills || [])
       };
 
       logger.info(`[Auto-Generate Framework] Framework generated - Strategic: ${framework.strategicSkills.length}, Benchmarks: ${framework.industryBenchmarks.length}, Critical: ${framework.criticalSkills.length}`);
@@ -1016,15 +1038,29 @@ Generate a comprehensive strategic skills framework that aligns with this organi
   /**
    * Normalize skill list to ensure proper structure
    */
-  private normalizeSkillList(skills: any[]): Skill[] {
+  private normalizeSkillList(skills: Array<Record<string, unknown>>): Skill[] {
     return skills
-      .filter((skill: any) => skill.name && skill.category && skill.level)
-      .map((skill: any) => ({
-        name: skill.name.trim(),
-        category: this.normalizeCategory(skill.category),
-        level: this.normalizeLevel(skill.level),
-        yearsOfExperience: skill.yearsOfExperience,
+      .filter((skill) => skill.name && skill.category && skill.level)
+      .map((skill) => ({
+        name: (skill.name as string).trim(),
+        category: this.normalizeCategory(skill.category as string),
+        level: this.normalizeLevel(skill.level as string),
+        yearsOfExperience: typeof skill.yearsOfExperience === 'number' ? skill.yearsOfExperience : undefined,
         verified: true // Framework skills are considered verified
+      }));
+  }
+
+  /**
+   * Normalize obsolete skills list (which may have name/reason format)
+   */
+  private normalizeObsoleteSkillList(skills: Array<{ name: string; reason: string }>): Skill[] {
+    return skills
+      .filter((skill) => skill.name)
+      .map((skill) => ({
+        name: skill.name.trim(),
+        category: 'technical' as const, // Obsolete skills default to technical
+        level: 'beginner' as const, // Obsolete skills are considered beginner level
+        verified: false
       }));
   }
 
@@ -1040,9 +1076,9 @@ Generate a comprehensive strategic skills framework that aligns with this organi
       employeeId: string;
       employeeName: string;
       overallGapScore: number;
-      criticalGaps: any[];
-      gaps: any[];
-      strengths: any[];
+      criticalGaps: FrontendSkillGap[];
+      gaps: FrontendSkillGap[];
+      strengths: Skill[];
       recommendations: string[];
     }
   }> {
@@ -1253,7 +1289,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
 
         if (strategy.values) {
           const valuesArray = Array.isArray(strategy.values) ? strategy.values : [];
-          const validValues = valuesArray.filter((v: any) =>
+          const validValues = valuesArray.filter((v: unknown) =>
             v && (typeof v === 'string' ? v.trim() !== '' : true)
           );
           if (validValues.length > 0) {
@@ -1263,12 +1299,12 @@ Generate a comprehensive strategic skills framework that aligns with this organi
 
         if (strategy.objectives) {
           const objectivesArray = Array.isArray(strategy.objectives) ? strategy.objectives : [];
-          const validObjectives = objectivesArray.filter((obj: any) =>
-            obj && (typeof obj === 'string' ? obj.trim() !== '' : obj.title || obj.name)
+          const validObjectives = objectivesArray.filter((obj: unknown) =>
+            obj && (typeof obj === 'string' ? obj.trim() !== '' : (obj as Record<string, unknown>).title || (obj as Record<string, unknown>).name)
           );
           if (validObjectives.length > 0) {
-            parts.push(`Strategic Objectives: ${validObjectives.map((obj: any) =>
-              typeof obj === 'string' ? obj : obj.title || obj.name || JSON.stringify(obj)
+            parts.push(`Strategic Objectives: ${validObjectives.map((obj: unknown) =>
+              typeof obj === 'string' ? obj : (obj as Record<string, unknown>).title || (obj as Record<string, unknown>).name || JSON.stringify(obj)
             ).join('; ')}`);
           }
         }
@@ -1618,12 +1654,12 @@ Assess level based on:
 
       // Validate and normalize skills
       const extractedSkills = parsedResponse.skills
-        .filter((skill: any) => skill.name && skill.category && skill.level)
-        .map((skill: any) => ({
-          name: skill.name.trim(),
-          category: this.normalizeCategory(skill.category),
-          level: this.normalizeLevel(skill.level),
-          yearsOfExperience: skill.yearsOfExperience || undefined,
+        .filter((skill: Record<string, unknown>) => skill.name && skill.category && skill.level)
+        .map((skill: Record<string, unknown>) => ({
+          name: (skill.name as string).trim(),
+          category: this.normalizeCategory(skill.category as string),
+          level: this.normalizeLevel(skill.level as string),
+          yearsOfExperience: (skill.yearsOfExperience as number) || undefined,
           verified: false
         }));
 
@@ -2192,7 +2228,7 @@ Assess level based on:
   async handleBotQuery(
     query: string,
     tenantId: string,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<{
     answer: string;
     intent: string;
@@ -2419,9 +2455,9 @@ Respond in JSON format:
           .limit(1);
 
         if (framework.length > 0 && framework[0].strategicSkills) {
-          const requiredSkills = (framework[0].strategicSkills as any[]) || [];
-          const requiredSkillNames = requiredSkills.map((s: any) =>
-            (s.name || s.skill || '').toLowerCase()
+          const requiredSkills = (framework[0].strategicSkills as Record<string, unknown>[]) || [];
+          const requiredSkillNames = requiredSkills.map((s: Record<string, unknown>) =>
+            ((s.name as string) || (s.skill as string) || '').toLowerCase()
           );
 
           const orgSkillNames = new Set(
