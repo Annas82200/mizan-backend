@@ -691,7 +691,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
                     logger.info(`[Skills Gap Analysis] Framework generation attempt ${attempt}/${maxRetries} for tenant ${employeeTenantId}`);
 
                     // Auto-generate framework using organization data (industry, strategy, structure)
-                    framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId);
+                    framework = await skillsAgent.autoGenerateFrameworkFromOrgData(employeeTenantId, req.user!.id);
                     logger.info(`[Skills Gap Analysis] Framework auto-generated successfully for tenant ${employeeTenantId} on attempt ${attempt}`);
                     lastError = null;
                     break; // Success - exit retry loop

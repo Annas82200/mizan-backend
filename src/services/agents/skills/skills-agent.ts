@@ -776,7 +776,7 @@ Consider:
    * Automatically pulls industry, strategy, and organization structure
    * Uses three-engine AI system for intelligent framework generation
    */
-  async autoGenerateFrameworkFromOrgData(tenantId: string): Promise<SkillsFramework> {
+  async autoGenerateFrameworkFromOrgData(tenantId: string, userId: string): Promise<SkillsFramework> {
     // Declare variables in function scope for error handling
     let industry = 'Unknown';
     let strategyText = '';
@@ -980,7 +980,7 @@ Generate a comprehensive strategic skills framework that aligns with this organi
         technicalSkills: technicalSkillsList as unknown as Record<string, unknown>[],
         softSkills: softSkillsList as unknown as Record<string, unknown>[],
         prioritization: framework.criticalSkills as unknown as Record<string, unknown>[],
-        createdBy: tenantId,
+        createdBy: userId,
         createdAt: new Date(),
         updatedAt: new Date()
       });
