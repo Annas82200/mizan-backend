@@ -347,15 +347,15 @@ async function runStructureAnalysis(agent: StructureAgentV2, input: ArchitectAII
         }
         return String(g);
       }),
-      hiringNeeds: (result.hiringNeeds || []).map((h: any) => ({
-        position: h.role || 'Unknown Position',
-        department: h.department || 'Unknown Department',
-        priority: h.urgency || 'medium'
+      hiringNeeds: (result.hiringNeeds || []).map((h: Record<string, unknown>) => ({
+        position: (h.role as string) || 'Unknown Position',
+        department: (h.department as string) || 'Unknown Department',
+        priority: (h.urgency as string) || 'medium'
       })),
-      recommendations: (result.recommendations || []).map((r: any) => ({
+      recommendations: (result.recommendations || []).map((r: unknown) => ({
         category: 'structure',
         priority: 'medium',
-        description: typeof r === 'string' ? r : (r?.description || String(r) || '')
+        description: typeof r === 'string' ? r : ((r as Record<string, unknown>)?.description as string || String(r) || '')
       }))
     };
   } catch (error) {

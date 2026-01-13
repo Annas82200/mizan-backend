@@ -42,16 +42,30 @@ async function validateTenant(tenantId: string): Promise<boolean> {
   }
 }
 
+// Type for objects that may contain metadata with tenantId
+interface ObjectWithMetadata {
+  metadata?: Record<string, string | undefined>;
+}
+
 /**
  * Extract tenantId from Stripe object metadata
  * This is how we maintain tenant isolation in webhook context
  */
-function extractTenantId(stripeObject: any): string {
+function extractTenantId(stripeObject: Stripe.Event['data']['object']): string {
+  const obj = stripeObject as unknown as {
+    metadata?: { tenantId?: string };
+    customer?: ObjectWithMetadata | string;
+    subscription?: ObjectWithMetadata | string;
+  };
+
   // Try different paths where tenantId might be stored
-  const tenantId = 
-    stripeObject.metadata?.tenantId ||
-    stripeObject.customer?.metadata?.tenantId ||
-    stripeObject.subscription?.metadata?.tenantId;
+  const customerMeta = typeof obj.customer === 'object' ? obj.customer?.metadata : undefined;
+  const subscriptionMeta = typeof obj.subscription === 'object' ? obj.subscription?.metadata : undefined;
+
+  const tenantId =
+    obj.metadata?.tenantId ||
+    customerMeta?.tenantId ||
+    subscriptionMeta?.tenantId;
 
   if (!tenantId) {
     throw new Error('No tenantId found in Stripe object metadata');

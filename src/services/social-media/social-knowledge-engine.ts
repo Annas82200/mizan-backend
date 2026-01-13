@@ -35,6 +35,33 @@ interface ContentPattern {
   contentPillar: string;
 }
 
+// Interface for social media post data used in pattern extraction
+interface SocialPostData {
+  platform: string;
+  campaignType?: string;
+  content: string;
+}
+
+// Return type for framework insights
+interface FrameworkInsights {
+  focus: string;
+  approach: string;
+  keyMessages?: Array<{
+    cylinder: number;
+    name: string;
+    principle: string;
+    keyPoint: string;
+  }>;
+}
+
+// Return type for performance history analysis
+interface PerformanceAnalysis {
+  message?: string;
+  averageEngagement?: string;
+  averageConversionRate?: string;
+  topPerforming?: Array<{ postId: string; engagement: number }>;
+}
+
 interface FrameworkKnowledge {
   cylinders: CylinderDefinition[];
   version: number;
@@ -219,7 +246,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
   /**
    * Extract and store successful content patterns
    */
-  private extractAndStorePattern(post: any, engagementRate: number): void {
+  private extractAndStorePattern(post: SocialPostData, engagementRate: number): void {
     const platform = post.platform;
     const contentPillar = post.campaignType || 'general';
     
@@ -339,7 +366,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
   /**
    * Get framework insights for content pillar
    */
-  private getFrameworkInsights(framework: FrameworkKnowledge, contentPillar: string): any {
+  private getFrameworkInsights(framework: FrameworkKnowledge, contentPillar: string): FrameworkInsights {
     if (contentPillar === 'framework-education') {
       return {
         focus: 'Educate on 7-cylinder framework',
@@ -362,7 +389,7 @@ export class SocialKnowledgeEngine extends KnowledgeEngine {
   /**
    * Analyze performance history for insights
    */
-  private analyzePerformanceHistory(platform: string): any {
+  private analyzePerformanceHistory(platform: string): PerformanceAnalysis {
     const platformPosts = this.performanceHistory.filter(p => p.platform === platform);
     
     if (platformPosts.length === 0) {

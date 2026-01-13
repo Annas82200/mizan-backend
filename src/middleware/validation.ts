@@ -119,7 +119,7 @@ export function validateRequest(schemas: {
  * Sanitize input to prevent XSS and injection attacks
  * Production-ready implementation
  */
-export function sanitizeInput(input: any): any {
+export function sanitizeInput(input: unknown): unknown {
   if (typeof input === 'string') {
     // Remove script tags and dangerous HTML
     return input
@@ -135,10 +135,10 @@ export function sanitizeInput(input: any): any {
   }
 
   if (input && typeof input === 'object') {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
     for (const key in input) {
-      if (input.hasOwnProperty(key)) {
-        sanitized[key] = sanitizeInput(input[key]);
+      if (Object.prototype.hasOwnProperty.call(input, key)) {
+        sanitized[key] = sanitizeInput((input as Record<string, unknown>)[key]);
       }
     }
     return sanitized;

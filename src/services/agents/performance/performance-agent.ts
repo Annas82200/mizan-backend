@@ -538,7 +538,7 @@ class PerformanceAgent {
         intent: string;
         confidence: number;
         suggestions: string[];
-        data?: any;
+        data?: Record<string, unknown> | null;
     }> {
         try {
             // Get relevant context data based on user role

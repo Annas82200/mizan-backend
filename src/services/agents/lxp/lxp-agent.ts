@@ -131,8 +131,36 @@ interface LearningOutcome {
   validationDate?: Date;
 }
 
+// Trigger data structure for processor service
+interface TriggerData {
+  sourceModule?: string;
+  targetModule?: string;
+  triggerType?: string;
+  tenantId?: string;
+  type?: string;
+  data: Record<string, unknown>;
+  status?: string;
+}
+
+// AI-generated learning design structure
+interface AILearningDesign {
+  title: string;
+  description: string;
+  gameType: 'simulation' | 'problem_solving' | 'skill_practice' | 'collaboration' | 'leadership';
+  strategicAlignment: StrategicGoal[];
+}
+
+// Behavior change record structure (from AI analysis)
+interface BehaviorChangeRecord {
+  description?: string;
+  type?: string;
+  category?: string;
+  confidence?: number;
+  impact?: string;
+}
+
 interface TriggerProcessorService {
-  createTrigger(trigger: any): Promise<any>;
+  createTrigger(trigger: TriggerData): Promise<Record<string, unknown>>;
   updateTriggerStatus(id: string, status: string): Promise<void>;
 }
 
@@ -169,9 +197,9 @@ export class LXPAgentService {
 
       // Reasoning Engine: Design customized learning experience
       // Extend context with additional data for analysis
-      // ✅ PRODUCTION (Phase 4): Use any for flexible AI engine context
-      // AI engine accepts flexible context structure, strict typing here is counterproductive
-      const extendedContext: any = {
+      // ✅ PRODUCTION (Phase 4): Use Record<string, unknown> for flexible AI engine context
+      // AI engine accepts flexible context structure
+      const extendedContext: Record<string, unknown> = {
         ...context,
         strategicRequirements: [tenantStrategy],
         // Store behavior and gamification in historicalData for access
@@ -203,7 +231,7 @@ export class LXPAgentService {
   // STEP 3: Learning Experience Generation
   private async createLearningExperience(
     triggerData: SkillsGapTriggerData,
-    design: any
+    design: AILearningDesign
   ): Promise<LearningExperience> {
     try {
       const learningExperience: LearningExperience = {
@@ -705,12 +733,12 @@ export class LXPAgentService {
     return {};
   }
 
-  private async generateLearningLevels(design: any, skillsGaps: SkillGap[]): Promise<LearningLevel[]> {
+  private async generateLearningLevels(_design: AILearningDesign, _skillsGaps: SkillGap[]): Promise<LearningLevel[]> {
     // Implementation to generate progressive learning levels
     return [];
   }
 
-  private createScoringSystem(design: any): ScoringConfig {
+  private createScoringSystem(_design: AILearningDesign): ScoringConfig {
     // Implementation to create gamified scoring system
     return {
       pointsSystem: {
@@ -747,7 +775,7 @@ export class LXPAgentService {
     return {};
   }
 
-  private async updateBehaviorChangeMetrics(learningExperienceId: string, employeeId: string, behaviorChanges: any[]): Promise<void> {
+  private async updateBehaviorChangeMetrics(_learningExperienceId: string, _employeeId: string, _behaviorChanges: BehaviorChangeRecord[]): Promise<void> {
     // Implementation to update behavior change metrics
   }
 
@@ -853,11 +881,17 @@ interface EvaluationCriteria {
   creativity: number;
 }
 
+interface VariableConstraints {
+  min?: number;
+  max?: number;
+  allowedValues?: (string | number | boolean)[];
+}
+
 interface Variable {
   name: string;
   type: 'number' | 'boolean' | 'string';
-  initialValue: any;
-  constraints: any;
+  initialValue: string | number | boolean;
+  constraints: VariableConstraints;
 }
 
 interface Consequence {

@@ -13,73 +13,83 @@ import { logger } from '../services/logger';
 
 const router = Router();
 
+// Type for database errors with code and message properties
+interface DatabaseError {
+  code?: string;
+  message?: string;
+  stack?: string;
+  constructor?: { name?: string };
+}
+
 /**
  * Enhanced database error handler for consistent error responses
  * Following AGENT_CONTEXT_ULTIMATE.md - Complete error handling requirement
  */
-const handleDatabaseError = (error: any, res: Response, operation: string) => {
+const handleDatabaseError = (error: unknown, res: Response, operation: string) => {
+  // Type guard for database error properties
+  const dbError = error as DatabaseError;
   // Specific PostgreSQL error codes
-  if (error?.code === 'ECONNREFUSED' || error?.message?.includes('ECONNREFUSED')) {
-    logger.error(`[${operation}] Database connection refused:`, { error: error.message });
+  if (dbError?.code === 'ECONNREFUSED' || dbError?.message?.includes('ECONNREFUSED')) {
+    logger.error(`[${operation}] Database connection refused:`, { error: dbError.message });
     return res.status(503).json({
       error: 'Database connection failed',
       message: 'PostgreSQL server is not accessible. Please ensure the database is running.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
-  if (error?.code === '28P01' || error?.message?.includes('password authentication failed')) {
-    logger.error(`[${operation}] Database authentication failed:`, { error: error.message });
+  if (dbError?.code === '28P01' || dbError?.message?.includes('password authentication failed')) {
+    logger.error(`[${operation}] Database authentication failed:`, { error: dbError.message });
     return res.status(503).json({
       error: 'Database authentication failed',
       message: 'Invalid database credentials. Check DATABASE_URL configuration.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
-  if (error?.code === '3D000' || error?.message?.includes('database') && error?.message?.includes('does not exist')) {
-    logger.error(`[${operation}] Database does not exist:`, { error: error.message });
+  if (dbError?.code === '3D000' || dbError?.message?.includes('database') && dbError?.message?.includes('does not exist')) {
+    logger.error(`[${operation}] Database does not exist:`, { error: dbError.message });
     return res.status(503).json({
       error: 'Database not found',
       message: 'Database "mizan" does not exist. Please create it first.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
-  if (error?.code === '42P01' || error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
-    logger.error(`[${operation}] Table does not exist:`, { error: error.message });
+  if (dbError?.code === '42P01' || dbError?.message?.includes('relation') && dbError?.message?.includes('does not exist')) {
+    logger.error(`[${operation}] Table does not exist:`, { error: dbError.message });
     return res.status(503).json({
       error: 'Database schema issue',
       message: 'Required database tables do not exist. Run migrations: npm run db:migrate',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
-  if (error?.code === '42703') {
-    logger.error(`[${operation}] Column does not exist:`, { error: error.message });
+  if (dbError?.code === '42703') {
+    logger.error(`[${operation}] Column does not exist:`, { error: dbError.message });
     return res.status(503).json({
       error: 'Database schema mismatch',
       message: 'Database schema is out of sync. Please run migrations.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
   // Connection timeout
-  if (error?.code === '57P03' || error?.message?.includes('timeout')) {
-    logger.error(`[${operation}] Database timeout:`, { error: error.message });
+  if (dbError?.code === '57P03' || dbError?.message?.includes('timeout')) {
+    logger.error(`[${operation}] Database timeout:`, { error: dbError.message });
     return res.status(504).json({
       error: 'Database timeout',
       message: 'Database query timed out. Please try again.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
     });
   }
 
   // Generic error fallback
   const errorDetails = {
-    message: error?.message || 'Unknown error',
-    code: error?.code,
-    type: error?.constructor?.name || typeof error,
-    stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+    message: dbError?.message || 'Unknown error',
+    code: dbError?.code,
+    type: dbError?.constructor?.name || typeof error,
+    stack: process.env.NODE_ENV === 'development' ? dbError?.stack : undefined
   };
 
   logger.error(`[${operation}] Database error:`, errorDetails);
@@ -603,9 +613,10 @@ router.get('/health/database', async (req: Request, res: Response) => {
       userCount = Number(userResult[0]?.count || 0);
 
       schemaStatus = 'valid';
-    } catch (schemaError: any) {
-      logger.error('Schema validation error:', schemaError.message);
-      schemaStatus = schemaError.message.includes('does not exist') ? 'missing_tables' : 'error';
+    } catch (schemaError: unknown) {
+      const errMsg = schemaError instanceof Error ? schemaError.message : String(schemaError);
+      logger.error('Schema validation error:', errMsg);
+      schemaStatus = errMsg.includes('does not exist') ? 'missing_tables' : 'error';
 
       if (schemaStatus === 'missing_tables') {
         return res.status(503).json({
@@ -647,20 +658,21 @@ router.get('/health/database', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Health check critical error:', error);
+    const dbError = error as DatabaseError;
 
     // Determine error type for better diagnostics
     let errorType = 'unknown';
-    let errorMessage = error.message || 'Unknown error';
+    let errorMessage = dbError?.message || 'Unknown error';
 
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
+    if (dbError?.code === 'ECONNREFUSED' || dbError?.message?.includes('ECONNREFUSED')) {
       errorType = 'connection_refused';
       errorMessage = 'PostgreSQL server is not running or not accessible';
-    } else if (error.code === '28P01' || error.message?.includes('authentication failed')) {
+    } else if (dbError?.code === '28P01' || dbError?.message?.includes('authentication failed')) {
       errorType = 'auth_failed';
       errorMessage = 'Database authentication failed - check credentials';
-    } else if (error.code === '3D000' || error.message?.includes('database') && error.message?.includes('does not exist')) {
+    } else if (dbError?.code === '3D000' || dbError?.message?.includes('database') && dbError?.message?.includes('does not exist')) {
       errorType = 'database_missing';
       errorMessage = 'Database "mizan" does not exist';
     }

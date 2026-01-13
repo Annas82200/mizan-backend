@@ -26,6 +26,35 @@ interface WeekStrategy {
   focus: string;
 }
 
+// Type for cylinder data in framework
+interface CylinderData {
+  name: string;
+  definition: string;
+  ethicalPrinciple: string;
+  enablingValues: Array<{ name: string; definition: string }>;
+}
+
+// Type for framework structure
+interface FrameworkData {
+  cylinders: CylinderData[];
+}
+
+// Type for AI analysis result insight
+interface AnalysisInsight {
+  type?: 'strength' | 'weakness' | 'opportunity' | 'threat' | 'trend' | 'gap';
+  description?: string;
+  category?: string;
+  impact?: 'high' | 'medium' | 'low';
+  confidence?: number;
+  evidence?: string[];
+  relatedMetrics?: string[];
+}
+
+// Type for AI analysis result
+interface AnalysisResult {
+  insights?: AnalysisInsight[];
+}
+
 /**
  * Social Media Content Generator using Three-Engine Architecture
  * Compliant with AGENT_CONTEXT_ULTIMATE.md - Production-ready implementation
@@ -125,17 +154,17 @@ export class SocialMediaContentGenerator {
    */
   private generateProfessionalContent(
     request: ContentGenerationRequest,
-    framework: any,
-    analysisResult: any
+    framework: FrameworkData,
+    analysisResult: AnalysisResult
   ): string {
     // Use insights from analysis or generate based on request
     if (analysisResult.insights && analysisResult.insights.length > 0) {
-      return analysisResult.insights[0];
+      return analysisResult.insights[0].description || '';
     }
 
     // Fallback to structured content generation
     if (request.contentPillar === 'framework-education') {
-      const cylinder = framework.cylinders.find((c: any) => 
+      const cylinder = framework.cylinders.find((c: CylinderData) =>
         request.topic.toLowerCase().includes(c.name.toLowerCase())
       );
       
@@ -151,7 +180,7 @@ export class SocialMediaContentGenerator {
   /**
    * Generate content for a specific cylinder
    */
-  private generateCylinderContent(cylinder: any): string {
+  private generateCylinderContent(cylinder: CylinderData): string {
     return `Understanding ${cylinder.name} in Organizational Culture
 
 ${cylinder.definition}
@@ -159,7 +188,7 @@ ${cylinder.definition}
 Ethical Principle: ${cylinder.ethicalPrinciple}
 
 Key Enabling Values:
-${cylinder.enablingValues.slice(0, 4).map((v: any) => `• ${v.name}: ${v.definition}`).join('\n')}
+${cylinder.enablingValues.slice(0, 4).map((v) => `• ${v.name}: ${v.definition}`).join('\n')}
 
 Organizations that master this cylinder demonstrate:
 • Higher employee engagement and retention

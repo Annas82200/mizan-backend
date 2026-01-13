@@ -11,7 +11,7 @@ import { authenticate, authorize } from '../middleware/auth';
 import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
 import { db } from '../../db/index';
 import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants, departments } from '../../db/schema';
-import { eq, and, desc, gte, asc } from 'drizzle-orm';
+import { eq, and, desc, gte, asc, SQL } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { emailService } from '../services/email';
 import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../services/reports/skills-report';
@@ -506,7 +506,7 @@ router.put('/framework/:id', authenticate, authorize(['superadmin', 'clientAdmin
         }
 
         // Build update object with only provided fields
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
             updatedAt: new Date()
         };
 
@@ -683,7 +683,7 @@ router.get('/employee/:employeeId/gap', authenticate, async (req: Request, res: 
             logger.info(`[Skills Gap Analysis] No framework found for tenant ${employeeTenantId}, auto-generating framework...`);
 
             // Retry logic: Try up to 2 times if framework generation fails
-            let lastError: any = null;
+            let lastError: unknown = null;
             const maxRetries = 2;
 
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1276,10 +1276,10 @@ router.get('/gaps', authenticate, authorize(['superadmin', 'clientAdmin']), asyn
             .where(eq(skillsGaps.tenantId, userTenantId));
 
         // Transform database schema to match frontend interface
-        const transformedGaps = dbGaps.map((gap: any) => {
+        const transformedGaps = dbGaps.map((gap) => {
             // Calculate affected employees for this skill gap
             const affectedEmployees = dbGaps.filter(
-                (g: any) => g.skill === gap.skill && g.gapSeverity === gap.gapSeverity
+                (g) => g.skill === gap.skill && g.gapSeverity === gap.gapSeverity
             ).length;
 
             // Generate recommendations based on gap severity
@@ -1383,7 +1383,7 @@ router.get('/assessments/history', authenticate, async (req: Request, res: Respo
         startDate.setMonth(startDate.getMonth() - parseInt(months as string));
 
         // Build query conditions
-        const whereConditions: any[] = [
+        const whereConditions: SQL[] = [
             eq(skillsAssessments.tenantId, userTenantId),
             gte(skillsAssessments.createdAt, startDate)
         ];
@@ -1403,11 +1403,12 @@ router.get('/assessments/history', authenticate, async (req: Request, res: Respo
         const categoryScores = assessments.map(assessment => {
             try {
                 const analysisData = typeof assessment.analysisData === 'string'
-                    ? JSON.parse(assessment.analysisData as string)
-                    : assessment.analysisData as any;
+                    ? JSON.parse(assessment.analysisData as string) as Record<string, unknown>
+                    : assessment.analysisData as Record<string, unknown>;
 
-                const categoryData = analysisData?.categories?.find(
-                    (c: any) => c.name === category || c.category === category
+                const categories = analysisData?.categories as Array<{ name?: string; category?: string; score?: number; averageScore?: number }> | undefined;
+                const categoryData = categories?.find(
+                    (c) => c.name === category || c.category === category
                 );
 
                 return {
@@ -1658,15 +1659,19 @@ router.get('/progress/:employeeId', authenticate, async (req: Request, res: Resp
       : 0;
 
     // Extract completed milestones
+    interface MilestoneRecord {
+      achievedAt?: Date | string | null;
+      [key: string]: unknown;
+    }
     const completedMilestones = progressRecords
       .flatMap(record => {
-        const milestones = record.milestones as any[] || [];
+        const milestones = (record.milestones as MilestoneRecord[]) || [];
         return milestones.map(m => ({
           ...m,
           skillName: record.skillName
         }));
       })
-      .filter((milestone: any) => milestone.achievedAt);
+      .filter((milestone) => milestone.achievedAt);
 
     res.json({
       success: true,
@@ -2036,10 +2041,10 @@ router.get('/report/preview', authenticate, async (req: Request, res: Response) 
         totalGapsCount: (analysisData.allGaps || []).length,
         bySeverity: analysisData.bySeverity || { critical: 0, high: 0, medium: 0, low: 0 },
         criticalGaps: (analysisData.criticalGaps || []).slice(0, 5), // Top 5 for preview
-        topRecommendations: (analysisData.allGaps || [])
-          .filter((gap: any) => gap.recommendations && gap.recommendations.length > 0)
+        topRecommendations: (analysisData.allGaps || [] as Array<{ skillName?: string; recommendations?: string[] }>)
+          .filter((gap) => gap.recommendations && gap.recommendations.length > 0)
           .slice(0, 5)
-          .map((gap: any) => ({
+          .map((gap) => ({
             skillName: gap.skillName,
             recommendations: gap.recommendations
           }))
