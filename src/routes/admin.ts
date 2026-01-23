@@ -16,6 +16,7 @@ import {
 } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { emailService } from '../services/email';
 import { logger } from '../services/logger';
 
@@ -343,13 +344,14 @@ router.post('/users/invite', async (req: Request, res: Response) => {
     
     // Create user with tenant isolation
     const tempPassword = randomUUID();
-    
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
     const userResult = await db.insert(users)
       .values({
         id: randomUUID(),
         tenantId: req.user.tenantId, // Strict tenant isolation
         email: validatedData.email,
-        passwordHash: tempPassword, // In production, hash this
+        passwordHash: hashedPassword,
         name: validatedData.name,
         role: validatedData.role,
         departmentId: validatedData.departmentId,

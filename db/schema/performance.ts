@@ -939,6 +939,109 @@ export const talentProfiles = pgTable('talent_profiles', {
   developmentAreas: jsonb('development_areas'), // Areas for growth
   careerAspirations: text('career_aspirations'),
   potentialRating: text('potential_rating'), // high, medium, low
+  performanceRating: text('performance_rating'), // high, medium, low - for 9-box
+  nineBoxPosition: text('nine_box_position'), // e.g., "high-high", "medium-low"
+  readinessLevel: text('readiness_level'), // ready_now, ready_1_year, ready_2_years, developing
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// SUCCESSION PLANS TABLE
+// ============================================================================
+
+export const successionPlans = pgTable('succession_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+
+  // Critical role information
+  roleId: text('role_id').notNull(), // The critical position
+  roleTitle: text('role_title').notNull(),
+  department: text('department'),
+  incumbentId: text('incumbent_id'), // Current role holder
+
+  // Risk assessment
+  vacancyRisk: text('vacancy_risk').notNull().default('medium'), // high, medium, low
+  readinessGap: integer('readiness_gap').default(0), // Years until ready successor
+  businessImpact: text('business_impact'), // high, medium, low
+
+  // Succession details
+  successors: jsonb('successors').default([]), // Array of {employeeId, readiness, score}
+  targetSuccessorCount: integer('target_successor_count').default(2),
+
+  // Status
+  status: text('status').notNull().default('active'), // active, filled, cancelled
+  lastReviewDate: timestamp('last_review_date'),
+  nextReviewDate: timestamp('next_review_date'),
+
+  // Metadata
+  notes: text('notes'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// DEVELOPMENT PLANS TABLE
+// ============================================================================
+
+export const developmentPlans = pgTable('development_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  employeeId: text('employee_id').notNull(),
+
+  // Plan details
+  title: text('title').notNull(),
+  currentRole: text('current_role'),
+  targetRole: text('target_role'),
+
+  // Development focus
+  strengths: jsonb('strengths').default([]), // Array of strengths
+  developmentAreas: jsonb('development_areas').default([]), // Areas to develop
+
+  // Activities and progress
+  activities: jsonb('activities').default([]), // Array of {id, name, type, status, dueDate}
+  progress: integer('progress').default(0), // 0-100 percentage
+
+  // Timeline
+  startDate: timestamp('start_date'),
+  targetDate: timestamp('target_date'),
+  completedAt: timestamp('completed_at'),
+
+  // Status
+  status: text('status').notNull().default('active'), // draft, active, completed, cancelled
+
+  // Metadata
+  notes: text('notes'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// CRITICAL ROLES TABLE (for structure integration)
+// ============================================================================
+
+export const criticalRoles = pgTable('critical_roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+
+  // Role information
+  title: text('title').notNull(),
+  department: text('department'),
+  level: text('level'), // executive, senior, manager, individual
+
+  // Criticality assessment
+  isCritical: boolean('is_critical').default(true),
+  criticality: text('criticality').default('high'), // high, medium, low
+  businessImpact: text('business_impact'), // Description of impact if vacant
+
+  // Current state
+  incumbentId: text('incumbent_id'), // Current holder
+  vacancyRisk: text('vacancy_risk').default('medium'), // high, medium, low
+
+  // Metadata
+  createdBy: text('created_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -1,19 +1,28 @@
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { db } from "../db/client";
-// const migrationClient = db; // Not needed, using db directly
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { Pool } from 'pg';
+import { config } from '../src/config';
 
-async function runMigrations() {
-  console.log("Running migrations...");
-  
+const runMigrations = async () => {
+  console.log('Connecting to the database...');
+  const pool = new Pool({
+    connectionString: config.DATABASE_URL,
+    ssl: config.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+
+  const db = drizzle(pool);
+
+  console.log('Running database migrations...');
   try {
-    await migrate(db, { migrationsFolder: "./drizzle" });
-    console.log("Migrations completed successfully");
+    await migrate(db, { migrationsFolder: './drizzle' });
+    console.log('Migrations completed successfully!');
   } catch (error) {
-    console.error("Migration failed:", error);
+    console.error('Error running migrations:', error);
     process.exit(1);
   } finally {
-    // await migrationClient.end(); // Using db directly, no separate client
+    await pool.end();
+    console.log('Database connection closed.');
   }
-}
+};
 
 runMigrations();

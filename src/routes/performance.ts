@@ -211,6 +211,123 @@ router.get('/activity', authenticate, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/performance/evaluations
+ * Get all performance evaluations for current user's tenant
+ */
+router.get('/evaluations', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as Request & { user: { id: string; tenantId: string; role?: string } }).user;
+
+    // Get evaluations - managers see all, employees see their own
+    const isManager = user.role === 'admin' || user.role === 'superadmin' || user.role === 'clientAdmin' || user.role === 'manager';
+
+    let evaluationsQuery;
+    if (isManager) {
+      evaluationsQuery = await db.select()
+        .from(performanceEvaluations)
+        .where(eq(performanceEvaluations.tenantId, user.tenantId))
+        .orderBy(desc(performanceEvaluations.scheduledDate));
+    } else {
+      evaluationsQuery = await db.select()
+        .from(performanceEvaluations)
+        .where(
+          and(
+            eq(performanceEvaluations.tenantId, user.tenantId),
+            eq(performanceEvaluations.employeeId, user.id)
+          )
+        )
+        .orderBy(desc(performanceEvaluations.scheduledDate));
+    }
+
+    // Calculate metrics
+    const now = new Date();
+    const metrics = {
+      total: evaluationsQuery.length,
+      pending: evaluationsQuery.filter(e => e.status === 'draft' || e.status === 'scheduled').length,
+      inProgress: evaluationsQuery.filter(e => e.status === 'in_progress').length,
+      completed: evaluationsQuery.filter(e => e.status === 'completed').length,
+      overdue: evaluationsQuery.filter(e =>
+        (e.status === 'scheduled' || e.status === 'draft') &&
+        e.scheduledDate &&
+        new Date(e.scheduledDate) < now
+      ).length,
+      averageRating: (() => {
+        const withRatings = evaluationsQuery.filter(e => e.overallScore);
+        if (withRatings.length === 0) return 0;
+        const sum = withRatings.reduce((acc, e) => acc + (parseFloat(e.overallScore?.toString() || '0')), 0);
+        return Math.round((sum / withRatings.length) * 10) / 10;
+      })()
+    };
+
+    res.json({
+      evaluations: evaluationsQuery,
+      metrics
+    });
+  } catch (error) {
+    logger.error('Error fetching evaluations:', error);
+    res.status(500).json({ error: 'Failed to fetch evaluations' });
+  }
+});
+
+/**
+ * GET /api/performance/meetings
+ * Get all 1:1 meetings for current user
+ */
+router.get('/meetings', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as Request & { user: { id: string; tenantId: string; role?: string } }).user;
+
+    const isManager = user.role === 'admin' || user.role === 'superadmin' || user.role === 'clientAdmin' || user.role === 'manager';
+
+    let meetingsQuery;
+    if (isManager) {
+      meetingsQuery = await db.select()
+        .from(oneOnOneMeetings)
+        .where(eq(oneOnOneMeetings.tenantId, user.tenantId))
+        .orderBy(desc(oneOnOneMeetings.scheduledDate));
+    } else {
+      meetingsQuery = await db.select()
+        .from(oneOnOneMeetings)
+        .where(
+          and(
+            eq(oneOnOneMeetings.tenantId, user.tenantId),
+            eq(oneOnOneMeetings.employeeId, user.id)
+          )
+        )
+        .orderBy(desc(oneOnOneMeetings.scheduledDate));
+    }
+
+    // Calculate metrics
+    const completedMeetings = meetingsQuery.filter(m => m.status === 'completed');
+    const avgDuration = completedMeetings.length > 0
+      ? Math.round(completedMeetings.reduce((sum, m) => sum + (m.duration || 30), 0) / completedMeetings.length)
+      : 30;
+
+    const now = new Date();
+    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    const metrics = {
+      scheduled: meetingsQuery.filter(m => m.status === 'scheduled').length,
+      completed: completedMeetings.length,
+      cancelled: meetingsQuery.filter(m => m.status === 'cancelled').length,
+      averageDuration: avgDuration,
+      thisWeek: meetingsQuery.filter(m =>
+        m.scheduledAt && new Date(m.scheduledAt) >= now && new Date(m.scheduledAt) <= oneWeekFromNow
+      ).length,
+      nextWeek: meetingsQuery.filter(m =>
+        m.scheduledAt && new Date(m.scheduledAt) > oneWeekFromNow && new Date(m.scheduledAt) <= twoWeeksFromNow
+      ).length
+    };
+
+    res.json({ meetings: meetingsQuery, metrics });
+  } catch (error) {
+    logger.error('Error fetching meetings:', error);
+    res.status(500).json({ error: 'Failed to fetch meetings' });
+  }
+});
+
+/**
  * GET /api/performance/goals
  * Get all performance goals for current user
  */
@@ -355,6 +472,87 @@ router.delete('/goals/:id', authenticate, async (req: Request, res: Response) =>
   } catch (error) {
     logger.error('Error deleting goal:', error);
     res.status(500).json({ error: 'Failed to delete goal' });
+  }
+});
+
+/**
+ * GET /api/performance/calibrations
+ * Get calibration sessions and data for managers/admins
+ */
+router.get('/calibrations', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as Request & { user: { id: string; tenantId: string; role?: string } }).user;
+
+    // Calibration is admin/manager only
+    const allowedRoles = ['superadmin', 'clientAdmin', 'manager', 'admin'];
+    if (!allowedRoles.includes(user.role || '')) {
+      return res.status(403).json({ error: 'Unauthorized to view calibration data' });
+    }
+
+    // Get calibration sessions
+    const sessions = await db.select()
+      .from(performanceCalibrations)
+      .where(eq(performanceCalibrations.tenantId, user.tenantId))
+      .orderBy(desc(performanceCalibrations.createdAt));
+
+    // Get completed evaluations for calibration data
+    const evaluations = await db.select()
+      .from(performanceEvaluations)
+      .where(
+        and(
+          eq(performanceEvaluations.tenantId, user.tenantId),
+          eq(performanceEvaluations.status, 'completed')
+        )
+      );
+
+    // Build calibration data from evaluations
+    const calibrationData = evaluations
+      .filter(e => e.overallRating)
+      .map(e => ({
+        employeeId: e.employeeId,
+        employeeName: e.title?.replace('Performance Evaluation - ', '') || 'Employee',
+        department: 'General', // Would need to join with users table for real department
+        managerRating: parseFloat(e.overallRating?.toString() || '0'),
+        calibratedRating: parseFloat(e.overallRating?.toString() || '0'),
+        ratingChange: 0
+      }));
+
+    // Calculate rating distribution
+    const ratingCounts: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    calibrationData.forEach(d => {
+      const rating = Math.round(d.managerRating);
+      if (rating >= 1 && rating <= 5) {
+        ratingCounts[rating]++;
+      }
+    });
+
+    const total = calibrationData.length || 1;
+    const distribution = [
+      { rating: 5, label: 'Exceptional', count: ratingCounts[5], percentage: (ratingCounts[5] / total) * 100, expected: 5 },
+      { rating: 4, label: 'Exceeds Expectations', count: ratingCounts[4], percentage: (ratingCounts[4] / total) * 100, expected: 20 },
+      { rating: 3, label: 'Meets Expectations', count: ratingCounts[3], percentage: (ratingCounts[3] / total) * 100, expected: 60 },
+      { rating: 2, label: 'Needs Improvement', count: ratingCounts[2], percentage: (ratingCounts[2] / total) * 100, expected: 10 },
+      { rating: 1, label: 'Unsatisfactory', count: ratingCounts[1], percentage: (ratingCounts[1] / total) * 100, expected: 5 }
+    ];
+
+    res.json({
+      sessions: sessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        period: s.name, // Use name as period for now
+        status: s.status,
+        startDate: s.scheduledDate || s.createdAt,
+        endDate: s.completedAt,
+        participantCount: s.totalEmployeesCalibrated || 0,
+        completedCount: s.ratingsChanged || 0,
+        departments: s.departmentsIncluded || []
+      })),
+      calibrationData,
+      distribution
+    });
+  } catch (error) {
+    logger.error('Error fetching calibrations:', error);
+    res.status(500).json({ error: 'Failed to fetch calibrations' });
   }
 });
 

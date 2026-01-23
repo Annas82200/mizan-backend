@@ -13,13 +13,13 @@ const agentManager = new AgentManager();
 // Validation schemas
 const analysisRequestSchema = z.object({
   agentType: z.enum(['culture', 'structure']),
-  inputData: z.any(),
+  inputData: z.record(z.string(), z.unknown()),
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional()
 });
 
 const multiAgentRequestSchema = z.object({
   agentTypes: z.array(z.enum(['culture', 'structure'])),
-  inputData: z.any()
+  inputData: z.record(z.string(), z.unknown())
 });
 
 const cultureAssessmentSchema = z.object({

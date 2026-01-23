@@ -241,86 +241,85 @@ export async function generateEmployeeReport(
 
     logger.info(`💾 [REPORT GENERATION] Saving AI-powered report to database...`);
 
-    // 7. Store the report in the database
-    await db.insert(cultureReports).values({
-      id: randomUUID(),
-      tenantId,
-      analysisId: assessmentId,
-      reportType: 'employee',
-      reportData: reportData as any,
-      createdAt: new Date()
-    });
-
-    logger.info(`✅ [REPORT GENERATION] Successfully generated AI-powered culture report for employee ${employeeId}`);
-
-  } catch (error) {
-    logger.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
-
-    // Enhanced error recovery: Save partial report with error details
-    try {
-      logger.info(`🔄 [REPORT GENERATION] Attempting to save partial report with error details...`);
-
-      const partialReportData = {
-        employeeId,
-        employeeName: userData?.name || 'Unknown',
-        assessmentDate: assessmentData?.completedAt || new Date(),
-        error: true,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        errorType: error instanceof Error ? error.name : 'UnknownError',
-        personalValues: {
-          selected: (assessmentData?.personalValues as string[]) || [],
-          cylinderScores: {},
-          interpretation: 'Report generation failed. Please try regenerating the report.',
-          strengths: [],
-          gaps: []
-        },
-        visionForGrowth: {
-          selected: (assessmentData?.desiredExperience as string[]) || [],
-          meaning: 'Unable to generate due to error',
-          opportunities: []
-        },
-        cultureAlignment: {
-          score: 0,
-          interpretation: 'Analysis failed',
-          strengths: [],
-          gaps: [],
-          recommendations: ['Please regenerate this report']
-        },
-        engagement: {
-          score: assessmentData?.engagement || 0,
-          interpretation: 'Unable to analyze due to error',
-          factors: [],
-          drivers: [],
-          barriers: [],
-          recommendations: []
-        },
-        recognition: {
-          score: assessmentData?.recognition || 0,
-          interpretation: 'Unable to analyze due to error',
-          patterns: [],
-          needs: [],
-          recommendations: []
-        },
-        recommendations: ['Report generation encountered an error. Please try regenerating.'],
-        overallSummary: {
-          keyStrengths: [],
-          growthGaps: [],
-          nextSteps: ['Regenerate report', 'Contact support if issue persists']
-        },
-        generatedAt: new Date().toISOString(),
-        partialReport: true
-      };
-
-      // Save partial report so user can see something and retry
-      await db.insert(cultureReports).values({
-        id: randomUUID(),
-        tenantId,
-        analysisId: assessmentId,
-        reportType: 'employee',
-        reportData: partialReportData as any,
-        createdAt: new Date()
-      });
-
+          // 7. Store the report in the database
+        await db.insert(cultureReports).values({
+          id: randomUUID(),
+          tenantId,
+          analysisId: assessmentId,
+          reportType: 'employee',
+          reportData: reportData as unknown as Record<string, unknown>,
+          createdAt: new Date()
+        });
+    
+        logger.info(`✅ [REPORT GENERATION] Successfully generated AI-powered culture report for employee ${employeeId}`);
+    
+      } catch (error) {
+        logger.error(`❌ [REPORT GENERATION] Error for employee ${employeeId}:`, error);
+    
+        // Enhanced error recovery: Save partial report with error details
+        try {
+          logger.info(`🔄 [REPORT GENERATION] Attempting to save partial report with error details...`);
+    
+          const partialReportData = {
+            employeeId,
+            employeeName: userData?.name || 'Unknown',
+            assessmentDate: assessmentData?.completedAt || new Date(),
+            error: true,
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            errorType: error instanceof Error ? error.name : 'UnknownError',
+            personalValues: {
+              selected: (assessmentData?.personalValues as string[]) || [],
+              cylinderScores: {},
+              interpretation: 'Report generation failed. Please try regenerating the report.',
+              strengths: [],
+              gaps: []
+            },
+            visionForGrowth: {
+              selected: (assessmentData?.desiredExperience as string[]) || [],
+              meaning: 'Unable to generate due to error',
+              opportunities: []
+            },
+            cultureAlignment: {
+              score: 0,
+              interpretation: 'Analysis failed',
+              strengths: [],
+              gaps: [],
+              recommendations: ['Please regenerate this report']
+            },
+            engagement: {
+              score: assessmentData?.engagement || 0,
+              interpretation: 'Unable to analyze due to error',
+              factors: [],
+              drivers: [],
+              barriers: [],
+              recommendations: []
+            },
+            recognition: {
+              score: assessmentData?.recognition || 0,
+              interpretation: 'Unable to analyze due to error',
+              patterns: [],
+              needs: [],
+              recommendations: []
+            },
+            recommendations: ['Report generation encountered an error. Please try regenerating.'],
+            overallSummary: {
+              keyStrengths: [],
+              growthGaps: [],
+              nextSteps: ['Regenerate report', 'Contact support if issue persists']
+            },
+            generatedAt: new Date().toISOString(),
+            partialReport: true
+          };
+    
+          // Save partial report so user can see something and retry
+          await db.insert(cultureReports).values({
+            id: randomUUID(),
+            tenantId,
+            analysisId: assessmentId,
+            reportType: 'employee',
+            reportData: partialReportData as unknown as Record<string, unknown>,
+            createdAt: new Date()
+          });
       logger.info(`⚠️ [REPORT GENERATION] Saved partial report with error details for employee ${employeeId}`);
     } catch (saveError) {
       logger.error(`❌ [REPORT GENERATION] Failed to save even partial report:`, saveError);

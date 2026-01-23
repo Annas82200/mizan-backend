@@ -112,41 +112,80 @@ async function createDatabase() {
 async function runMigrations() {
   const config = getDatabaseConfig();
   const pool = new Pool(config);
-  
+  const client = await pool.connect();
+
   try {
     console.log('🔄 Running database migrations...');
-    const client = await pool.connect();
-    
-    // Check if migrations table exists
-    const migrationTableExists = await client.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = '__drizzle_migrations'
+
+    // 1. Create a custom migration tracking table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS _mizan_migrations (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
+    console.log('✅ Migration tracking table is ready.');
+
+    // 2. Get already applied migrations
+    const appliedMigrationsResult = await client.query('SELECT name FROM _mizan_migrations');
+    const appliedMigrations = appliedMigrationsResult.rows.map(r => r.name);
+    console.log('🔍 Found applied migrations:', appliedMigrations);
+
+    // 3. Get all migration files
+    const migrationsDir = path.join(__dirname, '..', 'drizzle');
+    const allMigrationFiles = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort();
     
-    if (!migrationTableExists.rows[0].exists) {
-      console.log('📋 Creating migrations table...');
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
-          id SERIAL PRIMARY KEY,
-          hash text NOT NULL,
-          created_at bigint
-        );
-      `);
+    console.log('🔍 Found migration files:', allMigrationFiles);
+
+    // 4. Filter out applied migrations
+    const pendingMigrations = allMigrationFiles.filter(file => !appliedMigrations.includes(file));
+
+    if (pendingMigrations.length === 0) {
+      console.log('✅ No pending migrations to apply.');
+      client.release();
+      await pool.end();
+      return true;
     }
-    
-    // Run any pending migrations here
-    console.log('✅ Migrations completed');
-    
-    client.release();
-    await pool.end();
+
+    console.log('⏳ Applying pending migrations:', pendingMigrations);
+
+    // 5. Apply pending migrations
+    for (const migrationFile of pendingMigrations) {
+      console.log(`\nApplying migration: ${migrationFile}`);
+      const filePath = path.join(migrationsDir, migrationFile);
+      const sql = fs.readFileSync(filePath, 'utf8');
+      
+      const statements = sql.split('--> statement-breakpoint').filter(s => s.trim() !== '');
+
+      await client.query('BEGIN');
+      try {
+        for (const statement of statements) {
+            console.log(`Executing statement...`);
+            await client.query(statement);
+        }
+        
+        await client.query('INSERT INTO _mizan_migrations (name) VALUES ($1)', [migrationFile]);
+        await client.query('COMMIT');
+        console.log(`✅ Migration ${migrationFile} applied successfully.`);
+
+      } catch (e) {
+        await client.query('ROLLBACK');
+        console.error(`❌ Failed to apply migration ${migrationFile}`);
+        throw e;
+      }
+    }
+
+    console.log('\n✅ All migrations completed successfully.');
     return true;
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
-    await pool.end();
     return false;
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 

@@ -1,7 +1,7 @@
 // backend/src/routes/auth.ts
 
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { db } from '../../db/index';
@@ -13,6 +13,15 @@ import { generateFullToken } from '../services/auth';
 import { logger } from '../services/logger';
 
 const router = Router();
+
+// JWT_SECRET must be set in production - fail fast if missing
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('CRITICAL: JWT_SECRET environment variable is not set');
+  }
+  return secret;
+};
 
 // Cookie configuration for httpOnly authentication
 // ✅ PRODUCTION: Secure, httpOnly cookies to prevent XSS attacks
@@ -333,7 +342,7 @@ router.get('/verify', async (req: Request, res: Response) => {
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
+      const decoded = jwt.verify(token, getJwtSecret()) as TokenUser;
 
       // Validate user exists and is active with tenant isolation
       const user = await db.select()
@@ -427,7 +436,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123') as TokenUser;
+      const decoded = jwt.verify(token, getJwtSecret()) as TokenUser;
 
       // Validate user still exists and is active with tenant isolation
       const userResult = await db.select({

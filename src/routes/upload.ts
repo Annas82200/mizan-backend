@@ -324,11 +324,10 @@ async function handleOrgChartUpload(req: Request, res: Response) {
         'Email' in firstRecord;
 
       if (hasEmployeeFormat) {
-        // Default password for CSV-imported employees
-        const defaultPassword = 'Welcome@123';
-        const passwordHash = await bcrypt.hash(defaultPassword, 10);
-
         for (const record of csvRecords) {
+          // Generate unique password per employee - users must use "forgot password" to set their own
+          const uniquePassword = randomUUID();
+          const passwordHash = await bcrypt.hash(uniquePassword, 12);
           const employeeName = record.employee_name || record.name || record.Name;
           const employeeEmail = record.employee_email || record.email || record.Email;
           const title = record.title || record.Title || record.position || record.Position || null;

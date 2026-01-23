@@ -74,6 +74,9 @@ import demoRoutes from './src/routes/demo';
 import skillsRoutes from './src/routes/skills';
 import socialMediaRoutes from './src/routes/social-media';
 import performanceRoutes from './src/routes/performance';
+import lxpRoutes from './src/routes/lxp';
+import talentRoutes from './src/routes/talent';
+import hiringRoutes from './src/routes/hiring';
 console.log('✅ Database module loaded');
 
 const app = express();
@@ -341,65 +344,6 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// TEMPORARY: Create superadmin endpoint - REMOVE AFTER USE
-app.post('/api/create-superadmin-temp', async (req, res) => {
-  try {
-    const email = 'anna@mizan.com';
-    const password = 'MizanAdmin2024!';
-    const name = 'Anna Dahrouj';
-
-    console.log('🔐 Creating superadmin user...');
-
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // Find or create tenant
-    const tenantResult = await db.select().from(tenants).where(eq(tenants.name, 'Mizan Superadmin')).limit(1);
-    let tenant = tenantResult.length > 0 ? tenantResult[0] : null;
-
-    if (!tenant) {
-      [tenant] = await db.insert(tenants).values({
-        name: 'Mizan Superadmin',
-        plan: 'enterprise',
-        status: 'active'
-      }).returning();
-    }
-
-    // Check if user exists
-    const existingResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    const existing = existingResult.length > 0 ? existingResult[0] : null;
-
-    if (existing) {
-      // Update
-      await db.update(users)
-        .set({
-          passwordHash,
-          role: 'superadmin',
-          isActive: true
-        })
-        .where(eq(users.email, email));
-
-      return res.json({ success: true, message: 'Superadmin updated!' });
-    } else {
-      // Create
-      await db.insert(users).values({
-        tenantId: tenant.id,
-        email,
-        passwordHash,
-        name,
-        role: 'superadmin',
-        isActive: true
-      });
-
-      return res.json({ success: true, message: 'Superadmin created!' });
-    }
-  } catch (error: unknown) {
-    console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return res.status(500).json({ error: errorMessage });
-  }
-});
-
 // DIRECT LOGIN ENDPOINT (temporary fix for Railway routing issue)
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -424,9 +368,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate token - use consistent JWT_SECRET
+    // Generate token - JWT_SECRET must be set in production
     const jwt = await import('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production-xyz123';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('CRITICAL: JWT_SECRET environment variable is not set');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
     const token = jwt.default.sign(
       {
         id: user.id,
@@ -482,6 +430,9 @@ app.use('/api/export', exportRoutes); // Export formatted reports (structure ana
 app.use('/api/skills', skillsRoutes); // Skills Analysis endpoints (AGENT_CONTEXT_ULTIMATE.md Lines 56-226)
 app.use('/api/social-media', socialMediaRoutes); // Social Media Content Generation endpoints
 app.use('/api/performance', performanceRoutes); // Performance Management endpoints
+app.use('/api/lxp', lxpRoutes); // Learning Experience Platform endpoints
+app.use('/api/talent', talentRoutes); // Talent Management endpoints
+app.use('/api/hiring', hiringRoutes); // Hiring/ATS endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
 
 // Error handling middleware
