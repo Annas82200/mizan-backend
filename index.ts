@@ -435,6 +435,31 @@ app.use('/api/talent', talentRoutes); // Talent Management endpoints
 app.use('/api/hiring', hiringRoutes); // Hiring/ATS endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
 
+// === NEW PLATFORM ROUTES (Mizan v2.0) ===
+import assistantRoutes2 from './src/routes/assistant';
+import analyticsRoutes2 from './src/routes/analytics';
+import brandingRoutes2 from './src/routes/branding';
+import engagementRoutes2 from './src/routes/engagement';
+import onboardingRoutes2 from './src/routes/onboarding';
+import gdprRoutes2 from './src/routes/gdpr';
+import hrisRoutes2 from './src/routes/hris';
+import analysisRoutes2 from './src/routes/analysis';
+import lxpAiRoutes2 from './src/routes/lxp-ai';
+import performance360Routes2 from './src/routes/performance-360';
+import bonusRoutes2 from './src/routes/bonus-routes';
+
+app.use('/api/assistant', assistantRoutes2);
+app.use('/api/analytics', analyticsRoutes2);
+app.use('/api/branding', brandingRoutes2);
+app.use('/api/engagement', engagementRoutes2);
+app.use('/api/onboarding', onboardingRoutes2);
+app.use('/api/gdpr', gdprRoutes2);
+app.use('/api/hris', hrisRoutes2);
+app.use('/api/analysis', analysisRoutes2);
+app.use('/api/lxp/ai', lxpAiRoutes2);
+app.use('/api/performance/360', performance360Routes2);
+app.use('/api/bonus', bonusRoutes2);
+
 // Error handling middleware
 app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
