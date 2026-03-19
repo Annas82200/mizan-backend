@@ -1,226 +1,89 @@
+/**
+ * Auth Middleware — Validates JWT tokens and populates request context
+ *
+ * Extracts tenantId, userId, and userRole from the JWT and attaches
+ * them to the request object for use by all downstream route handlers.
+ */
+
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../../db/index';
-import { users, tenants } from '../../db/schema';
-import { eq } from 'drizzle-orm';
-import { verifyToken } from '../services/auth';
-import { logger } from '../services/logger';
 
-export interface AuthenticatedUser {
-  id: string;
+export interface AuthenticatedRequest extends Request {
+  userId: string;
   tenantId: string;
-  email: string;
-  name: string;
+  userRole: string;
+  userEmail?: string;
+}
+
+interface JWTPayload {
+  userId: string;
+  tenantId: string;
   role: string;
-  departmentId?: string;
-  managerId?: string;
+  email?: string;
+  iat?: number;
+  exp?: number;
 }
 
-export const validateTenantAccess = authenticate;
+// Paths that don't require authentication (GET only for branding)
+const PUBLIC_PATHS = new Set([
+  '/api/health',
+]);
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
+// Branding GET endpoints are public (loaded before login for white-label theming)
+const PUBLIC_GET_PATHS = new Set([
+  '/api/branding',
+  '/api/branding/css',
+]);
+
+/**
+ * JWT authentication middleware
+ * Validates Bearer token and populates req.userId, req.tenantId, req.userRole
+ */
+export function authMiddleware() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Skip auth for fully public paths
+    if (PUBLIC_PATHS.has(req.path)) {
+      return next();
     }
-  }
-}
 
-export async function authenticate(req: Request, res: Response, next: NextFunction) {
+    // Skip auth for GET-only public paths (branding loads before login)
+    if (req.method === 'GET' && PUBLIC_GET_PATHS.has(req.path)) {
+      return next();
+    }
+
+    // Also skip for OPTIONS (CORS preflight)
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required', message: 'Missing or invalid Authorization header' });
+    }
+
+    const token = authHeader.substring(7);
+    const secret = process.env.JWT_SECRET;
+
+    if (!secret) {
+      console.error('[Auth] JWT_SECRET not configured');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
     try {
-        // DEBUG: Log cookie presence
-        logger.info('[AUTH] Cookies received:', req.cookies ? Object.keys(req.cookies) : 'NO COOKIES');
-        logger.info('[AUTH] mizan_auth_token cookie:', req.cookies?.mizan_auth_token ? 'PRESENT' : 'MISSING');
-        logger.info('[AUTH] Authorization header:', req.headers.authorization ? 'PRESENT' : 'MISSING');
+      const decoded = jwt.verify(token, secret) as JWTPayload;
 
-        // ✅ PRODUCTION: Read token from httpOnly cookie first, fallback to Authorization header
-        let token: string | undefined;
+      // Attach user context to request
+      (req as AuthenticatedRequest).userId = decoded.userId;
+      (req as AuthenticatedRequest).tenantId = decoded.tenantId;
+      (req as AuthenticatedRequest).userRole = decoded.role;
+      (req as AuthenticatedRequest).userEmail = decoded.email;
 
-        // Priority 1: Check httpOnly cookie (secure, preferred method)
-        if (req.cookies && req.cookies.mizan_auth_token) {
-            token = req.cookies.mizan_auth_token;
-            logger.info('[AUTH] Token source: httpOnly cookie');
-        }
-        // Priority 2: Check Authorization header (backward compatibility)
-        else if (req.headers.authorization) {
-            const authHeader = req.headers.authorization;
-            const parts = authHeader.split(' ');
-
-            if (parts.length !== 2) {
-                return res.status(401).json({ error: 'Token error' });
-            }
-
-            const [scheme, headerToken] = parts;
-
-            if (!/^Bearer$/i.test(scheme)) {
-                return res.status(401).json({ error: 'Token malformatted' });
-            }
-
-            token = headerToken;
-            logger.info('[AUTH] Token source: Authorization header');
-        }
-
-        if (!token) {
-            logger.error('[AUTH] NO TOKEN FOUND - Rejecting request');
-            return res.status(401).json({ error: 'No token provided' });
-        }
-
-        // Verify token using the auth service
-        const decoded = verifyToken(token);
-
-        if (!decoded) {
-            logger.error('Token verification failed - invalid token');
-            return res.status(401).json({ error: 'Token invalid' });
-        }
-
-        if (!decoded.userId) {
-            logger.error('Token verification failed - no userId in token');
-            return res.status(401).json({ error: 'Token invalid' });
-        }
-
-        // Fetch user data from database with proper error handling
-        let userData;
-        try {
-            const userResult = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);
-            userData = userResult[0];
-        } catch (dbError) {
-            logger.error('Database error during user lookup:', dbError);
-            logger.error('Error details:', {
-                message: dbError instanceof Error ? dbError.message : 'Unknown',
-                stack: dbError instanceof Error ? dbError.stack : undefined,
-                userId: decoded.userId,
-                databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET'
-            });
-            return res.status(500).json({ 
-                error: 'Database error',
-                details: process.env.NODE_ENV === 'development' ? (dbError instanceof Error ? dbError.message : 'Unknown error') : undefined
-            });
-        }
-
-        if (!userData) {
-            logger.error('User not found in database:', decoded.userId);
-            return res.status(401).json({ error: 'User not found' });
-        }
-
-        if (!userData.isActive) {
-            logger.error('User account is inactive:', decoded.userId);
-            return res.status(401).json({ error: 'User account is inactive' });
-        }
-
-        // Verify tenant is active if user has a tenant
-        if (userData.tenantId) {
-            try {
-                const tenantResult = await db.select().from(tenants).where(eq(tenants.id, userData.tenantId)).limit(1);
-                const tenant = tenantResult[0];
-                if (tenant && tenant.status !== 'active') {
-                    logger.error('Tenant is inactive:', userData.tenantId);
-                    return res.status(403).json({ error: 'Tenant account is inactive' });
-                }
-            } catch (tenantError) {
-                logger.error('Error checking tenant status:', tenantError);
-                logger.error('Tenant error details:', {
-                    message: tenantError instanceof Error ? tenantError.message : 'Unknown',
-                    stack: tenantError instanceof Error ? tenantError.stack : undefined,
-                    tenantId: userData.tenantId,
-                    databaseUrl: process.env.DATABASE_URL ? 'SET' : 'NOT SET'
-                });
-                return res.status(500).json({ 
-                    error: 'Database error',
-                    details: process.env.NODE_ENV === 'development' ? (tenantError instanceof Error ? tenantError.message : 'Unknown error') : undefined
-                });
-            }
-        }
-
-        // Set the authenticated user with all required properties
-        req.user = {
-            id: userData.id,
-            tenantId: userData.tenantId,
-            email: userData.email,
-            name: userData.name || '',
-            role: userData.role,
-            departmentId: userData.departmentId || undefined,
-            managerId: userData.managerId || undefined
-        };
-
-        next();
-    } catch (error: unknown) {
-        logger.error('Authentication middleware error:', error);
-        if (error instanceof Error) {
-            return res.status(401).json({ error: 'Token invalid', details: error.message });
-        }
-        return res.status(401).json({ error: 'Token invalid' });
+      next();
+    } catch (error) {
+      if ((error as jwt.JsonWebTokenError).name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired', message: 'Please refresh your authentication token' });
+      }
+      return res.status(401).json({ error: 'Invalid token', message: 'Authentication token is invalid' });
     }
+  };
 }
-
-export const authorize = (allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ 
-        error: 'Insufficient permissions',
-        required: allowedRoles,
-        current: req.user.role
-      });
-      return;
-    }
-
-    next();
-  };
-};
-
-export const requireRole = (role: string) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    if (req.user.role !== role) {
-      res.status(403).json({ 
-        error: `${role} role required`,
-        current: req.user.role
-      });
-      return;
-    }
-
-    next();
-  };
-};
-
-export const requireSuperAdmin = requireRole('superadmin');
-export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
-
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    res.status(403).json({ 
-      error: 'Admin role required',
-      current: req.user.role
-    });
-    return;
-  }
-
-  next();
-};
-
-export const requireTenantAccess = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
-
-  // Add tenant validation logic here if needed
-  // For now, just ensure user has a tenantId
-  if (!req.user.tenantId) {
-    res.status(403).json({ error: 'Tenant access required' });
-    return;
-  }
-
-  next();
-};

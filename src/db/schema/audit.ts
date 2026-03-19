@@ -1,34 +1,21 @@
-import { pgTable, text, timestamp, jsonb, uuid } from 'drizzle-orm/pg-core';
-import { tenants, users } from './core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
 
-/**
- * Audit Log Table
- *
- * Tracks all significant actions in the system for compliance and security
- * Provides full audit trail for framework changes, data access, and admin actions
- */
 export const auditLogs = pgTable('audit_logs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'set null' }),
-
-  // Action details
-  action: text('action').notNull(), // e.g., 'framework.created', 'framework.updated', 'user.login', 'data.exported'
-  resource: text('resource').notNull(), // e.g., 'framework', 'user', 'analysis', 'report'
-  resourceId: uuid('resource_id'), // ID of the resource that was acted upon
-
-  // Context and metadata
-  ipAddress: text('ip_address'),
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id'),
+  userId: uuid('user_id'),
+  userEmail: varchar('user_email', { length: 255 }),
+  userRole: varchar('user_role', { length: 50 }),
+  action: varchar('action', { length: 50 }).notNull(),
+  resourceType: varchar('resource_type', { length: 100 }).notNull(),
+  resourceId: varchar('resource_id', { length: 255 }),
+  method: varchar('method', { length: 10 }).notNull(),
+  path: varchar('path', { length: 1024 }).notNull(),
+  statusCode: varchar('status_code', { length: 3 }),
+  requestBodyHash: varchar('request_body_hash', { length: 64 }),
+  changes: jsonb('changes'),
+  ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
-  metadata: jsonb('metadata').$type<Record<string, unknown>>(), // Additional context data
-
-  // Result
-  status: text('status').notNull(), // 'success', 'failure', 'partial'
-  errorMessage: text('error_message'),
-
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  durationMs: varchar('duration_ms', { length: 10 }),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
 });
-
-// Export for use in other modules
-export type AuditLog = typeof auditLogs.$inferSelect;
-export type NewAuditLog = typeof auditLogs.$inferInsert;

@@ -1,69 +1,89 @@
-import { pgTable, uuid, text, timestamp, decimal, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, boolean, integer, real, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { users } from './core';
 
-export const bonusTypeEnum = pgEnum('bonus_type', ['performance', 'skill_acquisition', 'project_completion', 'spot_bonus', 'retention']);
-export const bonusStatusEnum = pgEnum('bonus_status', ['recommended', 'approved', 'rejected', 'paid', 'cancelled']);
+export const bonusCycleStatusEnum = pgEnum('bonus_cycle_status', ['planning', 'active', 'calculation', 'review', 'approved', 'distributed', 'closed']);
+export const allocationStatusEnum = pgEnum('allocation_status', ['draft', 'pending_approval', 'approved', 'rejected', 'distributed']);
 
-/**
- * Bonus Recommendations Table
- * Stores AI-generated recommendations for employee bonuses.
- */
-export const bonusRecommendations = pgTable('bonus_recommendations', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id').notNull(),
-    employeeId: uuid('employee_id').notNull().references(() => users.id),
-    triggerSource: text('trigger_source').notNull(), // e.g., 'performance_review', 'skill_gap_closed'
-    triggerData: jsonb('trigger_data'), // Raw data that triggered the recommendation
-
-    bonusType: bonusTypeEnum('bonus_type').notNull(),
-    recommendedAmount: decimal('recommended_amount', { precision: 12, scale: 2 }).notNull(),
-    currency: text('currency').notNull().default('USD'),
-    rationale: text('rationale').notNull(), // AI-generated reason for the bonus
-    status: bonusStatusEnum('status').notNull().default('recommended'),
-
-    approvedBy: uuid('approved_by'),
-    approvedAt: timestamp('approved_at', { withTimezone: true }),
-    rejectionReason: text('rejection_reason'),
-
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+export const bonusCycles = pgTable('bonus_cycles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  fiscalYear: integer('fiscal_year').notNull(),
+  quarter: integer('quarter'), // null for annual
+  status: bonusCycleStatusEnum('status').notNull().default('planning'),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  totalBudget: real('total_budget'),
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  distributionDate: timestamp('distribution_date'),
+  createdBy: uuid('created_by').notNull(),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-/**
- * Bonus Payouts Table
- * Tracks the status of approved bonus payouts.
- */
-export const bonusPayouts = pgTable('bonus_payouts', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    recommendationId: uuid('recommendation_id').notNull().references(() => bonusRecommendations.id),
-    tenantId: uuid('tenant_id').notNull(),
-    employeeId: uuid('employee_id').notNull().references(() => users.id),
-
-    payoutAmount: decimal('payout_amount', { precision: 12, scale: 2 }).notNull(),
-    currency: text('currency').notNull().default('USD'),
-    status: text('status').notNull().default('pending'), // pending, processing, paid, failed
-    
-    paymentTransactionId: text('payment_transaction_id'), // From payment gateway
-    paidAt: timestamp('paid_at', { withTimezone: true }),
-
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+export const bonusPools = pgTable('bonus_pools', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cycleId: uuid('cycle_id').notNull().references(() => bonusCycles.id, { onDelete: 'cascade' }),
+  tenantId: uuid('tenant_id').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  departmentId: uuid('department_id'),
+  budgetAmount: real('budget_amount').notNull(),
+  allocatedAmount: real('allocated_amount').default(0),
+  remainingAmount: real('remaining_amount'),
+  employeeCount: integer('employee_count').default(0),
+  metadata: jsonb('metadata').default('{}'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export const bonusRecommendationsRelations = relations(bonusRecommendations, ({ one }) => ({
-    employee: one(users, {
-        fields: [bonusRecommendations.employeeId],
-        references: [users.id],
-    }),
+export const bonusCriteria = pgTable('bonus_criteria', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cycleId: uuid('cycle_id').notNull().references(() => bonusCycles.id, { onDelete: 'cascade' }),
+  tenantId: uuid('tenant_id').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  weight: real('weight').notNull(), // 0-1, all criteria weights should sum to 1
+  sourceModule: varchar('source_module', { length: 100 }).notNull(), // performance, skills, culture, tenure, custom
+  calculationMethod: varchar('calculation_method', { length: 100 }).notNull(), // linear, tiered, threshold, custom
+  calculationConfig: jsonb('calculation_config').notNull(), // {tiers?, threshold?, formula?, min?, max?}
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const bonusAllocations = pgTable('bonus_allocations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cycleId: uuid('cycle_id').notNull().references(() => bonusCycles.id, { onDelete: 'cascade' }),
+  poolId: uuid('pool_id').references(() => bonusPools.id),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  baseSalary: real('base_salary'),
+  bonusPercentage: real('bonus_percentage'),
+  calculatedAmount: real('calculated_amount').notNull(),
+  adjustedAmount: real('adjusted_amount'),
+  finalAmount: real('final_amount'),
+  // Score breakdown per criterion
+  criteriaScores: jsonb('criteria_scores').default('[]'), // [{criteriaId, score, weightedScore}]
+  overallScore: real('overall_score'),
+  status: allocationStatusEnum('status').notNull().default('draft'),
+  managerAdjustment: real('manager_adjustment'),
+  managerNotes: text('manager_notes'),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  distributedAt: timestamp('distributed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Relations
+export const bonusCyclesRelations = relations(bonusCycles, ({ many }) => ({
+  pools: many(bonusPools),
+  criteria: many(bonusCriteria),
+  allocations: many(bonusAllocations),
 }));
 
-export const bonusPayoutsRelations = relations(bonusPayouts, ({ one }) => ({
-    recommendation: one(bonusRecommendations, {
-        fields: [bonusPayouts.recommendationId],
-        references: [bonusRecommendations.id],
-    }),
-    employee: one(users, {
-        fields: [bonusPayouts.employeeId],
-        references: [users.id],
-    }),
+export const bonusPoolsRelations = relations(bonusPools, ({ one, many }) => ({
+  cycle: one(bonusCycles, { fields: [bonusPools.cycleId], references: [bonusCycles.id] }),
+  allocations: many(bonusAllocations),
 }));
