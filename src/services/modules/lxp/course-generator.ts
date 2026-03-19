@@ -5,7 +5,7 @@
  * and interactive exercises tailored to the learner's skill gaps and level.
  */
 
-import { getAIRouter } from '../../ai/ai-router';
+import { getAIRouter } from '../../ai-engines/ai-router';
 
 export interface CourseGenerationRequest {
   tenantId: string;

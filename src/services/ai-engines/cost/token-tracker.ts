@@ -5,8 +5,8 @@
  * Supports billing, budgeting, and usage analytics.
  */
 
-import { db } from '../../../db/index';
-import { aiRequests, tokenUsage } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { aiRequests, tokenUsage } from '../../../../db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 
 // Cost per 1M tokens (approximate, updated periodically)

@@ -3,10 +3,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { AssistantController } from '../services/assistant/assistant-controller';
-import { ConversationManager } from '../services/assistant/conversation-manager';
-import { validate } from '../middleware/validate';
-import { assistantMessageSchema, executeActionSchema } from '../middleware/schemas';
+import { AssistantController } from '../../src/services/assistant/assistant-controller';
+import { ConversationManager } from '../../src/services/assistant/conversation-manager';
+import { validate } from '../../src/middleware/validate';
+import { assistantMessageSchema, executeActionSchema } from '../../src/middleware/schemas';
 
 const router = Router();
 const controller = new AssistantController();

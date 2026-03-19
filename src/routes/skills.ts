@@ -7,15 +7,15 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import pdfParse from 'pdf-parse-fork';
 import mammoth from 'mammoth';
-import { authenticate, authorize } from '../middleware/auth';
-import { skillsAgent, type SkillsFramework, type Skill } from '../services/agents/skills/skills-agent';
+import { authenticate, authorize } from '../../src/middleware/auth';
+import { skillsAgent, type SkillsFramework, type Skill } from '../../src/services/agents/skills/skills-agent';
 import { db } from '../../db/index';
 import { skills, skillsAssessments, skillsGaps, skillsFramework, skillsAssessmentSessions, skillsBotInteractions, skillsLearningTriggers, skillsTalentTriggers, skillsBonusTriggers, skillsProgress, employeeSkillsProfiles, users, tenants, departments } from '../../db/schema';
 import { eq, and, desc, gte, asc, SQL } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-import { emailService } from '../services/email';
-import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../services/reports/skills-report';
-import { logger } from '../services/logger';
+import { emailService } from '../../src/services/email';
+import { generateSkillsReportPDF, generateSkillsReportExcel, generateSkillsReportCSV } from '../../src/services/reports/skills-report';
+import { logger } from '../../src/services/logger';
 
 const router = Router();
 

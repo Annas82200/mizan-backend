@@ -3,10 +3,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { validate } from '../middleware/validate';
-import { createWorkflowSchema, createAssignmentSchema } from '../middleware/schemas';
-import { db } from '../db/index';
-import { onboardingWorkflows, onboardingAssignments, onboardingChecklists, mentorMatches, onboardingPlans } from '../db/schema';
+import { validate } from '../../src/middleware/validate';
+import { createWorkflowSchema, createAssignmentSchema } from '../../src/middleware/schemas';
+import { db } from '../../db/index';
+import { onboardingWorkflows, onboardingAssignments, onboardingChecklists, mentorMatches, onboardingPlans } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 const router = Router();

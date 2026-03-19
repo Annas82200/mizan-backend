@@ -7,7 +7,7 @@
  * - Response formatting for the chat interface
  */
 
-import { getAIRouter, EngineType } from '../../ai/ai-router';
+import { getAIRouter, EngineType } from '../../ai-engines/ai-router';
 
 export interface AgentContext {
   tenantId: string;

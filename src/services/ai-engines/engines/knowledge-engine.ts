@@ -8,7 +8,7 @@
  * - Intent classification for the AI Router
  */
 
-import { Mistral } from '@mistralai/mistralai';
+import Mistral from '@mistralai/mistralai';
 
 export interface KnowledgeQuery {
   query: string;

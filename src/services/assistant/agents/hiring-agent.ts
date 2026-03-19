@@ -1,6 +1,6 @@
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
-import { db } from '../../../db/index';
-import { positions, employees } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { positions, employees } from '../../../../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export class HiringAgent extends BaseAgent {

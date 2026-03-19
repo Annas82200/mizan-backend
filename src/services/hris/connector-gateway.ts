@@ -5,8 +5,8 @@
  * Manages connector lifecycle: create, configure, test, sync, monitor.
  */
 
-import { db } from '../../db/index';
-import { connectorConfigs, syncLogs } from '../../db/schema';
+import { db } from '../../../db/index';
+import { connectorConfigs, syncLogs } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { IHRISAdapter, SyncResult, ConnectionTestResult, SyncConflict } from './adapters/adapter-interface';
 import { RESTAdapter, RESTAdapterConfig } from './adapters/rest-adapter';

@@ -2,8 +2,8 @@
  * Structure Analysis Engine — Org chart, span of control, reporting depth
  * Reads employees/departments and computes organizational health metrics.
  */
-import { db } from '../../db/index';
-import { employees, departments, positions } from '../../db/schema';
+import { db } from '../../../db/index';
+import { employees, departments, positions } from '../../../db/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export interface StructureAnalysis {

@@ -3,9 +3,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { validate } from '../middleware/validate';
-import { generate360Schema } from '../middleware/schemas';
-import { Evaluation360Service } from '../services/modules/performance/evaluation-360';
+import { validate } from '../../src/middleware/validate';
+import { generate360Schema } from '../../src/middleware/schemas';
+import { Evaluation360Service } from '../../src/services/modules/performance/evaluation-360';
 
 const router = Router();
 const evaluation360 = new Evaluation360Service();

@@ -9,10 +9,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
-import { conversations, messages, assistantActions } from '../db/schema';
-import { gamificationPoints, badgeAwards, recognitions, pulseResponses } from '../db/schema';
-import { auditLogs } from '../db/schema';
+import { db } from '../../db/index';
+import { conversations, messages, assistantActions } from '../../db/schema';
+import { gamificationPoints, badgeAwards, recognitions, pulseResponses } from '../../db/schema';
+import { auditLogs } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 const router = Router();

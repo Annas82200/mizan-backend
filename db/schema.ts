@@ -15,3 +15,14 @@ export * from './schema/payments'; // Payments: subscriptions, demo requests
 export * from './schema/social-media'; // Social Media: accounts, posts, campaigns
 export * from './schema/workflows'; // Workflows: automation, actions
 export * from './schema/consulting'; // Consulting: requests, consultants
+
+// === Mizan Platform v2.0 New Schemas ===
+export * from './schema/mizan-assistant';
+export * from './schema/mizan-engagement';
+export * from './schema/mizan-onboarding';
+export * from './schema/mizan-branding';
+export * from './schema/mizan-ai-usage';
+export * from './schema/mizan-module-config';
+export * from './schema/mizan-hris';
+export * from './schema/mizan-analysis';
+export * from './schema/mizan-talent';

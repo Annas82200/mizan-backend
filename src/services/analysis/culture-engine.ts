@@ -2,10 +2,10 @@
  * Culture Analysis Engine — 7-Cylinder Ethical Framework
  * Wraps the Reasoning Engine's analyzeCulture with DB persistence.
  */
-import { db } from '../../db/index';
-import { pulseSurveys, pulseResponses } from '../../db/schema';
+import { db } from '../../../db/index';
+import { pulseSurveys, pulseResponses } from '../../../db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { getAIRouter } from '../ai/ai-router';
+import { getAIRouter } from '../ai-engines/ai-router';
 
 export interface CultureAnalysis {
   overallScore: number;

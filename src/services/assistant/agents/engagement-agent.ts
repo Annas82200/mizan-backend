@@ -1,6 +1,6 @@
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
-import { db } from '../../../db/index';
-import { gamificationPoints, badgeAwards, challenges, challengeParticipations } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { gamificationPoints, badgeAwards, challenges, challengeParticipations } from '../../../../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export class EngagementAgent extends BaseAgent {

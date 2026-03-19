@@ -6,7 +6,7 @@
  * and produce calibrated executive performance summaries.
  */
 
-import { getAIRouter } from '../../ai/ai-router';
+import { getAIRouter } from '../../ai-engines/ai-router';
 
 export interface EvaluationSource {
   sourceType: 'self' | 'peer' | 'direct_report' | 'manager';

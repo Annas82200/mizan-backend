@@ -3,15 +3,15 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { validate } from '../middleware/validate';
-import { createSurveySchema, sendRecognitionSchema, surveyResponseSchema } from '../middleware/schemas';
-import { db } from '../db/index';
+import { validate } from '../../src/middleware/validate';
+import { createSurveySchema, sendRecognitionSchema, surveyResponseSchema } from '../../src/middleware/schemas';
+import { db } from '../../db/index';
 import {
   pulseSurveys, pulseResponses,
   gamificationPoints, badges, badgeAwards,
   challenges, challengeParticipations,
   recognitions, leaderboardSnapshots,
-} from '../db/schema';
+} from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 const router = Router();

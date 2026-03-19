@@ -5,8 +5,8 @@
  * At runtime, CSS variables are injected to completely rebrand the platform.
  */
 
-import { db } from '../../db/index';
-import { tenantBranding, brandAssets, customDomains } from '../../db/schema';
+import { db } from '../../../db/index';
+import { tenantBranding, brandAssets, customDomains } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { cacheGetOrSet, invalidateCache } from '../../infrastructure/redis';
 

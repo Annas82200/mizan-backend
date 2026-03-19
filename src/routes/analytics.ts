@@ -3,14 +3,14 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
+import { db } from '../../db/index';
 import {
   onboardingAssignments, pulseSurveys, pulseResponses,
   gamificationPoints, recognitions, challenges,
   bonusCycles, bonusAllocations,
   successionPlans, developmentPlans,
   moduleConfigs, analysisResults, employees,
-} from '../db/schema';
+} from '../../db/schema';
 import { eq, and, sql, desc, gte } from 'drizzle-orm';
 
 const router = Router();

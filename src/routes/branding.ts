@@ -3,9 +3,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { validate } from '../middleware/validate';
-import { updateBrandingSchema, verifyDomainSchema } from '../middleware/schemas';
-import { BrandingService } from '../services/branding/branding-service';
+import { validate } from '../../src/middleware/validate';
+import { updateBrandingSchema, verifyDomainSchema } from '../../src/middleware/schemas';
+import { BrandingService } from '../../src/services/branding/branding-service';
 
 const router = Router();
 const brandingService = new BrandingService();

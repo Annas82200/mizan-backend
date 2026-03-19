@@ -2,10 +2,10 @@
  * Analysis Routes — Run and retrieve structure/culture/skills analysis
  */
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
-import { analysisResults, analysisRuns } from '../db/schema';
+import { db } from '../../db/index';
+import { analysisResults, analysisRuns } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { AnalysisOrchestrator } from '../services/analysis/orchestrator';
+import { AnalysisOrchestrator } from '../../src/services/analysis/orchestrator';
 
 const router = Router();
 const orchestrator = new AnalysisOrchestrator();

@@ -5,7 +5,7 @@
  * Classifies user intent and routes to the appropriate specialized agent.
  */
 
-import { KnowledgeEngine } from '../ai/engines/knowledge-engine';
+import { KnowledgeEngine } from '../ai-engines/engines/knowledge-engine';
 
 export type AssistantIntent =
   | 'SKILLS_QUERY'

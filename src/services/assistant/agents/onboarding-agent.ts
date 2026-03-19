@@ -1,6 +1,6 @@
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
-import { db } from '../../../db/index';
-import { onboardingAssignments, onboardingChecklists, mentorMatches } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { onboardingAssignments, onboardingChecklists, mentorMatches } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export class OnboardingAgent extends BaseAgent {

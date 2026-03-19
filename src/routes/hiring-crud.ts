@@ -2,8 +2,8 @@
  * Hiring CRUD Routes — Requisitions, jobs, applications, interviews
  */
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
-import { positions, employees } from '../db/schema';
+import { db } from '../../db/index';
+import { positions, employees } from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 const router = Router();

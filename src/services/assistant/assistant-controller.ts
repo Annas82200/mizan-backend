@@ -14,7 +14,7 @@ import { IntentClassifier, ClassificationResult } from './intent-classifier';
 import { ConversationManager } from './conversation-manager';
 import { getAgent } from './agents/agent-factory';
 import { ActionEngine } from './action-engine';
-import { TokenTracker } from '../ai/cost/token-tracker';
+import { TokenTracker } from '../ai-engines/cost/token-tracker';
 import { sendAssistantResponse } from '../../infrastructure/websocket/socket-server';
 
 export interface AssistantRequest {

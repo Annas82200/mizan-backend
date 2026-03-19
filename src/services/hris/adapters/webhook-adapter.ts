@@ -16,8 +16,8 @@ import {
   HRISCompensation,
   ConnectionTestResult,
 } from './adapter-interface';
-import { db } from '../../../db/index';
-import { webhookEvents } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { webhookEvents } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export interface WebhookAdapterConfig extends AdapterConfig {

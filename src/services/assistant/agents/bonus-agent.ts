@@ -1,6 +1,6 @@
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
-import { db } from '../../../db/index';
-import { bonusCycles, bonusAllocations } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { bonusCycles, bonusAllocations } from '../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 export class BonusAgent extends BaseAgent {

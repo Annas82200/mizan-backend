@@ -6,8 +6,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../db/index';
-import { auditLogs } from '../db/schema';
+import { db } from '../../db/index';
+import { auditLogs } from '../../db/schema';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const EXCLUDED_PATHS = new Set(['/api/health', '/api/branding', '/api/assistant/message']);

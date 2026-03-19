@@ -2,8 +2,8 @@
  * Skills Analysis Engine — Gap analysis, competency mapping
  * Reads employee_skills vs skill_frameworks to compute org-wide gaps.
  */
-import { db } from '../../db/index';
-import { employeeSkills, skills, skillFrameworks } from '../../db/schema';
+import { db } from '../../../db/index';
+import { employeeSkills, skills, skillFrameworks } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 export interface SkillsAnalysis {

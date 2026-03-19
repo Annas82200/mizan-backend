@@ -5,8 +5,8 @@
  * resolves based on the tenant's configured strategy.
  */
 
-import { db } from '../../db/index';
-import { syncConflicts } from '../../db/schema';
+import { db } from '../../../db/index';
+import { syncConflicts } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export type ConflictStrategy = 'hris_wins' | 'mizan_wins' | 'manual_review' | 'newest_wins';

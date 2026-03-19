@@ -2,8 +2,8 @@
  * Bonus Routes — Cycles, criteria, pools, allocations, calculations
  */
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
-import { bonusCycles, bonusCriteria, bonusPools, bonusAllocations } from '../db/schema';
+import { db } from '../../db/index';
+import { bonusCycles, bonusCriteria, bonusPools, bonusAllocations } from '../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 const router = Router();

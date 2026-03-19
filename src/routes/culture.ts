@@ -2,10 +2,10 @@
  * Culture Routes — 7-Cylinder analysis, culture surveys, results
  */
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index';
-import { pulseSurveys, pulseResponses, analysisResults, analysisRuns } from '../db/schema';
+import { db } from '../../db/index';
+import { pulseSurveys, pulseResponses, analysisResults, analysisRuns } from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
-import { getAIRouter } from '../services/ai/ai-router';
+import { getAIRouter } from '../../src/services/ai/ai-router';
 
 const router = Router();
 interface AuthRequest extends Request { userId: string; tenantId: string; userRole: string; }

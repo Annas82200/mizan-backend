@@ -3,9 +3,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { validate } from '../middleware/validate';
-import { generateCourseSchema } from '../middleware/schemas';
-import { CourseGenerator } from '../services/modules/lxp/course-generator';
+import { validate } from '../../src/middleware/validate';
+import { generateCourseSchema } from '../../src/middleware/schemas';
+import { CourseGenerator } from '../../src/services/modules/lxp/course-generator';
 
 const router = Router();
 const courseGenerator = new CourseGenerator();

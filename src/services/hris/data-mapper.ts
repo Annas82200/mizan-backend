@@ -5,8 +5,8 @@
  * per-tenant field mapping configuration.
  */
 
-import { db } from '../../db/index';
-import { fieldMappings } from '../../db/schema';
+import { db } from '../../../db/index';
+import { fieldMappings } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export interface FieldMapping {

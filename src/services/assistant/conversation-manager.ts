@@ -5,8 +5,8 @@
  * Long-term memory: PostgreSQL (full conversation history, searchable)
  */
 
-import { db } from '../../db/index';
-import { conversations, messages, conversationContexts } from '../../db/schema';
+import { db } from '../../../db/index';
+import { conversations, messages, conversationContexts } from '../../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { getRedisClient } from '../../infrastructure/redis';
 

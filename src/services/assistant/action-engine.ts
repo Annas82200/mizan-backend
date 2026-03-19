@@ -5,8 +5,8 @@
  * and the user confirms, this engine executes it.
  */
 
-import { db } from '../../db/index';
-import { assistantActions, approvalRequests } from '../../db/schema';
+import { db } from '../../../db/index';
+import { assistantActions, approvalRequests } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { enqueueEmail, enqueueReport, EmailJob } from '../../infrastructure/bullmq/queue-registry';
 import { notifyUser } from '../../infrastructure/websocket/socket-server';

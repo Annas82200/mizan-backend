@@ -2,8 +2,8 @@
  * Analysis Orchestrator — Runs all 3 core engines and stores cross-module results
  * This is the "brain" that drives all other modules per requirement #5.
  */
-import { db } from '../../db/index';
-import { analysisRuns, analysisResults } from '../../db/schema';
+import { db } from '../../../db/index';
+import { analysisRuns, analysisResults } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { StructureEngine } from './structure-engine';
 import { CultureEngine } from './culture-engine';

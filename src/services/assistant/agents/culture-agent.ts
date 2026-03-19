@@ -1,6 +1,6 @@
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
-import { db } from '../../../db/index';
-import { pulseSurveys, pulseResponses } from '../../../db/schema';
+import { db } from '../../../../db/index';
+import { pulseSurveys, pulseResponses } from '../../../../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 
 export class CultureAgent extends BaseAgent {

@@ -435,30 +435,36 @@ app.use('/api/talent', talentRoutes); // Talent Management endpoints
 app.use('/api/hiring', hiringRoutes); // Hiring/ATS endpoints
 app.use('/api', testAiRoutes); // Test AI endpoint
 
-// === NEW PLATFORM ROUTES (Mizan v2.0) ===
-import assistantRoutes2 from './src/routes/assistant';
-import analyticsRoutes2 from './src/routes/analytics';
-import brandingRoutes2 from './src/routes/branding';
-import engagementRoutes2 from './src/routes/engagement';
-import onboardingRoutes2 from './src/routes/onboarding';
-import gdprRoutes2 from './src/routes/gdpr';
-import hrisRoutes2 from './src/routes/hris';
-import analysisRoutes2 from './src/routes/analysis';
-import lxpAiRoutes2 from './src/routes/lxp-ai';
-import performance360Routes2 from './src/routes/performance-360';
-import bonusRoutes2 from './src/routes/bonus-routes';
+// === Mizan Platform v2.0 — New Route Groups ===
+try {
+  const assistantRoutes2 = require('./src/routes/assistant').default;
+  const analyticsRoutes2 = require('./src/routes/analytics').default;
+  const brandingRoutes2 = require('./src/routes/branding').default;
+  const engagementRoutes2 = require('./src/routes/engagement').default;
+  const onboardingRoutes2 = require('./src/routes/onboarding').default;
+  const gdprRoutes2 = require('./src/routes/gdpr').default;
+  const hrisRoutes2 = require('./src/routes/hris').default;
+  const analysisRoutes2 = require('./src/routes/analysis').default;
+  const lxpAiRoutes2 = require('./src/routes/lxp-ai').default;
+  const performance360Routes2 = require('./src/routes/performance-360').default;
+  const bonusRoutes2 = require('./src/routes/bonus-routes').default;
 
-app.use('/api/assistant', assistantRoutes2);
-app.use('/api/analytics', analyticsRoutes2);
-app.use('/api/branding', brandingRoutes2);
-app.use('/api/engagement', engagementRoutes2);
-app.use('/api/onboarding', onboardingRoutes2);
-app.use('/api/gdpr', gdprRoutes2);
-app.use('/api/hris', hrisRoutes2);
-app.use('/api/analysis', analysisRoutes2);
-app.use('/api/lxp/ai', lxpAiRoutes2);
-app.use('/api/performance/360', performance360Routes2);
-app.use('/api/bonus', bonusRoutes2);
+  app.use('/api/assistant', assistantRoutes2);
+  app.use('/api/analytics', analyticsRoutes2);
+  app.use('/api/branding', brandingRoutes2);
+  app.use('/api/engagement', engagementRoutes2);
+  app.use('/api/onboarding', onboardingRoutes2);
+  app.use('/api/gdpr', gdprRoutes2);
+  app.use('/api/hris', hrisRoutes2);
+  app.use('/api/analysis', analysisRoutes2);
+  app.use('/api/lxp/ai', lxpAiRoutes2);
+  app.use('/api/performance/360', performance360Routes2);
+  app.use('/api/bonus', bonusRoutes2);
+  console.log('✅ Mizan v2.0 routes mounted (11 new route groups)');
+} catch (err) {
+  console.error('⚠️ Failed to mount Mizan v2.0 routes:', (err as Error).message);
+  console.error('   The server will continue with existing routes only.');
+}
 
 // Error handling middleware
 app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
