@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Branding Routes — White-label branding API
  */

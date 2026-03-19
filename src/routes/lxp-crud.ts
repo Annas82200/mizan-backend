@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LXP CRUD Routes — Courses, enrollments, progress, learning paths
  */

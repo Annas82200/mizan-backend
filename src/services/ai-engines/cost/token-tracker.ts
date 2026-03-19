@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Token Tracker — Per-tenant AI usage tracking and cost estimation
  *

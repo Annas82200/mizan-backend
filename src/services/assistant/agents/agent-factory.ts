@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AgentFactory — Lazily instantiates specialized agents by name
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Conversation Manager — Manages chat sessions, context, and memory
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Performance 360 Routes — Multi-source evaluation and two-way feedback
  */

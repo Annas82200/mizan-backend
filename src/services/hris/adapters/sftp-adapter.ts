@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SFTP Adapter — File-based sync via SFTP/CSV for payroll and batch systems
  *

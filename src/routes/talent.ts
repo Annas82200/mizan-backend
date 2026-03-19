@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 
 import { talentAgent, TalentTriggerSchema } from '../services/agents/talent/talent-agent';

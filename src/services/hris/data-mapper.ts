@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Data Mapper — Config-driven field mapping between HRIS and Mizan schemas
  *

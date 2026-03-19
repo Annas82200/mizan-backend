@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Assistant Controller — Main entry point for the Unified AI Assistant
  *

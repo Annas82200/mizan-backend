@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/demo.ts
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';

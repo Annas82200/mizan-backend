@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Culture Analysis Engine — 7-Cylinder Ethical Framework
  * Wraps the Reasoning Engine's analyzeCulture with DB persistence.

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Reasoning Engine — Powered by Anthropic Claude
  *

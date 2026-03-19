@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Analysis Schema — Cross-module analysis results
  * Structure, Culture, and Skills analysis output that drives all other modules

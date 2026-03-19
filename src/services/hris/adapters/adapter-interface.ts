@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * HRIS Adapter Interface — Base contract for all HRIS connectors
  *

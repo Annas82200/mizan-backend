@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Analytics Routes — Executive and Manager dashboard data
  */

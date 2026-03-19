@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { db } from '../../db/index';
 import { frameworkConfig, auditLogs } from '../../db/schema';

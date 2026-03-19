@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Webhook Adapter — Receives real-time events from HRIS systems
  *

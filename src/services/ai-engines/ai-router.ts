@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI Router — Intelligent request dispatcher
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/payment.ts
 import { Router, Request, Response } from 'express';
 

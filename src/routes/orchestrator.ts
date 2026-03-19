@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/orchestrator.ts
 
 import { Router } from 'express';

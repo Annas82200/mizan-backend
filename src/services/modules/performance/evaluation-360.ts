@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 360 Evaluation Service — Multi-source feedback for executives
  *

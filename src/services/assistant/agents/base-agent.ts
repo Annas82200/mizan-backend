@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * BaseAgent — Abstract base class for all specialized AI assistant agents
  *

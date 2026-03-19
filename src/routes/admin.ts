@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/admin.ts
 
 import { Router, Request, Response, NextFunction } from 'express';

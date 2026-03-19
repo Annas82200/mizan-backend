@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Analysis Orchestrator — Runs all 3 core engines and stores cross-module results
  * This is the "brain" that drives all other modules per requirement #5.

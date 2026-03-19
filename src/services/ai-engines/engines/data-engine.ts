@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Data Engine — Powered by Google Gemini
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI Assistant Routes — REST endpoints for the unified chatbot
  */

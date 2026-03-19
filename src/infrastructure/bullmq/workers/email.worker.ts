@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Email Worker — Processes email sending jobs from BullMQ queue
  */

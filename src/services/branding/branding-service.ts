@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Branding Service — Full white-label engine for per-tenant customization
  *

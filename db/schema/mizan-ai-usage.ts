@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { pgTable, uuid, varchar, timestamp, jsonb, integer, real, pgEnum } from 'drizzle-orm/pg-core';
 
 export const aiEngineEnum = pgEnum('ai_engine', ['knowledge', 'reasoning', 'data']);

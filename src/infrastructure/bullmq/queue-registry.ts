@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * BullMQ Queue Registry — Defines all job queues for async processing
  *

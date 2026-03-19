@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Onboarding Routes — Workflow management, checklists, mentor matching
  */

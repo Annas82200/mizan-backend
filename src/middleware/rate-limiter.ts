@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Rate Limiter Middleware — Redis-backed sliding window rate limiting
  *

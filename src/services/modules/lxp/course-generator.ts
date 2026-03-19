@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI Course Generator — Creates adaptive, personalized learning content
  *

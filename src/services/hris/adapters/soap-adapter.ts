@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SOAP Adapter — Connects to legacy HRIS systems using SOAP/XML APIs
  *

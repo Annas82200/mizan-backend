@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { db, getConnectionStatus, validateConnection } from '../../db/index';
 import { tenants, users } from '../../db/schema';

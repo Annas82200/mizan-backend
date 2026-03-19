@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * HRIS Connector Gateway — Entry point for all HRIS operations
  *

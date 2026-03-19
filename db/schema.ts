@@ -25,4 +25,3 @@ export * from './schema/mizan-ai-usage';
 export * from './schema/mizan-module-config';
 export * from './schema/mizan-hris';
 export * from './schema/mizan-analysis';
-export * from './schema/mizan-talent';

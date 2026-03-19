@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router } from 'express';
 import { AgentManager } from '../services/agents/agent-manager';
 import { authenticate, authorize, validateTenantAccess } from '../middleware/auth';

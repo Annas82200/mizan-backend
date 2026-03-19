@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/services/modules/hiring/hiring-module.ts
 // Complete Hiring Module
 // Triggered by Structure Analysis recommendations

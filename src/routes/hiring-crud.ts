@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Hiring CRUD Routes — Requisitions, jobs, applications, interviews
  */

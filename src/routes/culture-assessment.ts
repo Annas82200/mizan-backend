@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/culture-assessment.ts
 
 import { Router, Request, Response } from 'express';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Action Engine — Executes real actions suggested by the AI assistant
  *

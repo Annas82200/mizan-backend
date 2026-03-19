@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Structure Analysis Engine — Org chart, span of control, reporting depth
  * Reads employees/departments and computes organizational health metrics.

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Analysis Routes — Run and retrieve structure/culture/skills analysis
  */

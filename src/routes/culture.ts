@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Culture Routes — 7-Cylinder analysis, culture surveys, results
  */

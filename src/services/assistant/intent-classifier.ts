@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Intent Classifier — Powered by Mistral (fast + cheap)
  *

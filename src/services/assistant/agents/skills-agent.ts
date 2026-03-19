@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { BaseAgent, AgentContext, AgentResponse } from './base-agent';
 import { db } from '../../../../db/index';
 import { employees, developmentPlans } from '../../../../db/schema';

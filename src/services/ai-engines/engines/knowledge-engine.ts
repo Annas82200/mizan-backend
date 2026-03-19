@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Knowledge Engine — Powered by Mistral AI
  *

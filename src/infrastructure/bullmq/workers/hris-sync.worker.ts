@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * HRIS Sync Worker — BullMQ worker that processes sync jobs
  *

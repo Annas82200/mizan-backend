@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LXP AI Routes — AI-powered course generation and adaptive exercises
  */

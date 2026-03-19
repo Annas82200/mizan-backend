@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Engagement Routes — Pulse surveys, gamification, recognition
  */

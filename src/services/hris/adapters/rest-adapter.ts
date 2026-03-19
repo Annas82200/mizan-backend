@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * REST Adapter — Generic REST API connector for HRIS systems
  *

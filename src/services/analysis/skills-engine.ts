@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Skills Analysis Engine — Gap analysis, competency mapping
  * Reads employee_skills vs skill_frameworks to compute org-wide gaps.

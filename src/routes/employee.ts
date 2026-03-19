@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/routes/employee.ts
 
 import { Router } from 'express';

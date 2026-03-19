@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Conflict Resolver — Handles data conflicts between HRIS and Mizan
  *

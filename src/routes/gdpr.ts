@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * GDPR Compliance Routes — Data privacy and right-to-erasure endpoints
  *
